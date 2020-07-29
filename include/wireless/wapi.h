@@ -697,6 +697,17 @@ int wapi_scan_coll(int sock, FAR const char *ifname,
 
 void wapi_scan_coll_free(FAR struct wapi_list_s *aps);
 
+/****************************************************************************
+ * Name: wapi_set_country
+ *
+ * Description:
+ *    Set the country code
+ *
+ ****************************************************************************/
+
+int wapi_set_country(int sock, FAR const char *ifname,
+                     FAR const char *country);
+
 #ifdef CONFIG_WIRELESS_WAPI_INITCONF
 /****************************************************************************
  * Name: wapi_load_config

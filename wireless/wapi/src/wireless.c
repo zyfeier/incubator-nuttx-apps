@@ -1392,3 +1392,37 @@ void wapi_scan_coll_free(FAR struct wapi_list_s *list)
       info = temp;
     }
 }
+
+/****************************************************************************
+ * Name: wapi_set_country
+ *
+ * Description:
+ *    Set the country code
+ *
+ ****************************************************************************/
+
+int wapi_set_country(int sock, FAR const char *ifname,
+                     FAR const char *country)
+{
+  struct iwreq wrq =
+  {
+  };
+
+  int ret;
+
+  /* Prepare request. */
+
+  wrq.u.data.pointer = (FAR void *)country;
+  wrq.u.data.length = 2;
+
+  strncpy(wrq.ifr_name, ifname, IFNAMSIZ);
+  ret = ioctl(sock, SIOCSIWCOUNTRY, (unsigned long)((uintptr_t)&wrq));
+  if (ret < 0)
+    {
+      int errcode = errno;
+      WAPI_IOCTL_STRERROR(SIOCSIWCOUNTRY, errcode);
+      ret = -errcode;
+    }
+
+  return ret;
+}
