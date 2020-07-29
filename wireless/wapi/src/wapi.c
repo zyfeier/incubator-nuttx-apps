@@ -94,6 +94,7 @@ static int wapi_bitrate_cmd      (int sock, int argc, FAR char **argv);
 static int wapi_txpower_cmd      (int sock, int argc, FAR char **argv);
 static int wapi_scan_results_cmd (int sock, int argc, FAR char **argv);
 static int wapi_scan_cmd         (int sock, int argc, FAR char **argv);
+static int wapi_country_cmd      (int sock, int argc, FAR char **argv);
 #ifdef CONFIG_WIRELESS_WAPI_INITCONF
 static int wapi_reconnect_cmd    (int sock, int argc, FAR char **argv);
 static int wapi_save_config_cmd  (int sock, int argc, FAR char **argv);
