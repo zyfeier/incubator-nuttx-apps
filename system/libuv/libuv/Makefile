@@ -113,13 +113,13 @@ ifeq ($(CONFIG_LIBUV_NET),y)
 CSRCS += $(LIBUV_UNPACKDIR)/src/inet.c
 endif
 
-context:: $(LIBUV_UNPACKDIR)
+context::# $(LIBUV_UNPACKDIR)
 
 clean::
 	$(call DELFILE, $(OBJS))
 
 distclean::
-	$(call DELDIR, $(LIBUV_UNPACKDIR))
-	$(call DELFILE, $(LIBUV_DIR)/$(CONFIG_LIBUV_TARBALL))
+#	$(call DELDIR, $(LIBUV_UNPACKDIR))
+#	$(call DELFILE, $(LIBUV_DIR)/$(CONFIG_LIBUV_TARBALL))
 
 include $(APPDIR)/Application.mk
