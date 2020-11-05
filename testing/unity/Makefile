@@ -48,7 +48,7 @@ UNITY_VERSION = $(patsubst "%",%,$(strip $(CONFIG_TESTING_UNITY_VERSION)))
 UNITY_TARBALL = v$(UNITY_VERSION).tar.gz
 WGET ?= wget
 
-UNITY_UNPACKNAME = Unity-$(UNITY_VERSION)
+UNITY_UNPACKNAME = Unity#-$(UNITY_VERSION)
 UNPACK ?= tar -zxf
 
 UNITY_UNPACKDIR =  $(WD)/$(UNITY_UNPACKNAME)
@@ -70,9 +70,9 @@ $(UNITY_UNPACKNAME): $(UNITY_TARBALL)
 	$(Q) $(UNPACK) $(UNITY_TARBALL)
 	$(Q) touch $(UNITY_UNPACKNAME)
 
-$(UNITY_SRCDIR)$(DELIM)unity.h: $(UNITY_UNPACKNAME)
+#$(UNITY_SRCDIR)$(DELIM)unity.h: $(UNITY_UNPACKNAME)
 
-$(UNITY_SRCDIR)$(DELIM)unity_internals.h: $(UNITY_UNPACKNAME)
+#$(UNITY_SRCDIR)$(DELIM)unity_internals.h: $(UNITY_UNPACKNAME)
 
 $(APPS_INCDIR)$(DELIM)unity.h: $(UNITY_SRCDIR)$(DELIM)unity.h
 	$(Q) cp $< $@
@@ -83,8 +83,8 @@ $(APPS_INCDIR)$(DELIM)unity_internals.h: $(UNITY_SRCDIR)$(DELIM)unity_internals.
 context:: $(APPS_INCDIR)$(DELIM)unity.h $(APPS_INCDIR)$(DELIM)unity_internals.h
 
 distclean::
-	$(call DELDIR, $(UNITY_UNPACKNAME))
-	$(call DELFILE, $(UNITY_TARBALL))
+#	$(call DELDIR, $(UNITY_UNPACKNAME))
+#	$(call DELFILE, $(UNITY_TARBALL))
 	$(call DELFILE, $(APPDIR)/include/testing/unity.h)
 	$(call DELFILE, $(APPDIR)/include/testing/unity_internals.h)
 
