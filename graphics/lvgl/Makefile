@@ -78,10 +78,10 @@ $(LVGL_UNPACKNAME): $(LVGL_TARBALL)
 	$(Q) mv	lvgl-$(LVGL_VERSION) $(LVGL_UNPACKNAME)
 	$(Q) touch $(LVGL_UNPACKNAME)
 
-context:: $(LVGL_UNPACKNAME)
+context::# $(LVGL_UNPACKNAME)
 
 distclean::
-	$(call DELDIR, $(LVGL_UNPACKNAME))
-	$(call DELFILE, $(LVGL_TARBALL))
+#	$(call DELDIR, $(LVGL_UNPACKNAME))
+#	$(call DELFILE, $(LVGL_TARBALL))
 
 include $(APPDIR)/Application.mk
