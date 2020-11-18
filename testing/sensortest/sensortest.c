@@ -256,7 +256,7 @@ int main(int argc, FAR char *argv[])
   if (ret < 0)
     {
       ret = -errno;
-      if (ret != -ENOTTY);
+      if (ret != -ENOTTY)
         {
           printf("Failed to enable sensor:%s, ret:%s\n",
                  devname, strerror(errno));
@@ -268,7 +268,7 @@ int main(int argc, FAR char *argv[])
   if (ret < 0)
     {
       ret = -errno;
-      if (ret != -ENOTTY);
+      if (ret != -ENOTTY)
         {
           printf("Failed to set interval for sensor:%s, ret:%s\n",
                 devname, strerror(errno));
@@ -280,7 +280,7 @@ int main(int argc, FAR char *argv[])
   if (ret < 0)
     {
       ret = -errno;
-      if (ret != -ENOTTY);
+      if (ret != -ENOTTY)
         {
           printf("Failed to batch for sensor:%s, ret:%s\n",
                 devname, strerror(errno));
