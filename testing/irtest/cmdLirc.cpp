@@ -64,6 +64,7 @@ CMD1(open_device, const char *, file_name)
        g_irdevs[index] == -1; index++)
     {
       g_irdevs[index] = irdev;
+      break;
     }
 
   if (index == CONFIG_TESTING_IRTEST_MAX_NIRDEV)
