@@ -1458,3 +1458,4 @@ int wapi_get_sensitivity(int sock, FAR const char *ifname, FAR int *sense)
 
   return ret;
 }
+
