@@ -135,7 +135,7 @@ static void *rpsock_thread(pthread_addr_t pvarg)
         }
     }
 
-  printf("server Complete\n", ret, errno);
+  printf("server Complete ret %d, errno %d\n", ret, errno);
   free(args);
   return NULL;
 }
