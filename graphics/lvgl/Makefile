@@ -64,6 +64,7 @@ endif
 WD := ${shell echo $(CURDIR) | sed -e 's/ /\\ /g'}
 
 CONFIG_GRAPH_LVGL_URL ?= "https://github.com/lvgl/lvgl/archive"
+CONFIG_GRAPH_LV_FS_IF_URL ?= "https://github.com/lvgl/lv_fs_if/archive"
 
 LVGL_VERSION = $(patsubst "%",%,$(strip $(CONFIG_LVGL_VERSION)))
 LVGL_TARBALL = v$(LVGL_VERSION).zip
@@ -72,11 +73,18 @@ WGET ?= wget
 LVGL_UNPACKNAME = lvgl
 UNPACK ?= unzip -o
 
+LV_FS_IF_UNPACKNAME = lv_fs_if
+LV_FS_IF_TARBALL = master.zip
+
 LVGL_UNPACKDIR =  $(WD)/$(LVGL_UNPACKNAME)
 
 $(LVGL_TARBALL):
 	@echo "Downloading: $(LVGL_TARBALL)"
 	$(Q) $(WGET) $(CONFIG_GRAPH_LVGL_URL)/$(LVGL_TARBALL)
+
+$(LV_FS_IF_TARBALL):
+	@echo "Downloading: $(LV_FS_IF_TARBALL)"
+	$(Q) $(WGET) $(CONFIG_GRAPH_LV_FS_IF_URL)/$(LV_FS_IF_TARBALL)
 
 $(LVGL_UNPACKNAME): $(LVGL_TARBALL)
 	@echo "Unpacking: $(LVGL_TARBALL) -> $(LVGL_UNPACKNAME)"
@@ -84,7 +92,13 @@ $(LVGL_UNPACKNAME): $(LVGL_TARBALL)
 	$(Q) mv	lvgl-$(LVGL_VERSION) $(LVGL_UNPACKNAME)
 	$(Q) touch $(LVGL_UNPACKNAME)
 
-context::# $(LVGL_UNPACKNAME)
+$(LV_FS_IF_UNPACKNAME): $(LV_FS_IF_TARBALL)
+	@echo "Unpacking: $(LV_FS_IF_TARBALL) -> $(LV_FS_IF_UNPACKNAME)"
+	$(Q) $(UNPACK) $(LV_FS_IF_TARBALL)
+	$(Q) mv	$(LV_FS_IF_UNPACKNAME)-master $(LV_FS_IF_UNPACKNAME)
+	$(Q) touch $(LV_FS_IF_UNPACKNAME)
+
+context:: # $(LVGL_UNPACKNAME) $(LV_FS_IF_UNPACKNAME)
 
 distclean::
 #	$(call DELDIR, $(LVGL_UNPACKNAME))

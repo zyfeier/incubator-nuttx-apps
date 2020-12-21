@@ -13,7 +13,7 @@ if GRAPHICS_LVGL
 
 config LVGL_VERSION
 	string "LVGL Version"
-	default "7.3.0"
+	default "7.4.0"
 
 config LV_MEM_SIZE
 	int "Heap size of the graphics library"
