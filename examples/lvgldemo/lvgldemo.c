@@ -48,10 +48,9 @@
 
 #include <lvgl/lvgl.h>
 
-#include <fbdev.h>
-#include <tp.h>
-#include <tp_cal.h>
-#include <lv_fs_if/lv_fs_if.h>
+#include "fbdev.h"
+#include "tp.h"
+#include "tp_cal.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -157,12 +156,6 @@ int main(int argc, FAR char *argv[])
   /* Display interface initialization */
 
   fbdev_init();
-
-#if (LV_USE_FILESYSTEM != 0)
-  /* File system interface initialization*/
-
-  lv_fs_if_init();
-#endif
 
   /* Basic LittlevGL display driver initialization */
 

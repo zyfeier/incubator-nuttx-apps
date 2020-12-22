@@ -53,12 +53,6 @@ LVGL_DIR_NAME = lvgl
 
 CSRCS += fbdev.c tp.c tp_cal.c lv_tick_interface.c
 
-# File system interface
-
-ifneq ($(CONFIG_USE_LV_FILESYSTEM),)
-CSRCS += lv_fs_if/lv_fs_if.c lv_fs_if/lv_fs_pc.c
-endif
-
 # Set up build configuration and environment
 
 WD := ${shell echo $(CURDIR) | sed -e 's/ /\\ /g'}
