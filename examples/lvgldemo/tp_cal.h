@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/tp_cal.h
+ * examples/touchscreen/tp_cal.h
  *
  *   Copyright (C) 2018 Gregory Nutt. All rights reserved.
  *   Author: Gábor Kiss-Vámosi <kisvegabor@gmail.com>
@@ -33,8 +33,8 @@
  *
  ****************************************************************************/
 
-#ifndef __APPS_GRAPHICS_LVGL_TP_CAL_H
-#define __APPS_GRAPHICS_LVGL_TP_CAL_H
+#ifndef __APPS_EXAMPLES_LVGLDEMO_TP_CAL_H
+#define __APPS_EXAMPLES_LVGLDEMO_TP_CAL_H
 
 /****************************************************************************
  * Public Function Prototypes

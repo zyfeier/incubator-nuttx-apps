@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/tp.c
+ * apps/examples/lvgldemo/tp.c
  *
  *   Copyright (C) 2018 Gregory Nutt. All rights reserved.
  *   Author: Gábor Kiss-Vámosi <kisvegabor@gmail.com>

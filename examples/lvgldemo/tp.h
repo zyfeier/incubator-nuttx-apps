@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/tp.h
+ * examples/touchscreen/tc.h
  *
  *   Copyright (C) 2018 Gregory Nutt. All rights reserved.
  *   Author: Gábor Kiss-Vámosi <kisvegabor@gmail.com>
@@ -33,8 +33,8 @@
  *
  ****************************************************************************/
 
-#ifndef __APPS_GRAPHICS_LVGL_TP_H
-#define __APPS_GRAPHICS_LVGL_TP_H
+#ifndef __APPS_EXAMPLES_LVGLDEMO_TP_H
+#define __APPS_EXAMPLES_LVGLDEMO_TP_H
 
 /****************************************************************************
  * Included Files

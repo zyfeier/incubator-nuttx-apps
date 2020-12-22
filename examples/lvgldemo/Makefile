@@ -53,6 +53,8 @@ MODULE = $(CONFIG_EXAMPLES_LVGLDEMO)
 
 # LittleVGL demo Example
 
+CSRCS += fbdev.c tp.c tp_cal.c
+
 # static common assets used in mutiple example
 
 LV_EXAMPLE_ASSETS = $(wildcard ./lv_examples/assets/*.c)
