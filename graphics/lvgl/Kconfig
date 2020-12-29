@@ -102,6 +102,18 @@ config LV_INDEV_DEF_GESTURE_MIN_VELOCITY
 	int "Gesture min velocity at release before swipe (pixels)"
 	default 3
 
+config LV_USE_BUTTON_INTERFACE
+	bool "Button input driver"
+	default n
+
+if LV_USE_BUTTON_INTERFACE
+
+config LV_BUTTON_INTERFACE_BUTTON_DEVICEPATH
+	string "Button device path"
+	default "/dev/buttons"
+
+endif
+
 endmenu
 
 menu "Color settings"
