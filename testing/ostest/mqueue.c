@@ -178,12 +178,12 @@ static void *receiver_thread(void *arg)
    * already created it.
    */
 
-   g_recv_mqfd = mq_open("mqueue", O_RDONLY|O_CREAT, 0666, &attr);
-   if (g_recv_mqfd < 0)
-     {
-       printf("receiver_thread: ERROR mq_open failed\n");
-       pthread_exit((pthread_addr_t)1);
-     }
+  g_recv_mqfd = mq_open("mqueue", O_RDONLY | O_CREAT, 0666, &attr);
+  if (g_recv_mqfd == (mqd_t)-1)
+    {
+      printf("receiver_thread: ERROR mq_open failed\n");
+      pthread_exit((pthread_addr_t)1);
+    }
 
    /* Perform the receive TEST_RECEIVE_NMSGS times */
 
@@ -251,7 +251,7 @@ static void *receiver_thread(void *arg)
     }
   else
     {
-      g_recv_mqfd = NULL;
+      g_recv_mqfd = 0;
     }
 
   printf("receiver_thread: returning nerrors=%d\n", nerrors);
