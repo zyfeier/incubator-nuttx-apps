@@ -38,22 +38,48 @@
  ****************************************************************************/
 
 #define BUTTON_DEVICEPATH           CONFIG_LV_BUTTON_INTERFACE_BUTTON_DEVICEPATH
+#define BUTTON_0_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_0_MAP_X
+#define BUTTON_0_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_0_MAP_Y
+#define BUTTON_1_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_1_MAP_X
+#define BUTTON_1_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_1_MAP_Y
+#define BUTTON_2_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_2_MAP_X
+#define BUTTON_2_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_2_MAP_Y
+#define BUTTON_3_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_3_MAP_X
+#define BUTTON_3_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_3_MAP_Y
+#define BUTTON_4_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_4_MAP_X
+#define BUTTON_4_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_4_MAP_Y
+#define BUTTON_5_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_5_MAP_X
+#define BUTTON_5_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_5_MAP_Y
 
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
 
+struct button_drv_s
+{
+  int fd;
+  uint8_t last_btn;
+};
+
 /****************************************************************************
  * Private Function Prototypes
  ****************************************************************************/
-
-static int button_get_pressed_id(void);
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
 
-static int fd_button = -1;
+/* Assign buttons to points on the screen */
+
+static const lv_point_t button_points_map[6] =
+{
+  {BUTTON_0_MAP_X, BUTTON_0_MAP_Y},
+  {BUTTON_1_MAP_X, BUTTON_1_MAP_Y},
+  {BUTTON_2_MAP_X, BUTTON_2_MAP_Y},
+  {BUTTON_3_MAP_X, BUTTON_3_MAP_Y},
+  {BUTTON_4_MAP_X, BUTTON_4_MAP_Y},
+  {BUTTON_5_MAP_X, BUTTON_5_MAP_Y}
+};
 
 /****************************************************************************
  * Private Functions
@@ -63,18 +89,13 @@ static int fd_button = -1;
  * Name: button_get_pressed_id
  ****************************************************************************/
 
-static int button_get_pressed_id(void)
+static int button_get_pressed_id(int fd)
 {
   int btn_act = -1;
   btn_buttonset_t buttonset;
   const int buttonset_bits = sizeof(btn_buttonset_t) * 8;
 
-  if (fd_button < 0)
-    {
-      return -1;
-    }
-
-  int ret = read(fd_button, &buttonset, sizeof(btn_buttonset_t));
+  int ret = read(fd, &buttonset, sizeof(btn_buttonset_t));
   if (ret < 0)
     {
       return -1;
@@ -95,25 +116,21 @@ static int button_get_pressed_id(void)
 }
 
 /****************************************************************************
- * Public Functions
- ****************************************************************************/
-
-/****************************************************************************
  * Name: lv_button_interface_read
  ****************************************************************************/
 
-bool lv_button_interface_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
+static bool button_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-  static uint8_t last_btn = 0;
+  struct button_drv_s *button_drv = (struct button_drv_s *)drv->user_data;
 
   /* Get the pressed button's ID */
 
-  int btn_act = button_get_pressed_id();
+  int btn_act = button_get_pressed_id(button_drv->fd);
 
   if (btn_act >= 0)
     {
       data->state = LV_INDEV_STATE_PR;
-      last_btn = btn_act;
+      button_drv->last_btn = btn_act;
     }
   else
     {
@@ -122,18 +139,52 @@ bool lv_button_interface_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
   /* Save the last pressed button's ID */
 
-  data->btn_id = last_btn;
+  data->btn_id = button_drv->last_btn;
 
   /* Return `false` because we are not buffering and no more data to read */
 
   return false;
 }
 
+static lv_indev_t *button_init(int fd)
+{
+  lv_indev_t *indev_button = NULL;
+  struct button_drv_s *button_drv = \
+    (struct button_drv_s *)malloc(sizeof(struct button_drv_s));
+
+  if (button_drv == NULL)
+    {
+      fprintf(stderr, "button: button_drv malloc failed\n");
+      return NULL;
+    }
+
+  button_drv->fd = fd;
+  button_drv->last_btn = 0;
+
+  lv_indev_drv_t indev_drv;
+  lv_indev_drv_init(&indev_drv);
+  indev_drv.type = LV_INDEV_TYPE_BUTTON;
+  indev_drv.read_cb = button_read;
+#if ( LV_USE_USER_DATA != 0 )
+  indev_drv.user_data = button_drv;
+#else
+#error LV_USE_USER_DATA must be enabled
+#endif
+  indev_button = lv_indev_drv_register(&indev_drv);
+  lv_indev_set_button_points(indev_button, button_points_map);
+
+  return indev_button;
+}
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
 /****************************************************************************
  * Name: lv_button_interface_init
  ****************************************************************************/
 
-void lv_button_interface_init(void)
+lv_indev_t *lv_button_interface_init(void)
 {
   int ret;
   int fd;
@@ -145,10 +196,8 @@ void lv_button_interface_init(void)
       int errcode = errno;
       printf("button: ERROR: Failed to open %s: %d\n",
              BUTTON_DEVICEPATH, errcode);
-      return;
+      return NULL;
     }
-
-  fd_button = fd;
 
   /* Get the set of BUTTONs supported */
 
@@ -161,8 +210,10 @@ void lv_button_interface_init(void)
       int errcode = errno;
       printf("button_daemon: ERROR: ioctl(BTNIOC_SUPPORTED) failed: %d\n",
              errcode);
-      return;
+      return NULL;
     }
 
   printf("button: Supported BUTTONs 0x%02x\n", (unsigned int)supported);
+
+  return button_init(fd);
 }

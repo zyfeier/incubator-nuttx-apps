@@ -25,18 +25,14 @@
  * Included Files
  ****************************************************************************/
 
-#include <lvgl/lvgl.h>
 #include <nuttx/config.h>
+#include <lvgl/lvgl.h>
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
-#ifdef CONFIG_LV_USE_BUTTON_INTERFACE
-#define LV_USE_BUTTON_INTERFACE     CONFIG_LV_USE_BUTTON_INTERFACE
-#else
-#define LV_USE_BUTTON_INTERFACE     0
-#endif
+#if defined(CONFIG_LV_USE_BUTTON_INTERFACE)
 
 /****************************************************************************
  * Type Definitions
@@ -46,11 +42,25 @@
  * Public Data
  ****************************************************************************/
 
-#if LV_USE_BUTTON_INTERFACE
+#ifdef __cplusplus
+#define EXTERN extern "C"
+extern "C"
+{
+#else
+#define EXTERN extern
+#endif
 
-void lv_button_interface_init(void);
-bool lv_button_interface_read(lv_indev_drv_t *drv, lv_indev_data_t *data);
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
 
-#endif /* LV_USE_BUTTON_INTERFACE */
+lv_indev_t *lv_button_interface_init(void);
+
+#undef EXTERN
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* CONFIG_LV_USE_BUTTON_INTERFACE */
 
 #endif /* __LV_BUTTON_INTERFACE_H__ */

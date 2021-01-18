@@ -102,7 +102,7 @@ config LV_INDEV_DEF_GESTURE_MIN_VELOCITY
 	int "Gesture min velocity at release before swipe (pixels)"
 	default 3
 
-config LV_USE_BUTTON_INTERFACE
+menuconfig LV_USE_BUTTON_INTERFACE
 	bool "Button input driver"
 	default n
 
@@ -111,6 +111,54 @@ if LV_USE_BUTTON_INTERFACE
 config LV_BUTTON_INTERFACE_BUTTON_DEVICEPATH
 	string "Button device path"
 	default "/dev/buttons"
+
+config LV_BUTTON_INTERFACE_BUTTON_0_MAP_X
+	int "Button 0 mapping coordinate x"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_0_MAP_Y
+	int "Button 0 mapping coordinate y"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_1_MAP_X
+	int "Button 1 mapping coordinate x"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_1_MAP_Y
+	int "Button 1 mapping coordinate y"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_2_MAP_X
+	int "Button 2 mapping coordinate x"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_2_MAP_Y
+	int "Button 2 mapping coordinate y"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_3_MAP_X
+	int "Button 3 mapping coordinate x"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_3_MAP_Y
+	int "Button 3 mapping coordinate y"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_4_MAP_X
+	int "Button 4 mapping coordinate x"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_4_MAP_Y
+	int "Button 4 mapping coordinate y"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_5_MAP_X
+	int "Button 5 mapping coordinate x"
+	default 0
+
+config LV_BUTTON_INTERFACE_BUTTON_5_MAP_Y
+	int "Button 5 mapping coordinate y"
+	default 0
 
 endif
 
