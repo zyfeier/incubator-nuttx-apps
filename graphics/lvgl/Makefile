@@ -61,6 +61,10 @@ ifneq ($(CONFIG_LV_USE_BUTTON_INTERFACE),)
 CSRCS += lv_button_interface.c
 endif
 
+ifneq ($(CONFIG_LV_USE_KEYPAD_INTERFACE),)
+CSRCS += lv_keypad_interface.c
+endif
+
 # Set up build configuration and environment
 
 WD := ${shell echo $(CURDIR) | sed -e 's/ /\\ /g'}
