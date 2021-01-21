@@ -66,6 +66,22 @@ config LV_INV_FIFO_SIZE
 		If too much area is invalidated (greater then this number) then
 		the whole screen will be refreshed
 
+config LV_USE_LCD_INTERFACE
+	bool "LCD interface"
+	default n
+
+if LV_USE_LCD_INTERFACE
+
+config LV_LCD_INTERFACE_DEVICEPATH
+	string "LCD device path"
+	default "/dev/lcd0"
+
+config LV_LCD_INTERFACE_BUFF_SIZE
+	int "LCD buffer size (in line)"
+	default 10
+
+endif
+
 endmenu
 
 menu "Input device settings"
