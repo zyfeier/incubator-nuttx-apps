@@ -128,6 +128,8 @@ int nsh_session(FAR struct console_stdio_s *pstate,
 #endif
     }
 
+  syslog(LOG_INFO, "nsh: enter into command line parsing loop\n");
+
   if (argc < 2)
     {
       /* Then enter the command line parsing loop */

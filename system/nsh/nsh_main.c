@@ -118,6 +118,8 @@ int main(int argc, FAR char *argv[])
   int exitval = 0;
   int ret;
 
+  syslog(LOG_INFO, "nsh: main entry\n");
+
   /* Check the task priority that we were started with */
 
   sched_getparam(0, &param);
