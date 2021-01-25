@@ -956,14 +956,14 @@ static void wapi_showusage(FAR const char *progname, int exitcode)
   fprintf(stderr, "\t%s psk          <ifname> <passphrase> <index/flag>\n",
                    progname);
   fprintf(stderr, "\t%s disconnect   <ifname>\n", progname);
-  fprintf(stderr, "\t%s mode         <ifname> <ifname>     <index/mode>\n",
-                   progname);
-  fprintf(stderr, "\t%s ap           <ifname> <ifname>     <MAC address>\n",
-                   progname);
+  fprintf(stderr, "\t%s mode         <ifname> <index/mode>\n", progname);
+  fprintf(stderr, "\t%s ap           <ifname> <MAC address>\n", progname);
   fprintf(stderr, "\t%s bitrate      <ifname> <bitrate>    <index/flag>\n",
                    progname);
   fprintf(stderr, "\t%s txpower      <ifname> <txpower>    <index/flag>\n",
                    progname);
+  fprintf(stderr, "\t%s country      <ifname> <country code>\n", progname);
+  fprintf(stderr, "\t%s sense        <ifname>\n", progname);
 #ifdef CONFIG_WIRELESS_WAPI_INITCONF
   fprintf(stderr, "\t%s reconnect    <ifname>\n", progname);
   fprintf(stderr, "\t%s save_config  <ifname>\n", progname);
