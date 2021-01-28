@@ -3950,7 +3950,7 @@ index 000000000..ae509db11
 +} worker_priv_t;
 +#else
 +static uv_wq_context_t wq_ctx = {
-+  .once = UV_ONCE_INIT;
++  .once = UV_ONCE_INIT
 +};
 +#endif
 +
@@ -4119,7 +4119,7 @@ index 000000000..ae509db11
 +                     void (*work)(struct uv__work* w),
 +                     void (*done)(struct uv__work* w, int status)) {
 +#ifndef CONFIG_LIBUV_CONTEXT
-+  uv_once(&once, init_once);
++  uv_once(&wq_ctx.once, init_once);
 +#endif
 +  w->loop = loop;
 +  w->work = work;
