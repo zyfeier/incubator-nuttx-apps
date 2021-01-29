@@ -148,13 +148,12 @@ static bool button_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
 static lv_indev_t *button_init(int fd)
 {
-  lv_indev_t *indev_button = NULL;
-  struct button_drv_s *button_drv = \
-    (struct button_drv_s *)malloc(sizeof(struct button_drv_s));
+  struct button_drv_s *button_drv =
+    (struct button_drv_s *)lv_mem_alloc(sizeof(struct button_drv_s));
 
   if (button_drv == NULL)
     {
-      fprintf(stderr, "button: button_drv malloc failed\n");
+      LV_LOG_ERROR("button_drv malloc failed");
       return NULL;
     }
 
@@ -170,7 +169,7 @@ static lv_indev_t *button_init(int fd)
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
-  indev_button = lv_indev_drv_register(&indev_drv);
+  lv_indev_t *indev_button = lv_indev_drv_register(&indev_drv);
   lv_indev_set_button_points(indev_button, button_points_map);
 
   return indev_button;
@@ -189,13 +188,13 @@ lv_indev_t *lv_button_interface_init(void)
   int ret;
   int fd;
 
-  printf("button_daemon: Opening %s\n", BUTTON_DEVICEPATH);
+  LV_LOG_INFO("button opening %s", BUTTON_DEVICEPATH);
   fd = open(BUTTON_DEVICEPATH, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
       int errcode = errno;
-      printf("button: ERROR: Failed to open %s: %d\n",
-             BUTTON_DEVICEPATH, errcode);
+      LV_LOG_ERROR("button failed to open %s ! errcode: %d",
+                   BUTTON_DEVICEPATH, errcode);
       return NULL;
     }
 
@@ -208,12 +207,12 @@ lv_indev_t *lv_button_interface_init(void)
   if (ret < 0)
     {
       int errcode = errno;
-      printf("button_daemon: ERROR: ioctl(BTNIOC_SUPPORTED) failed: %d\n",
-             errcode);
+      LV_LOG_ERROR("button ioctl(BTNIOC_SUPPORTED) failed! errcode: %d",
+                   errcode);
       return NULL;
     }
 
-  printf("button: Supported BUTTONs 0x%02x\n", (unsigned int)supported);
+  LV_LOG_INFO("button supported BUTTONs 0x%08x", (unsigned int)supported);
 
   return button_init(fd);
 }

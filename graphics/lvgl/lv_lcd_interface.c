@@ -83,18 +83,18 @@ static void lcd_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
 
 static lv_disp_t *lcd_init(int fd)
 {
-  static lv_disp_buf_t disp_buf;
-  struct lcd_drv_s *lcd_drv;
-  lcd_drv = (struct lcd_drv_s *)malloc(sizeof(struct lcd_drv_s));
+  struct lcd_drv_s *lcd_drv =
+    (struct lcd_drv_s *)lv_mem_alloc(sizeof(struct lcd_drv_s));
 
   if (lcd_drv == NULL)
     {
-      fprintf(stderr, "lcddev: lcd_drv malloc Failed\n");
+      LV_LOG_ERROR("lcd_drv malloc failed!");
       return NULL;
     }
 
   lcd_drv->fd = fd;
 
+  static lv_disp_buf_t disp_buf;
   static lv_color_t buf[LCD_BUFFER_SIZE];
   lv_disp_buf_init(&disp_buf, buf, NULL, LCD_BUFFER_SIZE);
 
@@ -118,18 +118,18 @@ static lv_disp_t *lcd_init(int fd)
  * Name: lv_lcd_interface_init
  ****************************************************************************/
 
-int lv_lcd_interface_init(void)
+lv_disp_t *lv_lcd_interface_init(void)
 {
+  LV_LOG_INFO("lcddev opening %s", LCD_DEVICEPATH);
   int fd = open(LCD_DEVICEPATH, 0);
   if (fd < 0)
     {
       int errcode = errno;
-      fprintf(stderr, "lcddev: Failed to open %s\n", LCD_DEVICEPATH);
-      return EXIT_FAILURE;
+      LV_LOG_ERROR("lcddev open failed! errcode: %d", errcode);
+      return NULL;
     }
 
-  lcd_init(fd);
+  LV_LOG_INFO("lcddev %s open success", LCD_DEVICEPATH);
 
-  printf("lcddev: %s Open success\n", LCD_DEVICEPATH);
-  return EXIT_SUCCESS;
+  return lcd_init(fd);
 }

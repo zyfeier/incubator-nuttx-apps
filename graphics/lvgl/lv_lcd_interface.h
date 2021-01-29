@@ -54,7 +54,7 @@ extern "C"
  * Public Function Prototypes
  ****************************************************************************/
 
-int lv_lcd_interface_init(void);
+lv_disp_t *lv_lcd_interface_init(void);
 
 #undef EXTERN
 #ifdef __cplusplus
