@@ -844,17 +844,19 @@ int main(int argc, char *argv[])
 
   while (1)
     {
-      /* Collect all socks which need monitor */
-
-      ret = usrsock_rpmsg_prepare_poll(priv, pfds);
-
       /* Monitor the state change from them */
 
-      if (ppoll(pfds, ret, NULL, &sigmask) > 0)
+      if (ppoll(pfds, ret, NULL, &sigmask) >= 0)
         {
           /* Process all changed socks */
 
           usrsock_rpmsg_process_poll(priv, pfds, ret);
+        }
+      else if (errno == EINTR)
+        {
+          /* Collect all socks which need monitor */
+
+          ret = usrsock_rpmsg_prepare_poll(priv, pfds);
         }
     }
 
