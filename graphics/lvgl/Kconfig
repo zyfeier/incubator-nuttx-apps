@@ -240,6 +240,18 @@ config LV_KEYPAD_INTERFACE_KEY_END_MAP_BIT
 
 endif
 
+config LV_USE_TOUCHPAD_INTERFACE
+	bool "Touch pad interface"
+	default n
+
+if LV_USE_TOUCHPAD_INTERFACE
+
+config LV_TOUCHPAD_INTERFACE_DEVICEPATH
+	string "Touch pad device path"
+	default "/dev/input0"
+
+endif
+
 endmenu
 
 menu "Color settings"
