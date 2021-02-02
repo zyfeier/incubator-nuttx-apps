@@ -224,8 +224,7 @@ int main(int argc, FAR char *argv[])
           case 'h':
           default:
             usage();
-            goto opt_err;
-            break;
+            goto name_err;
         }
     }
 
