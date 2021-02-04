@@ -73,6 +73,10 @@ ifneq ($(CONFIG_LV_USE_LCD_INTERFACE),)
 CSRCS += lv_lcd_interface.c
 endif
 
+ifneq ($(CONFIG_LV_USE_FBDEV_INTERFACE),)
+CSRCS += lv_fbdev_interface.c
+endif
+
 # Set up build configuration and environment
 
 WD := ${shell echo $(CURDIR) | sed -e 's/ /\\ /g'}

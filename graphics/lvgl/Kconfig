@@ -82,6 +82,22 @@ config LV_LCD_INTERFACE_BUFF_SIZE
 
 endif
 
+config LV_USE_FBDEV_INTERFACE
+	bool "Framebuffer device interface"
+	default n
+
+if LV_USE_FBDEV_INTERFACE
+
+config LV_FBDEV_INTERFACE_DEVICEPATH
+	string "Framebuffer device path"
+	default "/dev/fb0"
+
+config LV_FBDEV_INTERFACE_BUFF_SIZE
+	int "Buffer size (in line)"
+	default 10
+
+endif
+
 endmenu
 
 menu "Input device settings"
