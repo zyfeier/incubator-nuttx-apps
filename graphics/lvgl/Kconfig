@@ -72,12 +72,12 @@ config LV_USE_LCD_INTERFACE
 
 if LV_USE_LCD_INTERFACE
 
-config LV_LCD_INTERFACE_DEVICEPATH
-	string "LCD device path"
+config LV_LCD_INTERFACE_DEFAULT_DEVICEPATH
+	string "LCD default device path"
 	default "/dev/lcd0"
 
-config LV_LCD_INTERFACE_BUFF_SIZE
-	int "LCD buffer size (in line)"
+config LV_LCD_INTERFACE_DEFAULT_LINE_BUFF
+	int "LCD default buffer size (in line)"
 	default 10
 
 endif

@@ -36,17 +36,14 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define LCD_DEVICEPATH      CONFIG_LV_LCD_INTERFACE_DEVICEPATH
-#define LCD_BUFFER_SIZE     (CONFIG_LV_HOR_RES * \
-                            CONFIG_LV_LCD_INTERFACE_BUFF_SIZE)
-
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
 
-struct lcd_drv_s
+struct lcd_obj_s
 {
   int fd;
+  lv_disp_buf_t disp_buf;
 };
 
 /****************************************************************************
@@ -64,7 +61,7 @@ struct lcd_drv_s
 static void lcd_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
                       lv_color_t *color_p)
 {
-  struct lcd_drv_s *lcd_drv = (struct lcd_drv_s *)disp_drv->user_data;
+  struct lcd_obj_s *lcd_obj = (struct lcd_obj_s *)disp_drv->user_data;
 
   struct lcddev_area_s lcd_area;
 
@@ -74,36 +71,52 @@ static void lcd_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
   lcd_area.col_end = area_p->x2;
   lcd_area.data = (uint8_t *)color_p;
 
-  ioctl(lcd_drv->fd, LCDDEVIO_PUTAREA, &lcd_area);
+  ioctl(lcd_obj->fd, LCDDEVIO_PUTAREA, &lcd_area);
 
   /* Tell the flushing is ready */
 
   lv_disp_flush_ready(disp_drv);
 }
 
-static lv_disp_t *lcd_init(int fd)
-{
-  struct lcd_drv_s *lcd_drv =
-    (struct lcd_drv_s *)lv_mem_alloc(sizeof(struct lcd_drv_s));
+/****************************************************************************
+ * Name: lcd_init
+ ****************************************************************************/
 
-  if (lcd_drv == NULL)
+static lv_disp_t *lcd_init(int fd, int line_buf)
+{
+  struct lcd_obj_s *lcd_obj =
+    (struct lcd_obj_s *)malloc(sizeof(struct lcd_obj_s));
+
+  if (lcd_obj == NULL)
     {
-      LV_LOG_ERROR("lcd_drv malloc failed!");
+      LV_LOG_ERROR("lcd_obj_s malloc failed");
       return NULL;
     }
 
-  lcd_drv->fd = fd;
+  const size_t buf_size = LV_HOR_RES_MAX * line_buf * sizeof(lv_color_t);
 
-  static lv_disp_buf_t disp_buf;
-  static lv_color_t buf[LCD_BUFFER_SIZE];
-  lv_disp_buf_init(&disp_buf, buf, NULL, LCD_BUFFER_SIZE);
+  lv_color_t *buf = (lv_color_t *)malloc(buf_size);
+
+  if (buf == NULL)
+    {
+      LV_LOG_ERROR("display buffer malloc failed");
+      free(lcd_obj);
+      return NULL;
+    }
+
+  LV_LOG_INFO("display buffer malloc success, size = %ld", buf_size);
+
+  lcd_obj->fd = fd;
+
+  lv_disp_buf_init(&(lcd_obj->disp_buf), buf, NULL,
+                       LV_HOR_RES_MAX * line_buf);
 
   lv_disp_drv_t disp_drv;
   lv_disp_drv_init(&disp_drv);
   disp_drv.flush_cb = lcd_flush;
-  disp_drv.buffer = &disp_buf;
+  disp_drv.buffer = &(lcd_obj->disp_buf);
 #if ( LV_USE_USER_DATA != 0 )
-  disp_drv.user_data = lcd_drv;
+  disp_drv.user_data = lcd_obj;
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
@@ -116,20 +129,45 @@ static lv_disp_t *lcd_init(int fd)
 
 /****************************************************************************
  * Name: lv_lcd_interface_init
+ *
+ * Description:
+ *   Lcd interface initialization.
+ *
+ * Input Parameters:
+ *   dev_path - lcd device path, set to NULL to use the default path
+ *   line_buf - Number of line buffers,
+ *              set to 0 to use the default line buffer
+ *
+ * Returned Value:
+ *   lv_disp object address on success; NULL on failure.
+ *
  ****************************************************************************/
 
-lv_disp_t *lv_lcd_interface_init(void)
+lv_disp_t *lv_lcd_interface_init(const char *dev_path, int line_buf)
 {
-  LV_LOG_INFO("lcddev opening %s", LCD_DEVICEPATH);
-  int fd = open(LCD_DEVICEPATH, 0);
+  const char *device_path = dev_path;
+  size_t line_buffer = line_buf;
+
+  if (device_path == NULL)
+    {
+      device_path = CONFIG_LV_LCD_INTERFACE_DEFAULT_DEVICEPATH;
+    }
+
+  if (line_buffer <= 0)
+    {
+      line_buffer = CONFIG_LV_LCD_INTERFACE_DEFAULT_LINE_BUFF;
+    }
+
+  LV_LOG_INFO("lcddev opening %s", device_path);
+  int fd = open(device_path, 0);
   if (fd < 0)
     {
       int errcode = errno;
-      LV_LOG_ERROR("lcddev open failed! errcode: %d", errcode);
+      LV_LOG_ERROR("lcddev open failed: %d", errcode);
       return NULL;
     }
 
-  LV_LOG_INFO("lcddev %s open success", LCD_DEVICEPATH);
+  LV_LOG_INFO("lcddev %s open success", device_path);
 
-  return lcd_init(fd);
+  return lcd_init(fd, line_buffer);
 }
