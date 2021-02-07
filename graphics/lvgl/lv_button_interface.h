@@ -54,7 +54,21 @@ extern "C"
  * Public Function Prototypes
  ****************************************************************************/
 
-lv_indev_t *lv_button_interface_init(void);
+/****************************************************************************
+ * Name: lv_button_interface_init
+ *
+ * Description:
+ *   Button interface initialization.
+ *
+ * Input Parameters:
+ *   dev_path - input device path, set to NULL to use the default path
+ *
+ * Returned Value:
+ *   lv_indev object address on success; NULL on failure.
+ *
+ ****************************************************************************/
+
+lv_indev_t *lv_button_interface_init(const char *dev_path);
 
 #undef EXTERN
 #ifdef __cplusplus

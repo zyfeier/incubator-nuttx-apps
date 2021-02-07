@@ -67,7 +67,7 @@ config LV_INV_FIFO_SIZE
 		the whole screen will be refreshed
 
 config LV_USE_LCD_INTERFACE
-	bool "LCD interface"
+	bool "LCD device driver"
 	default n
 
 if LV_USE_LCD_INTERFACE
@@ -83,17 +83,17 @@ config LV_LCD_INTERFACE_DEFAULT_LINE_BUFF
 endif
 
 config LV_USE_FBDEV_INTERFACE
-	bool "Framebuffer device interface"
+	bool "Framebuffer device driver"
 	default n
 
 if LV_USE_FBDEV_INTERFACE
 
-config LV_FBDEV_INTERFACE_DEVICEPATH
-	string "Framebuffer device path"
+config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
+	string "Framebuffer default device path"
 	default "/dev/fb0"
 
-config LV_FBDEV_INTERFACE_BUFF_SIZE
-	int "Buffer size (in line)"
+config LV_FBDEV_INTERFACE_DEFAULT_LINE_BUFF
+	int "Framebuffer default buffer size (in line)"
 	default 10
 
 endif
@@ -140,8 +140,8 @@ menuconfig LV_USE_BUTTON_INTERFACE
 
 if LV_USE_BUTTON_INTERFACE
 
-config LV_BUTTON_INTERFACE_BUTTON_DEVICEPATH
-	string "Button device path"
+config LV_BUTTON_INTERFACE_DEFAULT_DEVICEPATH
+	string "Button default device path"
 	default "/dev/buttons"
 
 config LV_BUTTON_INTERFACE_BUTTON_0_MAP_X
@@ -202,8 +202,8 @@ menuconfig LV_USE_KEYPAD_INTERFACE
 
 if LV_USE_KEYPAD_INTERFACE
 
-config LV_KEYPAD_INTERFACE_BUTTON_DEVICEPATH
-	string "Button device path"
+config LV_KEYPAD_INTERFACE_DEFAULT_DEVICEPATH
+	string "Button default device path"
 	default "/dev/buttons"
 
 config LV_KEYPAD_INTERFACE_KEY_UP_MAP_BIT
@@ -257,13 +257,13 @@ config LV_KEYPAD_INTERFACE_KEY_END_MAP_BIT
 endif
 
 config LV_USE_TOUCHPAD_INTERFACE
-	bool "Touch pad interface"
+	bool "Touchpad input driver"
 	default n
 
 if LV_USE_TOUCHPAD_INTERFACE
 
-config LV_TOUCHPAD_INTERFACE_DEVICEPATH
-	string "Touch pad device path"
+config LV_TOUCHPAD_INTERFACE_DEFAULT_DEVICEPATH
+	string "Touchpad default device path"
 	default "/dev/input0"
 
 endif

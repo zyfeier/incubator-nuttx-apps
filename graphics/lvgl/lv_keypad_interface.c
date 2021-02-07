@@ -37,8 +37,6 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define BUTTON_DEVICEPATH           CONFIG_LV_KEYPAD_INTERFACE_BUTTON_DEVICEPATH
-
 #define LV_KEY_UP_MAP_BIT           CONFIG_LV_KEYPAD_INTERFACE_KEY_UP_MAP_BIT
 #define LV_KEY_DOWN_MAP_BIT         CONFIG_LV_KEYPAD_INTERFACE_KEY_DOWN_MAP_BIT
 #define LV_KEY_RIGHT_MAP_BIT        CONFIG_LV_KEYPAD_INTERFACE_KEY_RIGHT_MAP_BIT
@@ -58,13 +56,13 @@
  * Private Type Declarations
  ****************************************************************************/
 
-struct button_map_s
+struct keypad_map_s
 {
   const lv_key_t key;
   int bit;
 };
 
-struct button_drv_s
+struct keypad_obj_s
 {
   int fd;
   uint32_t last_key;
@@ -78,7 +76,7 @@ struct button_drv_s
  * Private Data
  ****************************************************************************/
 
-static const struct button_map_s button_map[] =
+static const struct keypad_map_s keypad_map[] =
 {
   {.key = LV_KEY_UP,        .bit = LV_KEY_UP_MAP_BIT},
   {.key = LV_KEY_DOWN,      .bit = LV_KEY_DOWN_MAP_BIT},
@@ -114,16 +112,16 @@ static uint32_t keypad_get_key(int fd)
       return 0;
     }
 
-  for (int i = 0; i < sizeof(button_map) / sizeof(struct button_map_s); i++)
+  for (int i = 0; i < sizeof(keypad_map) / sizeof(struct keypad_map_s); i++)
     {
-      int bit = button_map[i].bit;
+      int bit = keypad_map[i].bit;
 
       if (bit >= 0 && bit < buttonset_bits)
         {
           btn_buttonset_t mask = 1 << bit;
           if (buttonset & mask)
             {
-              act_key = button_map[i].key;
+              act_key = keypad_map[i].key;
               break;
             }
         }
@@ -138,41 +136,45 @@ static uint32_t keypad_get_key(int fd)
 
 static bool keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-  struct button_drv_s *button_drv = (struct button_drv_s *)drv->user_data;
+  struct keypad_obj_s *keypad_obj = (struct keypad_obj_s *)drv->user_data;
 
   /* Get whether the a key is pressed and save the pressed key */
 
-  uint32_t act_key = keypad_get_key(button_drv->fd);
+  uint32_t act_key = keypad_get_key(keypad_obj->fd);
   if (act_key != 0)
     {
       data->state = LV_INDEV_STATE_PR;
-      button_drv->last_key = act_key;
+      keypad_obj->last_key = act_key;
     }
   else
     {
       data->state = LV_INDEV_STATE_REL;
     }
 
-  data->key = button_drv->last_key;
+  data->key = keypad_obj->last_key;
 
   /* Return `false` because we are not buffering and no more data to read */
 
   return false;
 }
 
+/****************************************************************************
+ * Name: keypad_init
+ ****************************************************************************/
+
 static lv_indev_t *keypad_init(int fd)
 {
-  struct button_drv_s *button_drv =
-    (struct button_drv_s *)lv_mem_alloc(sizeof(struct button_drv_s));
+  struct keypad_obj_s *keypad_obj =
+    (struct keypad_obj_s *)lv_mem_alloc(sizeof(struct keypad_obj_s));
 
-  if (button_drv == NULL)
+  if (keypad_obj == NULL)
     {
-      LV_LOG_ERROR("button_drv malloc failed");
+      LV_LOG_ERROR("keypad_obj_s malloc failed");
       return NULL;
     }
 
-  button_drv->fd = fd;
-  button_drv->last_key = 0;
+  keypad_obj->fd = fd;
+  keypad_obj->last_key = 0;
 
   /* Register a keypad input device */
 
@@ -181,7 +183,7 @@ static lv_indev_t *keypad_init(int fd)
   indev_drv.type = LV_INDEV_TYPE_KEYPAD;
   indev_drv.read_cb = keypad_read;
 #if ( LV_USE_USER_DATA != 0 )
-  indev_drv.user_data = button_drv;
+  indev_drv.user_data = keypad_obj;
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
@@ -194,20 +196,33 @@ static lv_indev_t *keypad_init(int fd)
 
 /****************************************************************************
  * Name: lv_keypad_interface_init
+ *
+ * Description:
+ *   Keypad interface initialization.
+ *
+ * Input Parameters:
+ *   dev_path - input device path, set to NULL to use the default path
+ *
+ * Returned Value:
+ *   lv_indev object address on success; NULL on failure.
+ *
  ****************************************************************************/
 
-lv_indev_t *lv_keypad_interface_init(void)
+lv_indev_t *lv_keypad_interface_init(const char *dev_path)
 {
-  int ret;
-  int fd;
+  const char *device_path = dev_path;
 
-  LV_LOG_INFO("button opening %s", BUTTON_DEVICEPATH);
-  fd = open(BUTTON_DEVICEPATH, O_RDONLY | O_NONBLOCK);
+  if (device_path == NULL)
+    {
+      device_path = CONFIG_LV_KEYPAD_INTERFACE_DEFAULT_DEVICEPATH;
+    }
+
+  LV_LOG_INFO("keypad opening %s", device_path);
+  int fd = open(device_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
       int errcode = errno;
-      LV_LOG_ERROR("button failed to open %s ! errcode: %d",
-                   BUTTON_DEVICEPATH, errcode);
+      LV_LOG_ERROR("keypad open failed: %d", errcode);
       return NULL;
     }
 
@@ -215,12 +230,12 @@ lv_indev_t *lv_keypad_interface_init(void)
 
   btn_buttonset_t supported;
 
-  ret = ioctl(fd, BTNIOC_SUPPORTED,
+  int ret = ioctl(fd, BTNIOC_SUPPORTED,
               (unsigned long)((uintptr_t)&supported));
   if (ret < 0)
     {
       int errcode = errno;
-      LV_LOG_ERROR("button ioctl(BTNIOC_SUPPORTED) failed! errcode: %d",
+      LV_LOG_ERROR("button ioctl(BTNIOC_SUPPORTED) failed: %d",
                    errcode);
       return NULL;
     }

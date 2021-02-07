@@ -146,7 +146,7 @@ static lv_disp_t *lcd_init(int fd, int line_buf)
 lv_disp_t *lv_lcd_interface_init(const char *dev_path, int line_buf)
 {
   const char *device_path = dev_path;
-  size_t line_buffer = line_buf;
+  int line_buffer = line_buf;
 
   if (device_path == NULL)
     {

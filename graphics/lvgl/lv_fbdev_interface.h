@@ -54,7 +54,23 @@ extern "C"
  * Public Function Prototypes
  ****************************************************************************/
 
-lv_disp_t *lv_fbdev_interface_init(void);
+/****************************************************************************
+ * Name: lv_fbdev_interface_init
+ *
+ * Description:
+ *   Framebuffer device interface initialization.
+ *
+ * Input Parameters:
+ *   dev_path - Framebuffer device path, set to NULL to use the default path
+ *   line_buf - Number of line buffers,
+ *              set to 0 to use the default line buffer
+ *
+ * Returned Value:
+ *   lv_disp object address on success; NULL on failure.
+ *
+ ****************************************************************************/
+
+lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf);
 
 #undef EXTERN
 #ifdef __cplusplus

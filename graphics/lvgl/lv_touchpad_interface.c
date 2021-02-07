@@ -37,13 +37,11 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define TOUCHPAD_DEVICEPATH      CONFIG_LV_TOUCHPAD_INTERFACE_DEVICEPATH
-
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
 
-struct touchpad_drv_s
+struct touchpad_obj_s
 {
   int fd;
   lv_coord_t last_x;
@@ -61,15 +59,15 @@ struct touchpad_drv_s
 
 static bool touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-  struct touchpad_drv_s *touchpad_drv =
-    (struct touchpad_drv_s *)drv->user_data;
+  struct touchpad_obj_s *touchpad_obj =
+    (struct touchpad_obj_s *)drv->user_data;
 
   /* Read one sample */
 
   struct touch_sample_s sample;
 
   int nbytes =
-    read(touchpad_drv->fd, &sample, sizeof(struct touch_sample_s));
+    read(touchpad_obj->fd, &sample, sizeof(struct touch_sample_s));
 
   /* Handle unexpected return values */
 
@@ -82,22 +80,22 @@ static bool touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
   if (touch_flags & TOUCH_DOWN || touch_flags & TOUCH_MOVE)
     {
-      touchpad_drv->last_x = sample.point[0].x;
-      touchpad_drv->last_y = sample.point[0].y;
-      touchpad_drv->last_state = LV_INDEV_STATE_PR;
+      touchpad_obj->last_x = sample.point[0].x;
+      touchpad_obj->last_y = sample.point[0].y;
+      touchpad_obj->last_state = LV_INDEV_STATE_PR;
     }
   else if (touch_flags & TOUCH_UP)
     {
-      touchpad_drv->last_state = LV_INDEV_STATE_REL;
+      touchpad_obj->last_state = LV_INDEV_STATE_REL;
     }
 
 update_points:
 
   /* Update touchpad data */
 
-  data->point.x = touchpad_drv->last_x;
-  data->point.y = touchpad_drv->last_y;
-  data->state = touchpad_drv->last_state;
+  data->point.x = touchpad_obj->last_x;
+  data->point.y = touchpad_obj->last_y;
+  data->state = touchpad_obj->last_state;
 
   return false;
 }
@@ -108,26 +106,26 @@ update_points:
 
 static lv_indev_t *touchpad_init(int fd)
 {
-  struct touchpad_drv_s *touchpad_drv =
-    (struct touchpad_drv_s *)lv_mem_alloc(sizeof(struct touchpad_drv_s));
+  struct touchpad_obj_s *touchpad_obj =
+    (struct touchpad_obj_s *)malloc(sizeof(struct touchpad_obj_s));
 
-  if (touchpad_drv == NULL)
+  if (touchpad_obj == NULL)
     {
-      LV_LOG_ERROR("touchpad_drv malloc failed");
+      LV_LOG_ERROR("touchpad_obj_s malloc failed");
       return NULL;
     }
 
-  touchpad_drv->fd = fd;
-  touchpad_drv->last_x = 0;
-  touchpad_drv->last_y = 0;
-  touchpad_drv->last_state = LV_INDEV_STATE_REL;
+  touchpad_obj->fd = fd;
+  touchpad_obj->last_x = 0;
+  touchpad_obj->last_y = 0;
+  touchpad_obj->last_state = LV_INDEV_STATE_REL;
 
   lv_indev_drv_t indev_drv;
   lv_indev_drv_init(&indev_drv);
   indev_drv.type = LV_INDEV_TYPE_POINTER;
   indev_drv.read_cb = touchpad_read;
 #if ( LV_USE_USER_DATA != 0 )
-  indev_drv.user_data = touchpad_drv;
+  indev_drv.user_data = touchpad_obj;
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
@@ -140,21 +138,37 @@ static lv_indev_t *touchpad_init(int fd)
 
 /****************************************************************************
  * Name: lv_touchpad_interface_init
+ *
+ * Description:
+ *   Touchpad interface initialization.
+ *
+ * Input Parameters:
+ *   dev_path - input device path, set to NULL to use the default path
+ *
+ * Returned Value:
+ *   lv_indev object address on success; NULL on failure.
+ *
  ****************************************************************************/
 
-lv_indev_t *lv_touchpad_interface_init(void)
+lv_indev_t *lv_touchpad_interface_init(const char *dev_path)
 {
-  LV_LOG_INFO("touchpad opening %s", TOUCHPAD_DEVICEPATH);
-  int fd = open(TOUCHPAD_DEVICEPATH, O_RDONLY | O_NONBLOCK);
+  const char *device_path = dev_path;
+
+  if (device_path == NULL)
+    {
+      device_path = CONFIG_LV_TOUCHPAD_INTERFACE_DEFAULT_DEVICEPATH;
+    }
+
+  LV_LOG_INFO("touchpad opening %s", device_path);
+  int fd = open(device_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
       int errcode = errno;
-      LV_LOG_ERROR("touchpad failed to open %s ! errcode: %d",
-                   TOUCHPAD_DEVICEPATH, errcode);
+      LV_LOG_ERROR("touchpad open failed: %d", errcode);
       return NULL;
     }
 
-  LV_LOG_INFO("touchpad %s open success", TOUCHPAD_DEVICEPATH);
+  LV_LOG_INFO("touchpad %s open success", device_path);
 
   return touchpad_init(fd);
 }

@@ -38,20 +38,17 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define FB_DEVICEPATH      CONFIG_LV_FBDEV_INTERFACE_DEVICEPATH
-#define FB_BUFFER_SIZE     (CONFIG_LV_HOR_RES * \
-                             CONFIG_LV_FBDEV_INTERFACE_BUFF_SIZE)
-
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
 
-struct fb_drv_s
+struct fbdev_obj_s
 {
   int fd;
   struct fb_videoinfo_s vinfo;
   struct fb_planeinfo_s pinfo;
   void *fbmem;
+  lv_disp_buf_t disp_buf;
 };
 
 /****************************************************************************
@@ -69,7 +66,7 @@ struct fb_drv_s
 static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
                         lv_color_t *color_p)
 {
-  struct fb_drv_s *state = (struct fb_drv_s *)disp_drv->user_data;
+  struct fbdev_obj_s *fbdev_obj = (struct fbdev_obj_s *)disp_drv->user_data;
 
   int32_t x1 = area_p->x1;
   int32_t y1 = area_p->y1;
@@ -80,7 +77,7 @@ static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
   int32_t act_x2;
   int32_t act_y2;
 
-  if (state->fbmem == NULL)
+  if (fbdev_obj->fbmem == NULL)
     {
       return;
     }
@@ -97,12 +94,12 @@ static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
       return;
     }
 
-  if (x1 > state->vinfo.xres - 1)
+  if (x1 > fbdev_obj->vinfo.xres - 1)
     {
       return;
     }
 
-  if (y1 > state->vinfo.yres - 1)
+  if (y1 > fbdev_obj->vinfo.yres - 1)
     {
       return;
     }
@@ -111,17 +108,17 @@ static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
 
   act_x1 = x1 < 0 ? 0 : x1;
   act_y1 = y1 < 0 ? 0 : y1;
-  act_x2 = x2 > state->vinfo.xres - 1 ? state->vinfo.xres - 1 : x2;
-  act_y2 = y2 > state->vinfo.yres - 1 ? state->vinfo.yres - 1 : y2;
+  act_x2 = x2 > fbdev_obj->vinfo.xres - 1 ? fbdev_obj->vinfo.xres - 1 : x2;
+  act_y2 = y2 > fbdev_obj->vinfo.yres - 1 ? fbdev_obj->vinfo.yres - 1 : y2;
 
   const uint32_t color_step = x2 - act_x1 + 1;
-  const fb_coord_t xres = state->vinfo.xres;
-  const uint8_t bpp = state->pinfo.bpp;
+  const fb_coord_t xres = fbdev_obj->vinfo.xres;
+  const uint8_t bpp = fbdev_obj->pinfo.bpp;
   uint32_t y;
 
   if (bpp == 8)
     {
-      uint8_t *fbp8 = (uint8_t *)state->fbmem;
+      uint8_t *fbp8 = (uint8_t *)fbdev_obj->fbmem;
       const uint32_t hor_len = (act_x2 - act_x1 + 1) * sizeof(uint8_t);
 
       for (y = act_y1; y <= act_y2; y++)
@@ -133,7 +130,7 @@ static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
     }
   else if (bpp == 16)
     {
-      uint16_t *fbp16 = (uint16_t *)state->fbmem;
+      uint16_t *fbp16 = (uint16_t *)fbdev_obj->fbmem;
       const uint32_t hor_len = (act_x2 - act_x1 + 1) * sizeof(uint16_t);
 
       for (y = act_y1; y <= act_y2; y++)
@@ -145,7 +142,7 @@ static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
     }
   else if (bpp == 24 || bpp == 32)
     {
-      uint32_t *fbp32 = (uint32_t *)state->fbmem;
+      uint32_t *fbp32 = (uint32_t *)fbdev_obj->fbmem;
       const uint32_t hor_len = (act_x2 - act_x1 + 1) * sizeof(uint32_t);
 
       for (y = act_y1; y <= act_y2; y++)
@@ -162,7 +159,7 @@ static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
   fb_area.y = act_y1;
   fb_area.w = act_x2 - act_x1 + 1;
   fb_area.h = act_y2 - cat_y1 + 1;
-  ioctl(state->fd, FBIO_UPDATE, (unsigned long)((uintptr_t)&fb_area));
+  ioctl(fbdev_obj->fd, FBIO_UPDATE, (unsigned long)((uintptr_t)&fb_area));
 #endif
 
   /* Tell the flushing is ready */
@@ -174,29 +171,41 @@ static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
  * Name: fbdev_init
  ****************************************************************************/
 
-static lv_disp_t *fbdev_init(struct fb_drv_s *state)
+static lv_disp_t *fbdev_init(struct fbdev_obj_s *state, int line_buf)
 {
-  struct fb_drv_s *fb_drv =
-    (struct fb_drv_s *)lv_mem_alloc(sizeof(struct fb_drv_s));
+  struct fbdev_obj_s *fbdev_obj =
+    (struct fbdev_obj_s *)malloc(sizeof(struct fbdev_obj_s));
 
-  if (fb_drv == NULL)
+  if (fbdev_obj == NULL)
     {
-      LV_LOG_ERROR("fb_drv malloc failed!");
+      LV_LOG_ERROR("fbdev_obj_s malloc failed");
       return NULL;
     }
 
-  memcpy(fb_drv, state, sizeof(struct fb_drv_s));
+  const size_t buf_size = LV_HOR_RES_MAX * line_buf * sizeof(lv_color_t);
 
-  static lv_disp_buf_t disp_buf;
-  static lv_color_t buf[FB_BUFFER_SIZE];
-  lv_disp_buf_init(&disp_buf, buf, NULL, FB_BUFFER_SIZE);
+  lv_color_t *buf = (lv_color_t *)malloc(buf_size);
+
+  if (buf == NULL)
+    {
+      LV_LOG_ERROR("display buffer malloc failed");
+      free(fbdev_obj);
+      return NULL;
+    }
+
+  LV_LOG_INFO("display buffer malloc success, size = %ld", buf_size);
+
+  memcpy(fbdev_obj, state, sizeof(struct fbdev_obj_s));
+
+  lv_disp_buf_init(&(fbdev_obj->disp_buf), buf, NULL,
+                       LV_HOR_RES_MAX * line_buf);
 
   lv_disp_drv_t disp_drv;
   lv_disp_drv_init(&disp_drv);
   disp_drv.flush_cb = fbdev_flush;
-  disp_drv.buffer = &disp_buf;
+  disp_drv.buffer = &(fbdev_obj->disp_buf);
 #if ( LV_USE_USER_DATA != 0 )
-  disp_drv.user_data = fb_drv;
+  disp_drv.user_data = fbdev_obj;
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
@@ -209,19 +218,44 @@ static lv_disp_t *fbdev_init(struct fb_drv_s *state)
 
 /****************************************************************************
  * Name: lv_fbdev_interface_init
+ *
+ * Description:
+ *   Framebuffer device interface initialization.
+ *
+ * Input Parameters:
+ *   dev_path - Framebuffer device path, set to NULL to use the default path
+ *   line_buf - Number of line buffers,
+ *              set to 0 to use the default line buffer
+ *
+ * Returned Value:
+ *   lv_disp object address on success; NULL on failure.
+ *
  ****************************************************************************/
 
-lv_disp_t *lv_fbdev_interface_init(void)
+lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
 {
-  LV_LOG_INFO("fbdev opening %s", FB_DEVICEPATH);
+  const char *device_path = dev_path;
+  int line_buffer = line_buf;
 
-  struct fb_drv_s state;
+  if (device_path == NULL)
+    {
+      device_path = CONFIG_LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH;
+    }
 
-  state.fd = open(FB_DEVICEPATH, O_RDWR);
+  if (line_buffer <= 0)
+    {
+      line_buffer = CONFIG_LV_FBDEV_INTERFACE_DEFAULT_LINE_BUFF;
+    }
+
+  LV_LOG_INFO("fbdev opening %s", device_path);
+
+  struct fbdev_obj_s state;
+
+  state.fd = open(device_path, O_RDWR);
   if (state.fd < 0)
     {
       int errcode = errno;
-      LV_LOG_ERROR("fbdev open failed! errcode: %d", errcode);
+      LV_LOG_ERROR("fbdev open failed: %d", errcode);
       return NULL;
     }
 
@@ -294,5 +328,5 @@ lv_disp_t *lv_fbdev_interface_init(void)
 
   LV_LOG_INFO("Mapped FB: %p", state.fbmem);
 
-  return fbdev_init(&state);
+  return fbdev_init(&state, line_buffer);
 }

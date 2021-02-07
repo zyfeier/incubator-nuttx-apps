@@ -37,7 +37,6 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define BUTTON_DEVICEPATH           CONFIG_LV_BUTTON_INTERFACE_BUTTON_DEVICEPATH
 #define BUTTON_0_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_0_MAP_X
 #define BUTTON_0_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_0_MAP_Y
 #define BUTTON_1_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_1_MAP_X
@@ -55,7 +54,7 @@
  * Private Type Declarations
  ****************************************************************************/
 
-struct button_drv_s
+struct button_obj_s
 {
   int fd;
   uint8_t last_btn;
@@ -121,16 +120,16 @@ static int button_get_pressed_id(int fd)
 
 static bool button_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-  struct button_drv_s *button_drv = (struct button_drv_s *)drv->user_data;
+  struct button_obj_s *button_obj = (struct button_obj_s *)drv->user_data;
 
   /* Get the pressed button's ID */
 
-  int btn_act = button_get_pressed_id(button_drv->fd);
+  int btn_act = button_get_pressed_id(button_obj->fd);
 
   if (btn_act >= 0)
     {
       data->state = LV_INDEV_STATE_PR;
-      button_drv->last_btn = btn_act;
+      button_obj->last_btn = btn_act;
     }
   else
     {
@@ -139,33 +138,37 @@ static bool button_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
   /* Save the last pressed button's ID */
 
-  data->btn_id = button_drv->last_btn;
+  data->btn_id = button_obj->last_btn;
 
   /* Return `false` because we are not buffering and no more data to read */
 
   return false;
 }
 
+/****************************************************************************
+ * Name: button_init
+ ****************************************************************************/
+
 static lv_indev_t *button_init(int fd)
 {
-  struct button_drv_s *button_drv =
-    (struct button_drv_s *)lv_mem_alloc(sizeof(struct button_drv_s));
+  struct button_obj_s *button_obj =
+    (struct button_obj_s *)malloc(sizeof(struct button_obj_s));
 
-  if (button_drv == NULL)
+  if (button_obj == NULL)
     {
-      LV_LOG_ERROR("button_drv malloc failed");
+      LV_LOG_ERROR("button_obj_s malloc failed");
       return NULL;
     }
 
-  button_drv->fd = fd;
-  button_drv->last_btn = 0;
+  button_obj->fd = fd;
+  button_obj->last_btn = 0;
 
   lv_indev_drv_t indev_drv;
   lv_indev_drv_init(&indev_drv);
   indev_drv.type = LV_INDEV_TYPE_BUTTON;
   indev_drv.read_cb = button_read;
 #if ( LV_USE_USER_DATA != 0 )
-  indev_drv.user_data = button_drv;
+  indev_drv.user_data = button_obj;
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
@@ -181,20 +184,33 @@ static lv_indev_t *button_init(int fd)
 
 /****************************************************************************
  * Name: lv_button_interface_init
+ *
+ * Description:
+ *   Button interface initialization.
+ *
+ * Input Parameters:
+ *   dev_path - input device path, set to NULL to use the default path
+ *
+ * Returned Value:
+ *   lv_indev object address on success; NULL on failure.
+ *
  ****************************************************************************/
 
-lv_indev_t *lv_button_interface_init(void)
+lv_indev_t *lv_button_interface_init(const char *dev_path)
 {
-  int ret;
-  int fd;
+  const char *device_path = dev_path;
 
-  LV_LOG_INFO("button opening %s", BUTTON_DEVICEPATH);
-  fd = open(BUTTON_DEVICEPATH, O_RDONLY | O_NONBLOCK);
+  if (device_path == NULL)
+    {
+      device_path = CONFIG_LV_BUTTON_INTERFACE_DEFAULT_DEVICEPATH;
+    }
+
+  LV_LOG_INFO("button opening %s", device_path);
+  int fd = open(device_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
       int errcode = errno;
-      LV_LOG_ERROR("button failed to open %s ! errcode: %d",
-                   BUTTON_DEVICEPATH, errcode);
+      LV_LOG_ERROR("button open failed: %d", errcode);
       return NULL;
     }
 
@@ -202,12 +218,12 @@ lv_indev_t *lv_button_interface_init(void)
 
   btn_buttonset_t supported;
 
-  ret = ioctl(fd, BTNIOC_SUPPORTED,
+  int ret = ioctl(fd, BTNIOC_SUPPORTED,
               (unsigned long)((uintptr_t)&supported));
   if (ret < 0)
     {
       int errcode = errno;
-      LV_LOG_ERROR("button ioctl(BTNIOC_SUPPORTED) failed! errcode: %d",
+      LV_LOG_ERROR("button ioctl(BTNIOC_SUPPORTED) failed: %d",
                    errcode);
       return NULL;
     }
