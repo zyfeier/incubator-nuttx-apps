@@ -125,4 +125,7 @@ CSRCS        := $(LTP_CSRCS)
 CFLAGS       += -I$(CURDIR)
 CFLAGS       += -I$(TESTDIR)/include
 
+depend::
+	$(Q) touch $(MAINSRC)
+
 include $(APPDIR)/Application.mk
