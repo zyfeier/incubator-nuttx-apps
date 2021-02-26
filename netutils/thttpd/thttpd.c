@@ -7,8 +7,8 @@
  *
  * Derived from the file of the same name in the original THTTPD package:
  *
- *   Copyright © 1995,1998,1999,2000,2001 by
- *   Jef Poskanzer <jef@mail.acme.com>. All rights reserved.
+ *   Copyright © 1995,1998,1999,2000,2001 by Jef Poskanzer <jef@mail.acme.com>.
+ *   All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +44,6 @@
 #include <sys/time.h>
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -85,7 +84,7 @@
 #define CNST_LINGERING 3
 
 #define SPARE_FDS      2
-#define AVAILABLE_FDS  (CONFIG_NFILE_DESCRIPTORS - SPARE_FDS)
+#define AVAILABLE_FDS  (CONFIG_NSOCKET_DESCRIPTORS - SPARE_FDS)
 
 /****************************************************************************
  * Private Types
@@ -130,8 +129,7 @@ static void finish_connection(struct connect_s *conn, struct timeval *tv);
 static void clear_connection(struct connect_s *conn, struct timeval *tv);
 static void really_clear_connection(struct connect_s *conn);
 static void idle(ClientData client_data, struct timeval *nowP);
-static void linger_clear_connection(ClientData client_data,
-                                    struct timeval *nowP);
+static void linger_clear_connection(ClientData client_data, struct timeval *nowP);
 static void occasional(ClientData client_data, struct timeval *nowP);
 
 /****************************************************************************
@@ -165,7 +163,6 @@ static void shut_down(void)
         {
           fdwatch_del_fd(fw, ths->listen_fd);
         }
-
       httpd_terminate(ths);
     }
 
@@ -182,7 +179,7 @@ static int handle_newconnect(FAR struct timeval *tv, int listen_fd)
    */
 
   ninfo("New connection(s) on listen_fd %d\n", listen_fd);
-  for (; ; )
+  for (;;)
     {
       /* Get the next free connection from the free list */
 
@@ -272,15 +269,12 @@ static void handle_read(struct connect_s *conn, struct timeval *tv)
           BADREQUEST("MAXREALLOC");
           goto errout_with_400;
         }
-
-      httpd_realloc_str(&hc->read_buf, &hc->read_size,
-                        hc->read_size + CONFIG_THTTPD_REALLOCINCR);
+      httpd_realloc_str(&hc->read_buf, &hc->read_size, hc->read_size + CONFIG_THTTPD_REALLOCINCR);
     }
 
   /* Read some more bytes */
 
-  sz = read(hc->conn_fd, &(hc->read_buf[hc->read_idx]),
-            hc->read_size - hc->read_idx);
+  sz = read(hc->conn_fd, &(hc->read_buf[hc->read_idx]), hc->read_size - hc->read_idx);
   if (sz == 0)
     {
       BADREQUEST("EOF");
@@ -378,8 +372,8 @@ static void handle_read(struct connect_s *conn, struct timeval *tv)
   actual = lseek(hc->file_fd, conn->offset, SEEK_SET);
   if (actual != conn->offset)
     {
-       nerr("ERROR: fseek to %jd failed: offset=%jd errno=%d\n",
-            (intmax_t)conn->offset, (intmax_t)actual, errno);
+       nerr("ERROR: fseek to %d failed: offset=%d errno=%d\n",
+            conn->offset, actual, errno);
        BADREQUEST("lseek");
        goto errout_with_400;
     }
@@ -420,7 +414,6 @@ static inline int read_buffer(struct connect_s *conn)
           hc->buflen      += nread;
         }
     }
-
   return nread;
 }
 
@@ -434,10 +427,8 @@ static void handle_send(struct connect_s *conn, struct timeval *tv)
 
   while (conn->offset < conn->end_offset)
     {
-      ninfo("offset: %jd end_offset: %jd bytes_sent: %jd\n",
-            (intmax_t)conn->offset,
-            (intmax_t)conn->end_offset,
-            (intmax_t)conn->hc->bytes_sent);
+      ninfo("offset: %d end_offset: %d bytes_sent: %d\n",
+            conn->offset, conn->end_offset, conn->hc->bytes_sent);
 
       /* Fill the rest of the response buffer with file data */
 
@@ -447,7 +438,6 @@ static void handle_send(struct connect_s *conn, struct timeval *tv)
           nerr("ERROR: File read error: %d\n", errno);
           goto errout_clear_connection;
         }
-
       ninfo("Read %d bytes, buflen %d\n", nread, hc->buflen);
 
       /* Send the buffer */
@@ -498,7 +488,7 @@ static void handle_linger(struct connect_s *conn, struct timeval *tv)
   httpd_conn *hc = conn->hc;
   int ret;
 
-  /* In lingering-close mode we just read and ignore bytes.  An error or EOF
+    /* In lingering-close mode we just read and ignore bytes.  An error or EOF
    * ends things, otherwise we go until a timeout
    */
 
@@ -562,8 +552,7 @@ static void clear_connection(struct connect_s *conn, struct timeval *tv)
       fdwatch_add_fd(fw, conn->hc->conn_fd, conn);
       client_data.p = conn;
 
-      conn->linger_timer = tmr_create(tv, linger_clear_connection,
-                                      client_data,
+      conn->linger_timer = tmr_create(tv, linger_clear_connection, client_data,
                                       CONFIG_THTTPD_LINGER_MSEC, 0);
       if (conn->linger_timer != NULL)
         {
@@ -573,9 +562,7 @@ static void clear_connection(struct connect_s *conn, struct timeval *tv)
       nerr("ERROR: tmr_create(linger_clear_connection) failed\n");
     }
 
-  /* Either we are done lingering, we shouldn't linger, or we failed to
-   * setup the linger
-   */
+  /* Either we are done lingering, we shouldn't linger, or we failed to setup the linger */
 
   really_clear_connection(conn);
 }
@@ -608,8 +595,7 @@ static void idle(ClientData client_data, struct timeval *nowP)
       switch (conn->conn_state)
         {
         case CNST_READING:
-          if (nowP->tv_sec - conn->active_at >=
-              CONFIG_THTTPD_IDLE_READ_LIMIT_SEC)
+          if (nowP->tv_sec - conn->active_at >= CONFIG_THTTPD_IDLE_READ_LIMIT_SEC)
             {
               nerr("ERROR: %s connection timed out reading\n",
                    httpd_ntoa(&conn->hc->client_addr));
@@ -620,8 +606,7 @@ static void idle(ClientData client_data, struct timeval *nowP)
           break;
 
         case CNST_SENDING:
-          if (nowP->tv_sec - conn->active_at >=
-              CONFIG_THTTPD_IDLE_SEND_LIMIT_SEC)
+          if (nowP->tv_sec - conn->active_at >= CONFIG_THTTPD_IDLE_SEND_LIMIT_SEC)
             {
               nerr("ERROR: %s connection timed out sending\n",
                    httpd_ntoa(&conn->hc->client_addr));
@@ -632,8 +617,7 @@ static void idle(ClientData client_data, struct timeval *nowP)
     }
 }
 
-static void linger_clear_connection(ClientData client_data,
-                                    struct timeval *nowP)
+static void linger_clear_connection(ClientData client_data, struct timeval *nowP)
 {
   struct connect_s *conn;
 
@@ -730,8 +714,7 @@ int thttpd_main(int argc, char **argv)
 
   /* Set up the occasional timer */
 
-  if (tmr_create(NULL, occasional, JunkClientData,
-      CONFIG_THTTPD_OCCASIONAL_MSEC * 1000L, 1) == NULL)
+  if (tmr_create(NULL, occasional, JunkClientData, CONFIG_THTTPD_OCCASIONAL_MSEC * 1000L, 1) == NULL)
     {
       nerr("ERROR: tmr_create(occasional) failed\n");
       exit(1);
@@ -743,6 +726,7 @@ int thttpd_main(int argc, char **argv)
     {
       nerr("ERROR: tmr_create(idle) failed\n");
       exit(1);
+
     }
 
   /* Initialize our connections table */
@@ -761,8 +745,8 @@ int thttpd_main(int argc, char **argv)
       connects[cnum].hc          = NULL;
     }
 
-  connects[AVAILABLE_FDS - 1].next = NULL;      /* End of link list */
-  free_connections                 = connects;  /* Beginning of the link list */
+  connects[AVAILABLE_FDS-1].next = NULL;      /* End of link list */
+  free_connections               = connects;  /* Beginning of the link list */
 
   if (hs != NULL)
     {
@@ -776,7 +760,7 @@ int thttpd_main(int argc, char **argv)
 
   ninfo("Entering the main loop\n");
   gettimeofday(&tv, NULL);
-  for (; ; )
+  for (;;)
     {
       /* Do the fd watch */
 
@@ -821,8 +805,7 @@ int thttpd_main(int argc, char **argv)
 
       /* Find the connections that need servicing */
 
-      while ((conn = (struct connect_s *)fdwatch_get_next_client_data(fw))
-             != (struct connect_s *)-1)
+      while ((conn = (struct connect_s*)fdwatch_get_next_client_data(fw)) != (struct connect_s*)-1)
         {
           if (conn)
             {
@@ -836,9 +819,8 @@ int thttpd_main(int argc, char **argv)
                         {
                           handle_read(conn, &tv);
 
-                          /* If a GET request was received and a file is
-                           * ready to be sent, then fall through to send
-                           * the file.
+                          /* If a GET request was received and a file is ready to
+                           * be sent, then fall through to send the file.
                            */
 
                           if (conn->conn_state != CNST_SENDING)
@@ -849,9 +831,9 @@ int thttpd_main(int argc, char **argv)
 
                       case CNST_SENDING:
                         {
-                          /* Send a file -- this really should be performed
-                           * on a separate thread to keep the serve from
-                           * locking up during the write.
+                          /* Send a file -- this really should be performed on a
+                           * separate thread to keep the serve from locking up during
+                           * the write.
                            */
 
                           handle_send(conn, &tv);
@@ -869,7 +851,6 @@ int thttpd_main(int argc, char **argv)
                 }
             }
         }
-
       tmr_run(&tv);
     }
 
