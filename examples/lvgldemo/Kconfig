@@ -5,6 +5,7 @@
 
 menuconfig EXAMPLES_LVGLDEMO
 	tristate "LVGL Demo"
+	depends on GRAPHICS_LVGL
 	default n
 	---help---
 		Enable build the Light and Versatile Graphics Library Demo programs

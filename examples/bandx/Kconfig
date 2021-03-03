@@ -5,6 +5,7 @@
 
 config EXAMPLES_BANDX
 	tristate "BandX example"
+	depends on GRAPHICS_LVGL
 	default n
 	---help---
 		Enable the BandX example
