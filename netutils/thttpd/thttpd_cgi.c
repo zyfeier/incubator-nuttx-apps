@@ -771,7 +771,7 @@ static int cgi_child(int argc, char **argv)
    */
 
   ninfo("Closing descriptors\n");
-  for (fd = 3; fd < CONFIG_NFILE_DESCRIPTORS; fd++)
+  for (fd = 3; fd < CONFIG_THTTPD_NFILE_DESCRIPTORS; fd++)
     {
       /* Keep hc->conn_fd open for obvious reasons */
 

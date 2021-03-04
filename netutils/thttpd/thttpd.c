@@ -85,7 +85,7 @@
 #define CNST_LINGERING 3
 
 #define SPARE_FDS      2
-#define AVAILABLE_FDS  (CONFIG_NFILE_DESCRIPTORS - SPARE_FDS)
+#define AVAILABLE_FDS  (CONFIG_THTTPD_NFILE_DESCRIPTORS - SPARE_FDS)
 
 /****************************************************************************
  * Private Types
@@ -696,7 +696,7 @@ int thttpd_main(int argc, char **argv)
    * socket descriptors
    */
 
-  fw = fdwatch_initialize(CONFIG_NSOCKET_DESCRIPTORS);
+  fw = fdwatch_initialize(CONFIG_THTTPD_NFILE_DESCRIPTORS);
   if (!fw)
     {
       nerr("ERROR: fdwatch initialization failure\n");

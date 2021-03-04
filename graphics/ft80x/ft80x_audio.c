@@ -183,7 +183,6 @@ int ft80x_audio_playsound(int fd, uint16_t effect, uint16_t pitch)
  *
  ****************************************************************************/
 
-#if CONFIG_NFILE_DESCRIPTORS > 3
 int ft80x_audio_playfile(int fd, FAR struct ft80x_dlbuffer_s *buffer,
                          FAR const char *filepath, uint8_t format,
                          uint16_t frequency, uint8_t volume)
@@ -584,5 +583,3 @@ errout_with_fd:
   close(audiofd);
   return ret;
 }
-
-#endif /* CONFIG_NFILE_DESCRIPTORS > 3 */
