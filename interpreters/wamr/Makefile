@@ -56,10 +56,10 @@ $(WAMR_UNPACK): $(WAMR_TARBALL)
 	$(Q) unzip $(WAMR_TARBALL)
 	$(Q) mv wasm-micro-runtime-$(WAMR_VERSION_STUB)$(WAMR_VERSION) $(WAMR_UNPACK)
 
-context:: $(WAMR_UNPACK)
+context:: # $(WAMR_UNPACK)
 
 distclean::
-	$(call DELDIR, $(WAMR_UNPACK))
-	$(call DELFILE, $(WAMR_TARBALL))
+	# $(call DELDIR, $(WAMR_UNPACK))
+	# $(call DELFILE, $(WAMR_TARBALL))
 
 include $(APPDIR)/Application.mk
