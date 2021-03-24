@@ -429,6 +429,21 @@ config LV_OBJ_REALIGN
 	bool "Enable `lv_obj_realaign()` based on `lv_obj_align()` parameters"
 	default y
 
+choice
+	prompt "LV_USE_EXT_CLICK_AREA"
+	default LV_EXT_CLICK_AREA_TINY
+
+config LV_EXT_CLICK_AREA_OFF
+	bool "Off"
+
+config LV_EXT_CLICK_AREA_TINY
+	bool "Tiny"
+
+config LV_EXT_CLICK_AREA_FULL
+	bool "Full
+
+endchoice
+
 endmenu
 
 menu "Object type usage settings"

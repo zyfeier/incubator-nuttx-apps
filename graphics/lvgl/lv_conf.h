@@ -786,7 +786,13 @@ typedef void * lv_obj_user_data_t;
  * in all 4 directions (-32k..+32k px)
  */
 
+#if defined(CONFIG_LV_EXT_CLICK_AREA_OFF)
+#define LV_USE_EXT_CLICK_AREA  LV_EXT_CLICK_AREA_OFF
+#elif defined(CONFIG_LV_EXT_CLICK_AREA_TINY)
 #define LV_USE_EXT_CLICK_AREA  LV_EXT_CLICK_AREA_TINY
+#elif defined(CONFIG_LV_EXT_CLICK_AREA_FULL)
+#define LV_USE_EXT_CLICK_AREA  LV_EXT_CLICK_AREA_FULL
+#endif
 
 /****************************************************************************
  *  LV OBJ X USAGE
