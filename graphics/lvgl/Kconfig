@@ -440,7 +440,7 @@ config LV_EXT_CLICK_AREA_TINY
 	bool "Tiny"
 
 config LV_EXT_CLICK_AREA_FULL
-	bool "Full
+	bool "Full"
 
 endchoice
 
