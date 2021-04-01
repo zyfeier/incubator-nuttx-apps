@@ -87,7 +87,7 @@ clean::
 	$(Q) test ! -d $(QUICKJS_UNPACK) || make -C $(QUICKJS_UNPACK) clean
 
 distclean::
-	$(call DELDIR, $(QUICKJS_UNPACK))
-	$(call DELFILE, $(QUICKJS_TARBALL))
+	# $(call DELDIR, $(QUICKJS_UNPACK))
+	# $(call DELFILE, $(QUICKJS_TARBALL))
 
 include $(APPDIR)/Application.mk
