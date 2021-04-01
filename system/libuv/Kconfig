@@ -1,0 +1,13 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config LIBUV
+	bool "libuv asynchronous I/O Library"
+	default n
+	select EVENT_FD
+	select EVENT_FD_POLL
+	select CLOCK_MONOTONIC
+	---help---
+		Enable build for libuv asynchronous I/O Library
