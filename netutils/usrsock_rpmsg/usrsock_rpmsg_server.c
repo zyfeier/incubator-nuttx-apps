@@ -774,6 +774,7 @@ static void usrsock_rpmsg_process_poll(struct usrsock_rpmsg_s *priv,
 
               /* Stop poll in until recv get called */
 
+              pfds[i].events &= ~POLLIN;
               priv->pfds[j].events &= ~POLLIN;
             }
 
@@ -783,6 +784,7 @@ static void usrsock_rpmsg_process_poll(struct usrsock_rpmsg_s *priv,
 
               /* Stop poll out until send get called */
 
+              pfds[i].events &= ~POLLOUT;
               priv->pfds[j].events &= ~POLLOUT;
             }
 
@@ -792,6 +794,7 @@ static void usrsock_rpmsg_process_poll(struct usrsock_rpmsg_s *priv,
 
               /* Stop poll at all */
 
+              pfds[i].ptr = NULL;
               priv->pfds[j].ptr = NULL;
             }
 
