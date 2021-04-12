@@ -11,10 +11,6 @@ menuconfig GRAPHICS_LVGL
 
 if GRAPHICS_LVGL
 
-config LVGL_VERSION
-	string "LVGL Version"
-	default "8.0.0"
-
 source "$APPSDIR/graphics/lvgl/lvgl/Kconfig"
 
 config LV_USE_LCDDEV_INTERFACE
@@ -183,9 +179,6 @@ config LV_TOUCHPAD_INTERFACE_DEFAULT_DEVICEPATH
 
 endif
 
-config LV_USE_FREETYPE_INTERFACE
-	bool "Enable freetype2 font driver"
-	default n
 config LV_USE_FFMPEG_INTERFACE
 	tristate "Use FFmpeg interface"
 	depends on LIB_FFMPEG

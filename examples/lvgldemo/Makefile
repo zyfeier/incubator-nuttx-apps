@@ -52,13 +52,7 @@ MODULE = $(CONFIG_EXAMPLES_LVGLDEMO)
 
 # LittleVGL demo Example
 
-CSRCS += fbdev.c lcddev.c
-
-ifneq ($(CONFIG_INPUT_TOUCHSCREEN)$(CONFIG_INPUT_MOUSE),)
-CSRCS += tp.c tp_cal.c
-endif
-
-# static common assets used in multiple examples
+# static common assets used in mutiple example
 
 LV_EXAMPLE_ASSETS = $(wildcard ./lv_examples/assets/*.c)
 CSRCS += $(notdir $(LV_EXAMPLE_ASSETS))
@@ -84,6 +78,7 @@ endif
 
 ifneq ($(CONFIG_EXAMPLES_LVGLDEMO_WIDGETS),)
 CSRCS += lv_demo_widgets.c
+CSRCS += $(wildcard ./lv_examples/src/lv_demo_widgets/assets/*.c)
 VPATH += lv_examples/src/lv_demo_widgets
 endif
 

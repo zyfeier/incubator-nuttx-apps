@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/examples/lvgldemo/lv_ex_conf.h
+ * examples/lvgldemo/lv_demo_conf.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +18,8 @@
  *
  ****************************************************************************/
 
-#ifndef __APPS_EXAMPLES_LVGLDEMO_LV_EX_CONF_H
-#define __APPS_EXAMPLES_LVGLDEMO_LV_EX_CONF_H
+#ifndef __APPS_EXAMPLES_LVGLDEMO_LV_DEMO_CONF_H
+#define __APPS_EXAMPLES_LVGLDEMO_LV_DEMO_CONF_H
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -54,19 +54,20 @@
 
 /* Printer demo, optimized for 800x480 */
 
-#define LV_USE_DEMO_PRINTER     1
+#define LV_USE_DEMO_PRINTER     0
 
 /* Demonstrate the usage of encoder and keyboard */
 
-#define LV_USE_DEMO_KEYPAD_AND_ENCODER     1
+#define LV_USE_DEMO_KEYPAD_AND_ENCODER     0
 
 /* Benchmark your system */
 
-#define LV_USE_DEMO_BENCHMARK   1
+#define LV_USE_DEMO_BENCHMARK   0
 
 /* Stress test for LVGL */
 
-#define LV_USE_DEMO_STRESS      1
+#define LV_USE_DEMO_STRESS      0
+
+#define LV_USE_DEMO_MUSIC       0
 
 #endif /* __APPS_EXAMPLES_LVGLDEMO_LV_EX_CONF_H */
-

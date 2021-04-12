@@ -42,11 +42,7 @@ LVGL_DIR_NAME = lvgl
 
 # Relax format check for LVGL to avoid errors on prinf() use
 
-CFLAGS += -Wno-format
-
-# LVGL Libraries
-
-#-include ./lvgl/examples/examples.mk
+-include ./lvgl/examples/examples.mk
 -include ./lvgl/src/extra/extra.mk
 -include ./lvgl/src/core/lv_core.mk
 -include ./lvgl/src/draw/lv_draw.mk
@@ -79,17 +75,9 @@ ifneq ($(CONFIG_LV_USE_FBDEV_INTERFACE),)
 CSRCS += lv_porting/lv_fbdev_interface.c
 endif
 
-ifneq ($(CONFIG_LV_USE_FREETYPE_INTERFACE),)
-CSRCS += lv_porting/lv_freetype_interface.c
-endif
-
 ifneq ($(CONFIG_LV_USE_FFMPEG_INTERFACE),)
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/ffmpeg}
 CSRCS += lv_porting/lv_ffmpeg_interface.c
-endif
-
-ifneq ($(CONFIG_LV_USE_FREETYPE_INTERFACE),)
-CSRCS += lv_porting/lv_freetype_interface.c
 endif
 
 # Set up build configuration and environment

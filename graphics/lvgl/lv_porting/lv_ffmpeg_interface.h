@@ -37,28 +37,6 @@
  * Type Definitions
  ****************************************************************************/
 
-struct ffmpeg_context_s;
-
-extern const lv_obj_class_t lv_ffmpeg_player_class;
-
-typedef struct
-  {
-    lv_img_t img;
-    lv_timer_t *timer;
-    lv_img_dsc_t imgdsc;
-    bool auto_restart;
-    struct ffmpeg_context_s *ffmpeg_ctx;
-  } lv_ffmpeg_player_t;
-
-typedef enum
-  {
-    LV_FFMPEG_PLAYER_CMD_START = 1,
-    LV_FFMPEG_PLAYER_CMD_STOP,
-    LV_FFMPEG_PLAYER_CMD_PAUSE,
-    LV_FFMPEG_PLAYER_CMD_RESUME,
-    _LV_FFMPEG_PLAYER_CMD_LAST
-  } lv_ffmpeg_player_cmd_t;
-
 /****************************************************************************
  * Public Data
  ****************************************************************************/
@@ -84,69 +62,6 @@ extern "C"
  ****************************************************************************/
 
 void lv_ffmpeg_interface_init(void);
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_create
- *
- * Description:
- *   Create ffmpeg_player object.
- *
- * Input Parameters:
- *   parent - pointer to an object, it will be the parent of the new player.
- *
- * Returned Value:
- *   pointer to the created ffmpeg_player.
- *
- ****************************************************************************/
-
-lv_obj_t *lv_ffmpeg_player_create(lv_obj_t *parent);
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_set_src
- *
- * Description:
- *   Set the path of the file to be played.
- *
- * Input Parameters:
- *   ffmpeg_player - pointer to an ffmpeg_player.
- *   filename      - video file name.
- *
- * Returned Value:
- *   LV_RES_OK: no error; LV_RES_INV: can't get the info.
- *
- ****************************************************************************/
-
-lv_res_t lv_ffmpeg_player_set_src(lv_obj_t *ffmpeg_player,
-                                  const char *filename);
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_set_cmd
- *
- * Description:
- *   Send command control video player.
- *
- * Input Parameters:
- *   ffmpeg_player - pointer to an image.
- *   cmd           - control commands.
- *
- ****************************************************************************/
-
-void lv_ffmpeg_player_set_cmd(lv_obj_t *ffmpeg_player,
-                              lv_ffmpeg_player_cmd_t cmd);
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_set_auto_restart
- *
- * Description:
- *   Set the video to automatically replay.
- *
- * Input Parameters:
- *   ffmpeg_player - pointer to an ffmpeg_player.
- *   en            - true: enable the auto restart.
- *
- ****************************************************************************/
-
-void lv_ffmpeg_player_set_auto_restart(lv_obj_t *ffmpeg_player, bool en);
 
 #undef EXTERN
 #ifdef __cplusplus

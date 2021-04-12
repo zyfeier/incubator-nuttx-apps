@@ -28,7 +28,6 @@
 #include <libavutil/timestamp.h>
 #include <libswscale/swscale.h>
 #include <lvgl/lvgl.h>
-#include <lvgl/src/draw/lv_img_cache.h>
 #include "lv_ffmpeg_interface.h"
 
 /****************************************************************************
@@ -48,8 +47,6 @@
 #else
 #error Unsupported  LV_COLOR_DEPTH
 #endif
-
-#define MY_CLASS &lv_ffmpeg_player_class
 
 /****************************************************************************
  * Private Type Declarations
@@ -107,24 +104,6 @@ static int ffmpeg_update_next_frame(struct ffmpeg_context_s *ffmpeg_ctx);
 static int ffmpeg_output_video_frame(struct ffmpeg_context_s *ffmpeg_ctx);
 static bool ffmpeg_pix_fmt_is_alpha(enum AVPixelFormat pix_fmt);
 static bool ffmpeg_pix_fmt_is_yuv(enum AVPixelFormat pix_fmt);
-
-static void lv_ffmpeg_player_constructor(const lv_obj_class_t *class_p,
-                                         lv_obj_t *obj);
-
-static void lv_ffmpeg_player_destructor(const lv_obj_class_t *class_p,
-                                        lv_obj_t *obj);
-
-/****************************************************************************
- * Public Data
- ****************************************************************************/
-
-const lv_obj_class_t lv_ffmpeg_player_class =
-  {
-    .constructor_cb = lv_ffmpeg_player_constructor,
-    .destructor_cb = lv_ffmpeg_player_destructor,
-    .instance_size = sizeof(lv_ffmpeg_player_t),
-    .base_class = &lv_img_class
-  };
 
 /****************************************************************************
  * Private Functions
@@ -287,7 +266,7 @@ static void convert_color_depth(uint8_t *img, uint32_t px_cnt)
     {
       lv_color32_t temp = *img_src_p;
       img_dst_p->c =
-        lv_color_make(temp.ch.red, temp.ch.green, temp.ch.blue);
+        LV_COLOR_MAKE(temp.ch.red, temp.ch.green, temp.ch.blue);
       img_dst_p->alpha = temp.ch.alpha;
 
       img_src_p++;
@@ -882,7 +861,7 @@ struct ffmpeg_context_s *ffmpeg_open_file(const char *filename)
 
   /* dump input information to stderr */
 
-  //av_dump_format(ffmpeg_ctx->fmt_ctx, 0, filename, 0);
+  av_dump_format(ffmpeg_ctx->fmt_ctx, 0, filename, 0);
 #endif
 
   if (ffmpeg_ctx->video_stream == NULL)
@@ -983,100 +962,6 @@ static void ffmpeg_close(struct ffmpeg_context_s *ffmpeg_ctx)
 }
 
 /****************************************************************************
- * Name: lv_ffmpeg_player_frame_update_cb
- *
- * Description:
- *   Video frame update timer.
- *
- * Input Parameters:
- *   task - pointer to a task.
- *
- ****************************************************************************/
-
-static void lv_ffmpeg_player_frame_update_cb(lv_timer_t *timer)
-{
-  lv_obj_t *obj = (lv_obj_t *)timer->user_data;
-  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)obj;
-
-  int has_next = ffmpeg_update_next_frame(player->ffmpeg_ctx);
-
-  if (has_next < 0)
-    {
-      lv_ffmpeg_player_set_cmd(obj, player->auto_restart ?
-               LV_FFMPEG_PLAYER_CMD_START : LV_FFMPEG_PLAYER_CMD_STOP);
-      return;
-    }
-
-#if LV_COLOR_DEPTH != 32
-  if (player->ffmpeg_ctx->is_alpha)
-    {
-      convert_color_depth((uint8_t *)(player->imgdsc.data),
-                      player->imgdsc.header.w * player->imgdsc.header.h);
-    }
-#endif
-
-  lv_img_cache_invalidate_src(lv_img_get_src(obj));
-  lv_obj_invalidate(obj);
-}
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_constructor
- *
- * Description:
- *   ffmpeg player constructor.
- *
- * Input Parameters:
- *   class_p - pointer to a obj class.
- *   obj     - pointer to ffmpeg player.
- *
- ****************************************************************************/
-
-static void lv_ffmpeg_player_constructor(const lv_obj_class_t *class_p,
-                                         lv_obj_t *obj)
-{
-  LV_TRACE_OBJ_CREATE("begin");
-
-  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)obj;
-
-  player->auto_restart = false;
-  player->ffmpeg_ctx = NULL;
-  player->timer = lv_timer_create(lv_ffmpeg_player_frame_update_cb,
-                                  1000, obj);
-  lv_timer_pause(player->timer);
-
-  LV_TRACE_OBJ_CREATE("finished");
-}
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_destructor
- *
- * Description:
- *   ffmpeg player destructor.
- *
- * Input Parameters:
- *   class_p - pointer to a obj class.
- *   obj     - pointer to ffmpeg player.
- *
- ****************************************************************************/
-
-static void lv_ffmpeg_player_destructor(const lv_obj_class_t *class_p,
-                                        lv_obj_t *obj)
-{
-  LV_TRACE_OBJ_CREATE("begin");
-
-  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)obj;
-
-  if (player->timer)
-    {
-      lv_timer_del(player->timer);
-    }
-
-  ffmpeg_close(player->ffmpeg_ctx);
-
-  LV_TRACE_OBJ_CREATE("finished");
-}
-
-/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -1090,156 +975,8 @@ static void lv_ffmpeg_player_destructor(const lv_obj_class_t *class_p,
 
 void lv_ffmpeg_interface_init(void)
 {
-  lv_img_decoder_t *dec = lv_img_decoder_create();
-  lv_img_decoder_set_info_cb(dec, decoder_info);
-  lv_img_decoder_set_open_cb(dec, decoder_open);
-  lv_img_decoder_set_close_cb(dec, decoder_close);
-}
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_create
- *
- * Description:
- *   Create ffmpeg_player object.
- *
- * Input Parameters:
- *   parent - pointer to an object, it will be the parent of the new player.
- *
- * Returned Value:
- *   pointer to the created ffmpeg_player.
- *
- ****************************************************************************/
-
-lv_obj_t *lv_ffmpeg_player_create(lv_obj_t *parent)
-{
-  lv_obj_t *obj = lv_obj_class_create_obj(MY_CLASS, parent);
-  lv_obj_class_init_obj(obj);
-  return obj;
-}
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_set_src
- *
- * Description:
- *   Set the path of the file to be played.
- *
- * Input Parameters:
- *   ffmpeg_player - pointer to an ffmpeg_player.
- *   filename      - video file name.
- *
- * Returned Value:
- *   LV_RES_OK: no error; LV_RES_INV: can't get the info.
- *
- ****************************************************************************/
-
-lv_res_t lv_ffmpeg_player_set_src(lv_obj_t *ffmpeg_player,
-                                  const char *filename)
-{
-  lv_res_t res = LV_RES_INV;
-
-  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)ffmpeg_player;
-
-  player->ffmpeg_ctx = ffmpeg_open_file(filename);
-
-  if (!player->ffmpeg_ctx)
-    {
-      LV_LOG_ERROR("ffmpeg open failed");
-      goto failed;
-    }
-
-  player->imgdsc.data = ffmpeg_get_img_data(player->ffmpeg_ctx);
-  player->imgdsc.header.always_zero = 0;
-  player->imgdsc.header.cf = (player->ffmpeg_ctx->is_alpha ?
-                          LV_IMG_CF_TRUE_COLOR_ALPHA : LV_IMG_CF_TRUE_COLOR);
-  player->imgdsc.header.h = player->ffmpeg_ctx->video_dec_ctx->height;
-  player->imgdsc.header.w = player->ffmpeg_ctx->video_dec_ctx->width;
-
-  lv_img_set_src(&player->img.obj, &(player->imgdsc));
-
-  int time = ffmpeg_get_frame_interval_time(player->ffmpeg_ctx);
-
-  if (time > 0)
-    {
-      LV_LOG_INFO("frame interval time = %d ms, %d fps\n",
-                  time, 1000 / time);
-      lv_timer_set_period(player->timer, time);
-    }
-
-  res = LV_RES_OK;
-
-failed:
-  return res;
-}
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_set_cmd
- *
- * Description:
- *   Send command control video player.
- *
- * Input Parameters:
- *   ffmpeg_player - pointer to an image.
- *   cmd           - control commands.
- *
- ****************************************************************************/
-
-void lv_ffmpeg_player_set_cmd(lv_obj_t *ffmpeg_player,
-                              lv_ffmpeg_player_cmd_t cmd)
-{
-  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)ffmpeg_player;
-
-  switch (cmd)
-    {
-    case LV_FFMPEG_PLAYER_CMD_START:
-      {
-        av_seek_frame(player->ffmpeg_ctx->fmt_ctx,
-                      0, 0, AVSEEK_FLAG_BACKWARD);
-        lv_timer_resume(player->timer);
-        LV_LOG_INFO("ffmpeg player start");
-        break;
-      }
-    case LV_FFMPEG_PLAYER_CMD_STOP:
-      {
-        av_seek_frame(player->ffmpeg_ctx->fmt_ctx,
-                      0, 0, AVSEEK_FLAG_BACKWARD);
-        lv_timer_pause(player->timer);
-        LV_LOG_INFO("ffmpeg player stop");
-        break;
-      }
-    case LV_FFMPEG_PLAYER_CMD_PAUSE:
-      {
-        lv_timer_pause(player->timer);
-        LV_LOG_INFO("ffmpeg player pause");
-        break;
-      }
-    case LV_FFMPEG_PLAYER_CMD_RESUME:
-      {
-        lv_timer_resume(player->timer);
-        LV_LOG_INFO("ffmpeg player resume");
-        break;
-      }
-    default:
-      {
-        LV_LOG_ERROR("Error cmd: %d", cmd);
-        break;
-      }
-    }
-}
-
-/****************************************************************************
- * Name: lv_ffmpeg_player_set_auto_restart
- *
- * Description:
- *   Set the video to automatically replay.
- *
- * Input Parameters:
- *   ffmpeg_player - pointer to an ffmpeg_player.
- *   en            - true: enable the auto restart.
- *
- ****************************************************************************/
-
-void lv_ffmpeg_player_set_auto_restart(lv_obj_t *ffmpeg_player, bool en)
-{
-  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)ffmpeg_player;
-  player->auto_restart = en;
+    lv_img_decoder_t *dec = lv_img_decoder_create();
+    lv_img_decoder_set_info_cb(dec, decoder_info);
+    lv_img_decoder_set_open_cb(dec, decoder_open);
+    lv_img_decoder_set_close_cb(dec, decoder_close);
 }
