@@ -85,6 +85,7 @@ CSRCS += pipe.c
 CSRCS += fs.c
 CSRCS += fs-poll.c
 CSRCS += timer.c
+CSRCS += process.c
 
 ifneq ($(CONFIG_NET),)
 CSRCS += getaddrinfo.c
