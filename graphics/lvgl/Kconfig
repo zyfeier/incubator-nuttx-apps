@@ -340,6 +340,10 @@ config USE_LV_MULTI_LANG
 	int "Number of languages for labels to store (0 to disable)"
 	default 0
 
+config LV_USE_FREETYPE_INTERFACE
+	bool "Enable freetype2 font driver"
+	default n
+
 endmenu
 
 menu "Log usage"
