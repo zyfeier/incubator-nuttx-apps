@@ -28,4 +28,8 @@ CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" \
 CXXFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" \
 	$(APPDIR)/system/libuv/libuv/include}
 
+ifneq ($(CONFIG_LIBUV_EXTENSION),)
+include $(APPDIR)/system/libuv/ext/Make.defs
+endif
+
 endif

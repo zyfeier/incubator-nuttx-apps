@@ -11,3 +11,13 @@ config LIBUV
 	select CLOCK_MONOTONIC
 	---help---
 		Enable build for libuv asynchronous I/O Library
+
+if LIBUV
+
+config LIBUV_EXTENSION
+    bool "libuv extension"
+    default n
+    ---help---
+      Enable libuv extension
+
+endif
