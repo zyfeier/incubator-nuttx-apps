@@ -1640,6 +1640,56 @@ int cmd_readlink(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
 #ifdef NSH_HAVE_DIROPTS
 #ifndef CONFIG_NSH_DISABLE_RM
+
+static int unlink_recursive(const char *path)
+{
+  struct stat path_stat;
+  int ret;
+
+  ret = lstat(path, &path_stat);
+  if (ret < 0)
+    {
+      return ret;
+    }
+
+  if (S_ISDIR(path_stat.st_mode))
+    {
+      DIR *dp;
+      struct dirent *d;
+
+      dp = opendir(path);
+      if (dp == NULL)
+        {
+          return -1;
+        }
+
+      while ((d = readdir(dp)) != NULL)
+        {
+          char new_path[PATH_MAX];
+
+          if (strcmp(d->d_name, ".") == 0 || strcmp(d->d_name, "..") == 0)
+            {
+              continue;
+            }
+
+          snprintf(new_path, PATH_MAX, "%s/%s", path, d->d_name);
+          ret = unlink_recursive(new_path);
+        }
+
+      ret = closedir(dp);
+      if (ret >= 0)
+        {
+          ret = rmdir(path);
+        }
+
+      return ret;
+    }
+
+  /* !ISDIR */
+
+  return unlink(path);
+}
+
 int cmd_rm(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
   FAR char *fullpath = nsh_getfullpath(vtbl, argv[1]);
@@ -1647,7 +1697,11 @@ int cmd_rm(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
   if (fullpath != NULL)
     {
-      ret = unlink(fullpath);
+      if (strcmp(argv[1], "-r") == 0)
+        ret = unlink_recursive(argv[2]);
+      else
+        ret = unlink(fullpath);
+
       if (ret < 0)
         {
           nsh_error(vtbl, g_fmtcmdfailed, argv[0], "unlink", NSH_ERRNO);
