@@ -253,7 +253,8 @@ static int usrsock_rpmsg_close_handler(struct rpmsg_endpoint *ept,
   struct usrsock_rpmsg_s *priv = priv_;
   int ret = -EBADF;
 
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       priv->pfds[req->usockid].ptr = NULL;
       priv->epts[req->usockid] = NULL;
@@ -283,7 +284,8 @@ static int usrsock_rpmsg_connect_handler(struct rpmsg_endpoint *ept,
   int retr;
   int ret = -EBADF;
 
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       ret = psock_connect(&priv->socks[req->usockid],
               (const struct sockaddr *)(req + 1), req->addrlen);
@@ -391,7 +393,8 @@ static int usrsock_rpmsg_sendto_handler(struct rpmsg_endpoint *ept,
     {
       req = data;
 
-      if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+      if (req->usockid >= 0 &&
+          req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
         {
           total = sizeof(*req) + req->addrlen + req->buflen;
           if (total > len)
@@ -469,7 +472,8 @@ static int usrsock_rpmsg_recvfrom_handler(struct rpmsg_endpoint *ept,
       buflen = len - sizeof(*ack) - inaddrlen;
     }
 
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       ret = psock_recvfrom(&priv->socks[req->usockid],
               (void *)(ack + 1) + inaddrlen, buflen, req->flags,
@@ -503,7 +507,8 @@ static int usrsock_rpmsg_setsockopt_handler(struct rpmsg_endpoint *ept,
   struct usrsock_rpmsg_s *priv = priv_;
   int ret = -EBADF;
 
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       ret = psock_setsockopt(&priv->socks[req->usockid],
               req->level, req->option, req + 1, req->valuelen);
@@ -524,7 +529,8 @@ static int usrsock_rpmsg_getsockopt_handler(struct rpmsg_endpoint *ept,
   uint32_t len;
 
   ack = rpmsg_get_tx_payload_buffer(ept, &len, true);
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       ret = psock_getsockopt(&priv->socks[req->usockid],
               req->level, req->option, ack + 1, &optlen);
@@ -547,7 +553,8 @@ static int usrsock_rpmsg_getsockname_handler(struct rpmsg_endpoint *ept,
   uint32_t len;
 
   ack = rpmsg_get_tx_payload_buffer(ept, &len, true);
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       ret = psock_getsockname(&priv->socks[req->usockid],
               (struct sockaddr *)(ack + 1), &outaddrlen);
@@ -570,7 +577,8 @@ static int usrsock_rpmsg_getpeername_handler(struct rpmsg_endpoint *ept,
   uint32_t len;
 
   ack = rpmsg_get_tx_payload_buffer(ept, &len, true);
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       ret = psock_getpeername(&priv->socks[req->usockid],
               (struct sockaddr *)(ack + 1), &outaddrlen);
@@ -588,7 +596,8 @@ static int usrsock_rpmsg_bind_handler(struct rpmsg_endpoint *ept,
   struct usrsock_rpmsg_s *priv = priv_;
   int ret = -EBADF;
 
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       ret = psock_bind(&priv->socks[req->usockid],
               (const struct sockaddr *)(req + 1), req->addrlen);
@@ -606,7 +615,8 @@ static int usrsock_rpmsg_listen_handler(struct rpmsg_endpoint *ept,
   int retr;
   int ret = -EBADF;
 
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       ret = psock_listen(&priv->socks[req->usockid], req->backlog);
     }
@@ -639,7 +649,8 @@ static int usrsock_rpmsg_accept_handler(struct rpmsg_endpoint *ept,
   int retr;
 
   ack = rpmsg_get_tx_payload_buffer(ept, &len, true);
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       ret = -ENFILE; /* Assume no free socket handler */
       for (i = 0; i < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS; i++)
@@ -705,7 +716,8 @@ static int usrsock_rpmsg_ioctl_handler(struct rpmsg_endpoint *ept,
   uint32_t len;
 
   ack = rpmsg_get_tx_payload_buffer(ept, &len, true);
-  if (req->usockid >= 0 && req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
+  if (req->usockid >= 0 &&
+      req->usockid < CONFIG_NETUTILS_USRSOCK_NSOCK_DESCRIPTORS)
     {
       memcpy(ack + 1, req + 1, req->arglen);
       ret = psock_ioctl(&priv->socks[req->usockid],

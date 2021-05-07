@@ -137,6 +137,10 @@ static const struct wapi_command_s g_wapi_commands[] =
 
 #define NCOMMANDS (sizeof(g_wapi_commands) / sizeof(struct wapi_command_s))
 
+/* Maximum length of the PASSPHRASE, refer to IEEE802.11i specification */
+
+#define PASSPHRASE_MAX_LEN  (64)
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -842,7 +846,7 @@ static int wapi_save_config_cmd(int sock, int argc, FAR char **argv)
   uint8_t if_flags;
   uint32_t value;
   size_t psk_len;
-  char psk[32];
+  char psk[PASSPHRASE_MAX_LEN];
   int ret;
 
   ret = netlib_getifstatus(argv[0], &if_flags);
@@ -956,8 +960,10 @@ static void wapi_showusage(FAR const char *progname, int exitcode)
   fprintf(stderr, "\t%s psk          <ifname> <passphrase> <index/flag>\n",
                    progname);
   fprintf(stderr, "\t%s disconnect   <ifname>\n", progname);
-  fprintf(stderr, "\t%s mode         <ifname> <index/mode>\n", progname);
-  fprintf(stderr, "\t%s ap           <ifname> <MAC address>\n", progname);
+  fprintf(stderr, "\t%s mode         <ifname>              <index/mode>\n",
+                   progname);
+  fprintf(stderr, "\t%s ap           <ifname>              <MAC address>\n",
+                   progname);
   fprintf(stderr, "\t%s bitrate      <ifname> <bitrate>    <index/flag>\n",
                    progname);
   fprintf(stderr, "\t%s txpower      <ifname> <txpower>    <index/flag>\n",
@@ -1019,6 +1025,7 @@ int main(int argc, FAR char *argv[])
   FAR const struct wapi_command_s *wapicmd;
   int sock;
   int i;
+  int ret;
 
   /* Get the command */
 
@@ -1078,7 +1085,8 @@ int main(int argc, FAR char *argv[])
       return EXIT_FAILURE;
     }
 
-  if (wapicmd->handler(sock, argc - 2, argc == 2 ? NULL : &argv[2]) < 0)
+  ret = wapicmd->handler(sock, argc - 2, argc == 2 ? NULL : &argv[2]);
+  if (ret < 0)
     {
       WAPI_ERROR("ERROR: Process command (%s) failed.\n", cmdname);
     }
@@ -1086,5 +1094,5 @@ int main(int argc, FAR char *argv[])
   /* Close communication socket */
 
   close(sock);
-  return EXIT_SUCCESS;
+  return ret;
 }

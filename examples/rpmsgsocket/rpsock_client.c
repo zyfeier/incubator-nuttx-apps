@@ -471,7 +471,7 @@ static int rpsock_dgram_client(int argc, char *argv[])
   args.inbuf = inbuf;
   args.outbuf = outbuf;
   args.nonblock = nonblock;
-  args.bufsize = 128;
+  args.bufsize = SYNCSIZE - 32;
   args.check = false;
 
   rpsock_unsync_test(&args);

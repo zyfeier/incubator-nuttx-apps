@@ -270,7 +270,7 @@ int main(int argc, FAR char *argv[])
       ret = -errno;
       printf("Failed to open device:%s, ret:%s\n",
              devname, strerror(errno));
-      goto opt_err;
+      goto open_err;
     }
 
   ret = ioctl(fd, SNIOC_ACTIVATE, 1);
@@ -315,7 +315,7 @@ int main(int argc, FAR char *argv[])
   fds.fd = fd;
   fds.events = POLLIN;
 
-  while ((!count || received < count) &&!g_should_exit)
+  while ((!count || received < count) && !g_should_exit)
     {
       if (poll(&fds, 1, -1) > 0)
         {
@@ -327,7 +327,8 @@ int main(int argc, FAR char *argv[])
         }
     }
 
-  printf("SensorTest: Received message: %s, number:%d/%d\n", name, received, count);
+  printf("SensorTest: Received message: %s, number:%d/%d\n",
+         name, received, count);
 
   ret = ioctl(fd, SNIOC_ACTIVATE, 0);
   if (ret < 0)
@@ -340,7 +341,7 @@ int main(int argc, FAR char *argv[])
 
 ctl_err:
   close(fd);
-opt_err:
+open_err:
   free(buffer);
 name_err:
   optind = 0;

@@ -24,8 +24,8 @@
 
 #include "adb.h"
 
-#ifdef CONFIG_ADBD_BOARD_INIT
-#include <sys/boardctl.h>
+#if defined(CONFIG_ADBD_BOARD_INIT) || defined (CONFIG_BOARDCTL_RESET)
+#  include <sys/boardctl.h>
 #endif
 
 #ifdef CONFIG_ADBD_NET_INIT
@@ -44,6 +44,15 @@ void adb_log_impl(FAR const char *func, int line, FAR const char *fmt, ...)
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);
   va_end(ap);
+}
+
+void adb_reboot_impl(const char *target)
+{
+#ifdef CONFIG_BOARDCTL_RESET
+  boardctl(BOARDIOC_RESET, 0);
+#else
+  adb_log("reboot not implemented\n");
+#endif
 }
 
 int main(int argc, FAR char **argv)

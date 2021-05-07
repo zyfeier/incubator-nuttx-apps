@@ -94,7 +94,8 @@ static int nxrecorder_opendevice(FAR struct nxrecorder_s *precorder)
           int errcode = errno;
           DEBUGASSERT(errcode > 0);
 
-          auderr("ERROR: Failed to open %s: %d\n", -errcode);
+          auderr("ERROR: Failed to open %s: %d\n",
+                 precorder->device, -errcode);
           UNUSED(errcode);
           return -ENOENT;
         }
@@ -484,7 +485,9 @@ static void *nxrecorder_recordthread(pthread_addr_t pvarg)
 
             /* Send a stop message to the device */
 
+#ifdef CONFIG_DEBUG_FEATURES
             audinfo("Stopping! outstanding=%d\n", outstanding);
+#endif
 
 #ifdef CONFIG_AUDIO_MULTI_SESSION
             ioctl(precorder->dev_fd, AUDIOIOC_STOP,
@@ -503,7 +506,9 @@ static void *nxrecorder_recordthread(pthread_addr_t pvarg)
           /* Message indicating the recordback is complete */
 
           case AUDIO_MSG_COMPLETE:
+#ifdef CONFIG_DEBUG_FEATURES
             audinfo("Record complete.  outstanding=%d\n", outstanding);
+#endif
             running = false;
             break;
 
