@@ -134,6 +134,7 @@ static int critmon_process_directory(FAR struct dirent *entryp)
   FAR char *filepath;
   FAR char *maxpreemp;
   FAR char *maxcrit;
+  FAR char *maxrun;
   FAR char *endptr;
   FILE *stream;
   int errcode;
@@ -229,8 +230,8 @@ static int critmon_process_directory(FAR struct dirent *entryp)
       goto errout_with_filepath;
     }
 
-  /* Input Format:   X.XXXXXXXXX,X.XXXXXXXXX
-   * Output Format:  X.XXXXXXXXX X.XXXXXXXXX NNNNN <name>
+  /* Input Format:   X.XXXXXXXXX,X.XXXXXXXXX,X.XXXXXXXXX
+   * Output Format:  X.XXXXXXXXX X.XXXXXXXXX X.XXXXXXXXX NNNNN <name>
    */
 
   maxpreemp = g_critmon.line;
@@ -239,22 +240,34 @@ static int critmon_process_directory(FAR struct dirent *entryp)
   if (maxcrit != NULL)
     {
       *maxcrit++ = '\0';
-      endptr = strchr(maxcrit, '\n');
-      if (endptr != NULL)
+
+      maxrun = strchr(maxcrit, ',');
+      if (maxrun != NULL)
         {
-          *endptr = '\0';
+          *maxrun++ = '\0';
+
+          endptr = strchr(maxrun, '\n');
+          if (endptr != NULL)
+            {
+              *endptr = '\0';
+            }
+        }
+      else
+        {
+          maxrun = "None";
         }
     }
   else
     {
       maxcrit = "None";
+      maxrun  = "None";
     }
 
   /* Finally, output the stack info that we gleaned from the procfs */
 
 #if CONFIG_TASK_NAME_SIZE > 0
-  printf("%11s %11s %5s %s\n",
-         maxpreemp, maxcrit, entryp->d_name, name);
+  printf("%11s %11s %11s %5s %s\n",
+         maxpreemp, maxcrit, maxrun, entryp->d_name, name);
 #else
   printf("%11s %11s %5s\n",
          maxpreemp, maxcrit, entryp->d_name);
@@ -378,7 +391,7 @@ static void critmon_global_crit(void)
 
       /* Finally, output the stack info that we gleaned from the procfs */
 
-      printf("%11s %11s  ---  CPU %s\n", maxpreemp, maxcrit, cpu);
+      printf("%11s %11s ----------- ----- CPU %s\n", maxpreemp, maxcrit, cpu);
     }
 
   fclose(stream);
@@ -401,11 +414,10 @@ static int critmon_list_once(void)
   /* Output a Header */
 
 #if CONFIG_TASK_NAME_SIZE > 0
-  printf("PRE-EMPTION CSECTION    PID   DESCRIPTION\n");
+  printf("PRE-EMPTION CSECTION    RUN         PID   DESCRIPTION\n");
 #else
-  printf("PRE-EMPTION CSECTION    PID\n");
+  printf("PRE-EMPTION CSECTION    RUN         PID\n");
 #endif
-  printf("MAX DISABLE MAX TIME\n");
 
   /* Should global usage first */
 
