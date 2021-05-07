@@ -138,11 +138,11 @@ $(CXXOBJS): %$(SUFFIX)$(OBJEXT): %$(CXXEXT)
 	$(if $(and $(CONFIG_BUILD_LOADABLE),$(CXXELFFLAGS)), \
 		$(call ELFCOMPILEXX, $<, $@), $(call COMPILEXX, $<, $@))
 
-archive: $(OBJS)
+archive:
 ifeq ($(CONFIG_CYGWIN_WINTOOL),y)
-	$(call ARCHIVE_ADD, "${shell cygpath -w $(BIN)}", $^)
+	$(call ARCHIVE_ADD, "${shell cygpath -w $(BIN)}", $(OBJS))
 else
-	$(call ARCHIVE_ADD, $(BIN), $^)
+	$(call ARCHIVE_ADD, $(BIN), $(OBJS))
 endif
 
 ifeq ($(BUILD_MODULE),y)
