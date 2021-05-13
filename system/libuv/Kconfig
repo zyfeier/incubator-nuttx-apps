@@ -20,4 +20,23 @@ config LIBUV_EXTENSION
     ---help---
       Enable libuv extension
 
+config LIBUV_EXTENSION_TEST
+	bool "libuv extension test"
+	default n
+	depends on LIBUV_EXTENSION
+	---help---
+      Enable libuv extension test
+
+if LIBUV_EXTENSION_TEST
+
+config LIBUV_EXTENSION_TEST_PRIORITY
+	int "libuv extension test priority"
+	default 100
+
+config LIBUV_EXTENSION_TEST_TASK_STACKSIZE
+	int "libuv extension test stack size"
+	default 65535
+
+endif
+
 endif
