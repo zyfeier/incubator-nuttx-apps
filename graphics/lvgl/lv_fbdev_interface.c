@@ -158,7 +158,7 @@ static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
   fb_area.x = act_x1;
   fb_area.y = act_y1;
   fb_area.w = act_x2 - act_x1 + 1;
-  fb_area.h = act_y2 - cat_y1 + 1;
+  fb_area.h = act_y2 - act_y1 + 1;
   ioctl(fbdev_obj->fd, FBIO_UPDATE, (unsigned long)((uintptr_t)&fb_area));
 #endif
 
