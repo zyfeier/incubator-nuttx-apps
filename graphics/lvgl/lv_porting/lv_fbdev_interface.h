@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_lcd_interface.h
+ * graphics/lvgl/lv_porting/lv_fbdev_interface.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +18,8 @@
  *
  ****************************************************************************/
 
-#ifndef __LV_LCD_INTERFACE_H__
-#define __LV_LCD_INTERFACE_H__
+#ifndef __LV_FBDEV_INTERFACE_H__
+#define __LV_FBDEV_INTERFACE_H__
 
 /****************************************************************************
  * Included Files
@@ -32,7 +32,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#if defined(CONFIG_LV_USE_LCD_INTERFACE)
+#if defined(CONFIG_LV_USE_FBDEV_INTERFACE)
 
 /****************************************************************************
  * Type Definitions
@@ -55,13 +55,13 @@ extern "C"
  ****************************************************************************/
 
 /****************************************************************************
- * Name: lv_lcd_interface_init
+ * Name: lv_fbdev_interface_init
  *
  * Description:
- *   Lcd interface initialization.
+ *   Framebuffer device interface initialization.
  *
  * Input Parameters:
- *   dev_path - lcd device path, set to NULL to use the default path
+ *   dev_path - Framebuffer device path, set to NULL to use the default path
  *   line_buf - Number of line buffers,
  *              set to 0 to use the default line buffer
  *
@@ -70,13 +70,13 @@ extern "C"
  *
  ****************************************************************************/
 
-lv_disp_t *lv_lcd_interface_init(const char *dev_path, int line_buf);
+lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf);
 
 #undef EXTERN
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CONFIG_LV_USE_LCD_INTERFACE */
+#endif /* CONFIG_LV_USE_FBDEV_INTERFACE */
 
-#endif /* __LV_LCD_INTERFACE_H__ */
+#endif /* __LV_FBDEV_INTERFACE_H__ */

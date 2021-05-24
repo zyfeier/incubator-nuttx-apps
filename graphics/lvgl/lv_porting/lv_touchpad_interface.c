@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_touchpad_interface.c
+ * graphics/lvgl/lv_porting/lv_touchpad_interface.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -47,6 +47,7 @@ struct touchpad_obj_s
   lv_coord_t last_x;
   lv_coord_t last_y;
   lv_indev_state_t last_state;
+  lv_indev_drv_t indev_drv;
 };
 
 /****************************************************************************
@@ -57,7 +58,7 @@ struct touchpad_obj_s
  * Name: touchpad_read
  ****************************************************************************/
 
-static bool touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
+static void touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
   struct touchpad_obj_s *touchpad_obj =
     (struct touchpad_obj_s *)drv->user_data;
@@ -96,8 +97,6 @@ update_points:
   data->point.x = touchpad_obj->last_x;
   data->point.y = touchpad_obj->last_y;
   data->state = touchpad_obj->last_state;
-
-  return false;
 }
 
 /****************************************************************************
@@ -120,16 +119,15 @@ static lv_indev_t *touchpad_init(int fd)
   touchpad_obj->last_y = 0;
   touchpad_obj->last_state = LV_INDEV_STATE_REL;
 
-  lv_indev_drv_t indev_drv;
-  lv_indev_drv_init(&indev_drv);
-  indev_drv.type = LV_INDEV_TYPE_POINTER;
-  indev_drv.read_cb = touchpad_read;
+  lv_indev_drv_init(&(touchpad_obj->indev_drv));
+  touchpad_obj->indev_drv.type = LV_INDEV_TYPE_POINTER;
+  touchpad_obj->indev_drv.read_cb = touchpad_read;
 #if ( LV_USE_USER_DATA != 0 )
-  indev_drv.user_data = touchpad_obj;
+  touchpad_obj->indev_drv.user_data = touchpad_obj;
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
-  return lv_indev_drv_register(&indev_drv);
+  return lv_indev_drv_register(&(touchpad_obj->indev_drv));
 }
 
 /****************************************************************************

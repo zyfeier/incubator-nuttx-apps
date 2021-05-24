@@ -46,39 +46,46 @@ CFLAGS += -Wno-format
 
 # LVGL Libraries
 
--include ./lvgl/src/lv_core/lv_core.mk
--include ./lvgl/src/lv_hal/lv_hal.mk
--include ./lvgl/src/lv_widgets/lv_widgets.mk
--include ./lvgl/src/lv_font/lv_font.mk
--include ./lvgl/src/lv_misc/lv_misc.mk
--include ./lvgl/src/lv_themes/lv_themes.mk
--include ./lvgl/src/lv_draw/lv_draw.mk
--include ./lvgl/src/lv_gpu/lv_gpu.mk
+#-include ./lvgl/examples/examples.mk
+-include ./lvgl/src/extra/extra.mk
+-include ./lvgl/src/core/lv_core.mk
+-include ./lvgl/src/draw/lv_draw.mk
+-include ./lvgl/src/font/lv_font.mk
+-include ./lvgl/src/gpu/lv_gpu.mk
+-include ./lvgl/src/hal/lv_hal.mk
+-include ./lvgl/src/misc/lv_misc.mk
+-include ./lvgl/src/widgets/lv_widgets.mk
 
-CSRCS += lv_tick_interface.c
-
-ifneq ($(CONFIG_USE_LV_FILESYSTEM),)
-CSRCS += lv_fs_interface.c
-endif
+CSRCS += lv_porting/lv_tick_interface.c
+CSRCS += lv_porting/lv_fs_interface.c
 
 ifneq ($(CONFIG_LV_USE_BUTTON_INTERFACE),)
-CSRCS += lv_button_interface.c
+CSRCS += lv_porting/lv_button_interface.c
 endif
 
 ifneq ($(CONFIG_LV_USE_KEYPAD_INTERFACE),)
-CSRCS += lv_keypad_interface.c
+CSRCS += lv_porting/lv_keypad_interface.c
 endif
 
 ifneq ($(CONFIG_LV_USE_TOUCHPAD_INTERFACE),)
-CSRCS += lv_touchpad_interface.c
+CSRCS += lv_porting/lv_touchpad_interface.c
 endif
 
-ifneq ($(CONFIG_LV_USE_LCD_INTERFACE),)
-CSRCS += lv_lcd_interface.c
+ifneq ($(CONFIG_LV_USE_LCDDEV_INTERFACE),)
+CSRCS += lv_porting/lv_lcddev_interface.c
 endif
 
 ifneq ($(CONFIG_LV_USE_FBDEV_INTERFACE),)
-CSRCS += lv_fbdev_interface.c
+CSRCS += lv_porting/lv_fbdev_interface.c
+endif
+
+ifneq ($(CONFIG_LV_USE_FREETYPE_INTERFACE),)
+CSRCS += lv_porting/lv_freetype_interface.c
+endif
+
+ifneq ($(CONFIG_LV_USE_FFMPEG_INTERFACE),)
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/ffmpeg}
+CSRCS += lv_porting/lv_ffmpeg_interface.c
 endif
 
 ifneq ($(CONFIG_LV_USE_FREETYPE_INTERFACE),)

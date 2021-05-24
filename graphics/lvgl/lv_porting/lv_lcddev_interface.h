@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_tick_interface.c
+ * graphics/lvgl/lv_porting/lv_lcddev_interface.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,47 +18,65 @@
  *
  ****************************************************************************/
 
+#ifndef __LV_LCDDEV_INTERFACE_H__
+#define __LV_LCDDEV_INTERFACE_H__
+
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <time.h>
-#include "lv_tick_interface.h"
+#include <lvgl/lvgl.h>
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
+#if defined(CONFIG_LV_USE_LCDDEV_INTERFACE)
+
 /****************************************************************************
- * Private Type Declarations
+ * Type Definitions
  ****************************************************************************/
 
 /****************************************************************************
- * Private Function Prototypes
+ * Public Data
  ****************************************************************************/
 
-/****************************************************************************
- * Private Data
- ****************************************************************************/
-
-/****************************************************************************
- * Private Functions
- ****************************************************************************/
-
-/****************************************************************************
- * Public Functions
- ****************************************************************************/
-
-uint32_t lv_tick_interface(void)
+#ifdef __cplusplus
+#define EXTERN extern "C"
+extern "C"
 {
-  struct timespec ts;
-
-#ifdef CONFIG_CLOCK_MONOTONIC
-  clock_gettime(CLOCK_MONOTONIC, &ts);
 #else
-  clock_gettime(CLOCK_REALTIME, &ts);
+#define EXTERN extern
 #endif
 
-  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: lv_lcddev_interface_init
+ *
+ * Description:
+ *   lcddev interface initialization.
+ *
+ * Input Parameters:
+ *   dev_path - lcd device path, set to NULL to use the default path
+ *   line_buf - Number of line buffers,
+ *              set to 0 to use the default line buffer
+ *
+ * Returned Value:
+ *   lv_disp object address on success; NULL on failure.
+ *
+ ****************************************************************************/
+
+lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf);
+
+#undef EXTERN
+#ifdef __cplusplus
 }
+#endif
+
+#endif /* CONFIG_LV_USE_LCDDEV_INTERFACE */
+
+#endif /* __LV_LCDDEV_INTERFACE_H__ */

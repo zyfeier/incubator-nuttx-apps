@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_button_interface.c
+ * graphics/lvgl/lv_porting/lv_keypad_interface.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -31,33 +31,42 @@
 #include <errno.h>
 #include <debug.h>
 #include <nuttx/input/buttons.h>
-#include "lv_button_interface.h"
+#include "lv_keypad_interface.h"
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define BUTTON_0_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_0_MAP_X
-#define BUTTON_0_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_0_MAP_Y
-#define BUTTON_1_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_1_MAP_X
-#define BUTTON_1_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_1_MAP_Y
-#define BUTTON_2_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_2_MAP_X
-#define BUTTON_2_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_2_MAP_Y
-#define BUTTON_3_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_3_MAP_X
-#define BUTTON_3_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_3_MAP_Y
-#define BUTTON_4_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_4_MAP_X
-#define BUTTON_4_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_4_MAP_Y
-#define BUTTON_5_MAP_X              CONFIG_LV_BUTTON_INTERFACE_BUTTON_5_MAP_X
-#define BUTTON_5_MAP_Y              CONFIG_LV_BUTTON_INTERFACE_BUTTON_5_MAP_Y
+#define LV_KEY_UP_MAP_BIT           CONFIG_LV_KEYPAD_INTERFACE_KEY_UP_MAP_BIT
+#define LV_KEY_DOWN_MAP_BIT         CONFIG_LV_KEYPAD_INTERFACE_KEY_DOWN_MAP_BIT
+#define LV_KEY_RIGHT_MAP_BIT        CONFIG_LV_KEYPAD_INTERFACE_KEY_RIGHT_MAP_BIT
+#define LV_KEY_LEFT_MAP_BIT         CONFIG_LV_KEYPAD_INTERFACE_KEY_LEFT_MAP_BIT
+
+#define LV_KEY_ESC_MAP_BIT          CONFIG_LV_KEYPAD_INTERFACE_KEY_ESC_MAP_BIT
+#define LV_KEY_DEL_MAP_BIT          CONFIG_LV_KEYPAD_INTERFACE_KEY_DEL_MAP_BIT
+#define LV_KEY_BACKSPACE_MAP_BIT    CONFIG_LV_KEYPAD_INTERFACE_KEY_BACKSPACE_MAP_BIT
+#define LV_KEY_ENTER_MAP_BIT        CONFIG_LV_KEYPAD_INTERFACE_KEY_ENTER_MAP_BIT
+
+#define LV_KEY_NEXT_MAP_BIT         CONFIG_LV_KEYPAD_INTERFACE_KEY_NEXT_MAP_BIT
+#define LV_KEY_PREV_MAP_BIT         CONFIG_LV_KEYPAD_INTERFACE_KEY_PREV_MAP_BIT
+#define LV_KEY_HOME_MAP_BIT         CONFIG_LV_KEYPAD_INTERFACE_KEY_HOME_MAP_BIT
+#define LV_KEY_END_MAP_BIT          CONFIG_LV_KEYPAD_INTERFACE_KEY_END_MAP_BIT
 
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
 
-struct button_obj_s
+struct keypad_map_s
+{
+  const lv_key_t key;
+  int bit;
+};
+
+struct keypad_obj_s
 {
   int fd;
-  uint8_t last_btn;
+  uint32_t last_key;
+  lv_indev_drv_t indev_drv;
 };
 
 /****************************************************************************
@@ -68,16 +77,20 @@ struct button_obj_s
  * Private Data
  ****************************************************************************/
 
-/* Assign buttons to points on the screen */
-
-static const lv_point_t button_points_map[6] =
+static const struct keypad_map_s keypad_map[] =
 {
-  {BUTTON_0_MAP_X, BUTTON_0_MAP_Y},
-  {BUTTON_1_MAP_X, BUTTON_1_MAP_Y},
-  {BUTTON_2_MAP_X, BUTTON_2_MAP_Y},
-  {BUTTON_3_MAP_X, BUTTON_3_MAP_Y},
-  {BUTTON_4_MAP_X, BUTTON_4_MAP_Y},
-  {BUTTON_5_MAP_X, BUTTON_5_MAP_Y}
+  {.key = LV_KEY_UP,        .bit = LV_KEY_UP_MAP_BIT},
+  {.key = LV_KEY_DOWN,      .bit = LV_KEY_DOWN_MAP_BIT},
+  {.key = LV_KEY_RIGHT,     .bit = LV_KEY_RIGHT_MAP_BIT},
+  {.key = LV_KEY_LEFT,      .bit = LV_KEY_LEFT_MAP_BIT},
+  {.key = LV_KEY_ESC,       .bit = LV_KEY_ESC_MAP_BIT},
+  {.key = LV_KEY_DEL,       .bit = LV_KEY_DEL_MAP_BIT},
+  {.key = LV_KEY_BACKSPACE, .bit = LV_KEY_BACKSPACE_MAP_BIT},
+  {.key = LV_KEY_ENTER,     .bit = LV_KEY_ENTER_MAP_BIT},
+  {.key = LV_KEY_NEXT,      .bit = LV_KEY_NEXT_MAP_BIT},
+  {.key = LV_KEY_PREV,      .bit = LV_KEY_PREV_MAP_BIT},
+  {.key = LV_KEY_HOME,      .bit = LV_KEY_HOME_MAP_BIT},
+  {.key = LV_KEY_END,       .bit = LV_KEY_END_MAP_BIT}
 };
 
 /****************************************************************************
@@ -85,97 +98,92 @@ static const lv_point_t button_points_map[6] =
  ****************************************************************************/
 
 /****************************************************************************
- * Name: button_get_pressed_id
+ * Name: keypad_get_key
  ****************************************************************************/
 
-static int button_get_pressed_id(int fd)
+static uint32_t keypad_get_key(int fd)
 {
-  int btn_act = -1;
+  uint32_t act_key = 0;
   btn_buttonset_t buttonset;
   const int buttonset_bits = sizeof(btn_buttonset_t) * 8;
 
   int ret = read(fd, &buttonset, sizeof(btn_buttonset_t));
   if (ret < 0)
     {
-      return -1;
+      return 0;
     }
 
-  for (int bit = 0; bit < buttonset_bits; bit++)
+  for (int i = 0; i < sizeof(keypad_map) / sizeof(struct keypad_map_s); i++)
     {
-      btn_buttonset_t mask = 1 << bit;
+      int bit = keypad_map[i].bit;
 
-      if (buttonset & mask)
+      if (bit >= 0 && bit < buttonset_bits)
         {
-          btn_act = bit;
-          break;
+          btn_buttonset_t mask = 1 << bit;
+          if (buttonset & mask)
+            {
+              act_key = keypad_map[i].key;
+              break;
+            }
         }
     }
 
-  return btn_act;
+  return act_key;
 }
 
 /****************************************************************************
- * Name: lv_button_interface_read
+ * Name: keypad_read
  ****************************************************************************/
 
-static bool button_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
+static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-  struct button_obj_s *button_obj = (struct button_obj_s *)drv->user_data;
+  struct keypad_obj_s *keypad_obj = (struct keypad_obj_s *)drv->user_data;
 
-  /* Get the pressed button's ID */
+  /* Get whether the a key is pressed and save the pressed key */
 
-  int btn_act = button_get_pressed_id(button_obj->fd);
-
-  if (btn_act >= 0)
+  uint32_t act_key = keypad_get_key(keypad_obj->fd);
+  if (act_key != 0)
     {
       data->state = LV_INDEV_STATE_PR;
-      button_obj->last_btn = btn_act;
+      keypad_obj->last_key = act_key;
     }
   else
     {
       data->state = LV_INDEV_STATE_REL;
     }
 
-  /* Save the last pressed button's ID */
-
-  data->btn_id = button_obj->last_btn;
-
-  /* Return `false` because we are not buffering and no more data to read */
-
-  return false;
+  data->key = keypad_obj->last_key;
 }
 
 /****************************************************************************
- * Name: button_init
+ * Name: keypad_init
  ****************************************************************************/
 
-static lv_indev_t *button_init(int fd)
+static lv_indev_t *keypad_init(int fd)
 {
-  struct button_obj_s *button_obj =
-    (struct button_obj_s *)malloc(sizeof(struct button_obj_s));
+  struct keypad_obj_s *keypad_obj =
+    (struct keypad_obj_s *)lv_mem_alloc(sizeof(struct keypad_obj_s));
 
-  if (button_obj == NULL)
+  if (keypad_obj == NULL)
     {
-      LV_LOG_ERROR("button_obj_s malloc failed");
+      LV_LOG_ERROR("keypad_obj_s malloc failed");
       return NULL;
     }
 
-  button_obj->fd = fd;
-  button_obj->last_btn = 0;
+  keypad_obj->fd = fd;
+  keypad_obj->last_key = 0;
 
-  lv_indev_drv_t indev_drv;
-  lv_indev_drv_init(&indev_drv);
-  indev_drv.type = LV_INDEV_TYPE_BUTTON;
-  indev_drv.read_cb = button_read;
+  /* Register a keypad input device */
+
+  lv_indev_drv_init(&(keypad_obj->indev_drv));
+  keypad_obj->indev_drv.type = LV_INDEV_TYPE_KEYPAD;
+  keypad_obj->indev_drv.read_cb = keypad_read;
 #if ( LV_USE_USER_DATA != 0 )
-  indev_drv.user_data = button_obj;
+  keypad_obj->indev_drv.user_data = keypad_obj;
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
-  lv_indev_t *indev_button = lv_indev_drv_register(&indev_drv);
-  lv_indev_set_button_points(indev_button, button_points_map);
-
-  return indev_button;
+  return lv_indev_drv_register(&(keypad_obj->indev_drv));
 }
 
 /****************************************************************************
@@ -183,10 +191,10 @@ static lv_indev_t *button_init(int fd)
  ****************************************************************************/
 
 /****************************************************************************
- * Name: lv_button_interface_init
+ * Name: lv_keypad_interface_init
  *
  * Description:
- *   Button interface initialization.
+ *   Keypad interface initialization.
  *
  * Input Parameters:
  *   dev_path - input device path, set to NULL to use the default path
@@ -196,21 +204,21 @@ static lv_indev_t *button_init(int fd)
  *
  ****************************************************************************/
 
-lv_indev_t *lv_button_interface_init(const char *dev_path)
+lv_indev_t *lv_keypad_interface_init(const char *dev_path)
 {
   const char *device_path = dev_path;
 
   if (device_path == NULL)
     {
-      device_path = CONFIG_LV_BUTTON_INTERFACE_DEFAULT_DEVICEPATH;
+      device_path = CONFIG_LV_KEYPAD_INTERFACE_DEFAULT_DEVICEPATH;
     }
 
-  LV_LOG_INFO("button opening %s", device_path);
+  LV_LOG_INFO("keypad opening %s", device_path);
   int fd = open(device_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
       int errcode = errno;
-      LV_LOG_ERROR("button open failed: %d", errcode);
+      LV_LOG_ERROR("keypad open failed: %d", errcode);
       return NULL;
     }
 
@@ -230,5 +238,5 @@ lv_indev_t *lv_button_interface_init(const char *dev_path)
 
   LV_LOG_INFO("button supported BUTTONs 0x%08x", (unsigned int)supported);
 
-  return button_init(fd);
+  return keypad_init(fd);
 }

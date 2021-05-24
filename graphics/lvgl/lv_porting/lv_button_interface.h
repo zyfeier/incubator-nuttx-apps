@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_tick_interface.h
+ * graphics/lvgl/lv_porting/lv_button_interface.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,18 +18,21 @@
  *
  ****************************************************************************/
 
-#ifndef __LV_TICK_INTERFACE_H__
-#define __LV_TICK_INTERFACE_H__
+#ifndef __LV_BUTTON_INTERFACE_H__
+#define __LV_BUTTON_INTERFACE_H__
 
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <lvgl/lvgl.h>
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
+
+#if defined(CONFIG_LV_USE_BUTTON_INTERFACE)
 
 /****************************************************************************
  * Type Definitions
@@ -51,11 +54,27 @@ extern "C"
  * Public Function Prototypes
  ****************************************************************************/
 
-uint32_t lv_tick_interface(void);
+/****************************************************************************
+ * Name: lv_button_interface_init
+ *
+ * Description:
+ *   Button interface initialization.
+ *
+ * Input Parameters:
+ *   dev_path - input device path, set to NULL to use the default path
+ *
+ * Returned Value:
+ *   lv_indev object address on success; NULL on failure.
+ *
+ ****************************************************************************/
+
+lv_indev_t *lv_button_interface_init(const char *dev_path);
 
 #undef EXTERN
 #ifdef __cplusplus
 }
 #endif
 
-#endif // __LV_TICK_INTERFACE_H__
+#endif /* CONFIG_LV_USE_BUTTON_INTERFACE */
+
+#endif /* __LV_BUTTON_INTERFACE_H__ */

@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_fbdev_interface.c
+ * graphics/lvgl/lv_porting/lv_fbdev_interface.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -32,6 +32,8 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include "lv_fbdev_interface.h"
 
 /****************************************************************************
@@ -48,7 +50,14 @@ struct fbdev_obj_s
   struct fb_videoinfo_s vinfo;
   struct fb_planeinfo_s pinfo;
   void *fbmem;
-  lv_disp_buf_t disp_buf;
+  lv_disp_draw_buf_t disp_draw_buf;
+  lv_disp_drv_t disp_drv;
+  lv_area_t area;
+  lv_color_t *color_p;
+
+  pthread_t write_thread;
+  sem_t flush_sem;
+  sem_t wait_sem;
 };
 
 /****************************************************************************
@@ -60,48 +69,63 @@ struct fbdev_obj_s
  ****************************************************************************/
 
 /****************************************************************************
- * Name: fbdev_flush
+ * Name: fbdev_wait
  ****************************************************************************/
 
-static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
-                        lv_color_t *color_p)
+static void fbdev_wait(lv_disp_drv_t *disp_drv)
 {
-  struct fbdev_obj_s *fbdev_obj = (struct fbdev_obj_s *)disp_drv->user_data;
+  struct fbdev_obj_s *fbdev_obj;
+  fbdev_obj = (struct fbdev_obj_s *)(disp_drv->user_data);
 
-  int32_t x1 = area_p->x1;
-  int32_t y1 = area_p->y1;
-  int32_t x2 = area_p->x2;
-  int32_t y2 = area_p->y2;
+  sem_wait(&(fbdev_obj->wait_sem));
+
+  /* Tell the flushing is ready */
+
+  lv_disp_flush_ready(disp_drv);
+}
+
+/****************************************************************************
+ * Name: fbdev_flush_internal
+ ****************************************************************************/
+
+static int fbdev_flush_internal(struct fbdev_obj_s *fbdev_obj)
+{
+  int ret = OK;
+  int32_t x1 = fbdev_obj->area.x1;
+  int32_t y1 = fbdev_obj->area.y1;
+  int32_t x2 = fbdev_obj->area.x2;
+  int32_t y2 = fbdev_obj->area.y2;
   int32_t act_x1;
   int32_t act_y1;
   int32_t act_x2;
   int32_t act_y2;
+  lv_color_t *color_p = fbdev_obj->color_p;
 
   if (fbdev_obj->fbmem == NULL)
     {
-      return;
+      return ERROR;
     }
 
   /* Return if the area is out the screen */
 
   if (x2 < 0)
     {
-      return;
+      return ERROR;
     }
 
   if (y2 < 0)
     {
-      return;
+      return ERROR;
     }
 
   if (x1 > fbdev_obj->vinfo.xres - 1)
     {
-      return;
+      return ERROR;
     }
 
   if (y1 > fbdev_obj->vinfo.yres - 1)
     {
-      return;
+      return ERROR;
     }
 
   /* Truncate the area to the screen */
@@ -158,23 +182,68 @@ static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
   fb_area.x = act_x1;
   fb_area.y = act_y1;
   fb_area.w = act_x2 - act_x1 + 1;
-  fb_area.h = act_y2 - act_y1 + 1;
-  ioctl(fbdev_obj->fd, FBIO_UPDATE, (unsigned long)((uintptr_t)&fb_area));
+  fb_area.h = act_y2 - cat_y1 + 1;
+  ret = ioctl(fbdev_obj->fd, FBIO_UPDATE, (unsigned long)((uintptr_t)&fb_area));
 #endif
 
-  /* Tell the flushing is ready */
+  return ret;
+}
 
-  lv_disp_flush_ready(disp_drv);
+/****************************************************************************
+ * Name: fbdev_update_thread
+ ****************************************************************************/
+
+static void *fbdev_update_thread(void *arg)
+{
+  int ret = OK;
+  int errcode;
+  struct fbdev_obj_s *fbdev_obj = arg;
+
+  while (ret == OK)
+    {
+      sem_wait(&(fbdev_obj->flush_sem));
+
+      ret = fbdev_flush_internal(fbdev_obj);
+      if (ret < 0)
+        {
+          errcode = errno;
+        }
+
+      sem_post(&(fbdev_obj->wait_sem));
+    }
+
+  gerr("Failed to write buffer contents to display device: %d\n", errcode);
+
+  return NULL;
+}
+
+/****************************************************************************
+ * Name: fbdev_flush
+ ****************************************************************************/
+
+static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
+                        lv_color_t *color_p)
+{
+  struct fbdev_obj_s *fbdev_obj;
+  fbdev_obj = (struct fbdev_obj_s *)disp_drv->user_data;
+
+  fbdev_obj->area = *area_p;
+  fbdev_obj->color_p = color_p;
+
+  sem_post(&(fbdev_obj->flush_sem));
 }
 
 /****************************************************************************
  * Name: fbdev_init
  ****************************************************************************/
 
-static lv_disp_t *fbdev_init(struct fbdev_obj_s *state, int line_buf)
+static lv_disp_t *fbdev_init(struct fbdev_obj_s *state,
+                              int hor_res, int ver_res, int line_buf)
 {
-  struct fbdev_obj_s *fbdev_obj =
-    (struct fbdev_obj_s *)malloc(sizeof(struct fbdev_obj_s));
+  lv_color_t *buf1 = NULL;
+  lv_color_t *buf2 = NULL;
+  struct fbdev_obj_s *fbdev_obj;
+  fbdev_obj = (struct fbdev_obj_s *)malloc(sizeof(struct fbdev_obj_s));
 
   if (fbdev_obj == NULL)
     {
@@ -182,34 +251,57 @@ static lv_disp_t *fbdev_init(struct fbdev_obj_s *state, int line_buf)
       return NULL;
     }
 
-  const size_t buf_size = LV_HOR_RES_MAX * line_buf * sizeof(lv_color_t);
+  const size_t buf_size = hor_res * line_buf * sizeof(lv_color_t);
 
-  lv_color_t *buf = (lv_color_t *)malloc(buf_size);
-
-  if (buf == NULL)
+  buf1 = (lv_color_t *)malloc(buf_size);
+  if (buf1 == NULL)
     {
-      LV_LOG_ERROR("display buffer malloc failed");
+      LV_LOG_ERROR("display buf1 malloc failed");
       free(fbdev_obj);
       return NULL;
     }
 
-  LV_LOG_INFO("display buffer malloc success, size = %ld", buf_size);
+#if CONFIG_LV_USE_DOUBLE_BUFFER
+  buf2 = (lv_color_t *)malloc(buf_size);
+  if (buf2 == NULL)
+    {
+      LV_LOG_ERROR("display buf2 malloc failed");
+      free(fbdev_obj);
+      free(buf1);
+      return NULL;
+    }
+#endif
+
+  LV_LOG_INFO("display buffer malloc success, buf size = %lu", buf_size);
 
   memcpy(fbdev_obj, state, sizeof(struct fbdev_obj_s));
 
-  lv_disp_buf_init(&(fbdev_obj->disp_buf), buf, NULL,
-                       LV_HOR_RES_MAX * line_buf);
+  lv_disp_draw_buf_init(&(fbdev_obj->disp_draw_buf), buf1, buf2,
+                          hor_res * line_buf);
 
-  lv_disp_drv_t disp_drv;
-  lv_disp_drv_init(&disp_drv);
-  disp_drv.flush_cb = fbdev_flush;
-  disp_drv.buffer = &(fbdev_obj->disp_buf);
+  lv_disp_drv_init(&(fbdev_obj->disp_drv));
+  fbdev_obj->disp_drv.flush_cb = fbdev_flush;
+  fbdev_obj->disp_drv.draw_buf = &(fbdev_obj->disp_draw_buf);
+  fbdev_obj->disp_drv.hor_res = hor_res;
+  fbdev_obj->disp_drv.ver_res = ver_res;
 #if ( LV_USE_USER_DATA != 0 )
-  disp_drv.user_data = fbdev_obj;
+  fbdev_obj->disp_drv.user_data = fbdev_obj;
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
-  return lv_disp_drv_register(&disp_drv);
+  fbdev_obj->disp_drv.wait_cb = fbdev_wait;
+
+  /* Initialize the mutexes for buffer flushing synchronization */
+
+  sem_init(&(fbdev_obj->flush_sem), 0, 0);
+  sem_init(&(fbdev_obj->wait_sem), 0, 0);
+
+  /* Initialize the buffer flushing thread */
+
+  pthread_create(&(fbdev_obj->write_thread), NULL,
+                  fbdev_update_thread, fbdev_obj);
+
+  return lv_disp_drv_register(&(fbdev_obj->disp_drv));
 }
 
 /****************************************************************************
@@ -244,7 +336,7 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
 
   if (line_buffer <= 0)
     {
-      line_buffer = CONFIG_LV_FBDEV_INTERFACE_DEFAULT_LINE_BUFF;
+      line_buffer = CONFIG_LV_DEFAULT_LINE_BUFFER;
     }
 
   LV_LOG_INFO("fbdev opening %s", device_path);
@@ -328,5 +420,5 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
 
   LV_LOG_INFO("Mapped FB: %p", state.fbmem);
 
-  return fbdev_init(&state, line_buffer);
+  return fbdev_init(&state, state.vinfo.xres, state.vinfo.yres, line_buffer);
 }

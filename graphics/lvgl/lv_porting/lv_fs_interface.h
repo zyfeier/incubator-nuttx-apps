@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_keypad_interface.h
+ * graphics/lvgl/lv_porting/lv_fs_interface.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +18,8 @@
  *
  ****************************************************************************/
 
-#ifndef __LV_KEYPAD_INTERFACE_H__
-#define __LV_KEYPAD_INTERFACE_H__
+#ifndef __LV_FS_INTERFACE_H__
+#define __LV_FS_INTERFACE_H__
 
 /****************************************************************************
  * Included Files
@@ -31,8 +31,6 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-
-#if defined(CONFIG_LV_USE_KEYPAD_INTERFACE)
 
 /****************************************************************************
  * Type Definitions
@@ -51,26 +49,14 @@ extern "C"
 #endif
 
 /****************************************************************************
- * Name: lv_keypad_interface_init
- *
- * Description:
- *   Keypad interface initialization.
- *
- * Input Parameters:
- *   dev_path - input device path, set to NULL to use the default path
- *
- * Returned Value:
- *   lv_indev object address on success; NULL on failure.
- *
+ * Public Function Prototypes
  ****************************************************************************/
 
-lv_indev_t *lv_keypad_interface_init(const char *dev_path);
+void lv_fs_interface_init(void);
 
 #undef EXTERN
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CONFIG_LV_USE_KEYPAD_INTERFACE */
-
-#endif /* __LV_KEYPAD_INTERFACE_H__ */
+#endif /* __LV_FS_INTERFACE_H__ */

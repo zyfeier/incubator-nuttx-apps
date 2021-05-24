@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_fbdev_interface.h
+ * graphics/lvgl/lv_porting/lv_touchpad_interface.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +18,8 @@
  *
  ****************************************************************************/
 
-#ifndef __LV_FBDEV_INTERFACE_H__
-#define __LV_FBDEV_INTERFACE_H__
+#ifndef __LV_TOUCHPAD_INTERFACE_H__
+#define __LV_TOUCHPAD_INTERFACE_H__
 
 /****************************************************************************
  * Included Files
@@ -32,7 +32,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#if defined(CONFIG_LV_USE_FBDEV_INTERFACE)
+#if defined(CONFIG_LV_USE_TOUCHPAD_INTERFACE)
 
 /****************************************************************************
  * Type Definitions
@@ -55,28 +55,26 @@ extern "C"
  ****************************************************************************/
 
 /****************************************************************************
- * Name: lv_fbdev_interface_init
+ * Name: lv_touchpad_interface_init
  *
  * Description:
- *   Framebuffer device interface initialization.
+ *   Touchpad interface initialization.
  *
  * Input Parameters:
- *   dev_path - Framebuffer device path, set to NULL to use the default path
- *   line_buf - Number of line buffers,
- *              set to 0 to use the default line buffer
+ *   dev_path - input device path, set to NULL to use the default path
  *
  * Returned Value:
- *   lv_disp object address on success; NULL on failure.
+ *   lv_indev object address on success; NULL on failure.
  *
  ****************************************************************************/
 
-lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf);
+lv_indev_t *lv_touchpad_interface_init(const char *dev_path);
 
 #undef EXTERN
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CONFIG_LV_USE_FBDEV_INTERFACE */
+#endif /* CONFIG_LV_USE_TOUCHPAD_INTERFACE */
 
-#endif /* __LV_FBDEV_INTERFACE_H__ */
+#endif /* __LV_TOUCHPAD_INTERFACE_H__ */

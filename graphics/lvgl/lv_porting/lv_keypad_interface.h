@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_touchpad_interface.h
+ * graphics/lvgl/lv_porting/lv_keypad_interface.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +18,8 @@
  *
  ****************************************************************************/
 
-#ifndef __LV_TOUCHPAD_INTERFACE_H__
-#define __LV_TOUCHPAD_INTERFACE_H__
+#ifndef __LV_KEYPAD_INTERFACE_H__
+#define __LV_KEYPAD_INTERFACE_H__
 
 /****************************************************************************
  * Included Files
@@ -32,7 +32,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#if defined(CONFIG_LV_USE_TOUCHPAD_INTERFACE)
+#if defined(CONFIG_LV_USE_KEYPAD_INTERFACE)
 
 /****************************************************************************
  * Type Definitions
@@ -51,14 +51,10 @@ extern "C"
 #endif
 
 /****************************************************************************
- * Public Function Prototypes
- ****************************************************************************/
-
-/****************************************************************************
- * Name: lv_touchpad_interface_init
+ * Name: lv_keypad_interface_init
  *
  * Description:
- *   Touchpad interface initialization.
+ *   Keypad interface initialization.
  *
  * Input Parameters:
  *   dev_path - input device path, set to NULL to use the default path
@@ -68,13 +64,13 @@ extern "C"
  *
  ****************************************************************************/
 
-lv_indev_t *lv_touchpad_interface_init(const char *dev_path);
+lv_indev_t *lv_keypad_interface_init(const char *dev_path);
 
 #undef EXTERN
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CONFIG_LV_USE_TOUCHPAD_INTERFACE */
+#endif /* CONFIG_LV_USE_KEYPAD_INTERFACE */
 
-#endif /* __LV_TOUCHPAD_INTERFACE_H__ */
+#endif /* __LV_KEYPAD_INTERFACE_H__ */
