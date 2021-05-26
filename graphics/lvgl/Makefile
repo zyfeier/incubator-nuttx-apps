@@ -54,6 +54,7 @@ LVGL_DIR_NAME = lvgl
 
 CSRCS += lv_porting/lv_tick_interface.c
 CSRCS += lv_porting/lv_fs_interface.c
+CSRCS += lv_porting/lv_freetype_interface.c
 
 ifneq ($(CONFIG_LV_USE_BUTTON_INTERFACE),)
 CSRCS += lv_porting/lv_button_interface.c
