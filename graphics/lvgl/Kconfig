@@ -11,10 +11,14 @@ menuconfig GRAPHICS_LVGL
 
 if GRAPHICS_LVGL
 
+config LVGL_VERSION
+	string "LVGL Version"
+	default "8.0.0"
+
 source "$APPSDIR/graphics/lvgl/lvgl/Kconfig"
 
 config LV_USE_LCDDEV_INTERFACE
-	bool "LCD device driver"
+	bool "LCD device interface"
 	default n
 
 if LV_USE_LCDDEV_INTERFACE
@@ -26,7 +30,7 @@ config LV_LCDDEV_INTERFACE_DEFAULT_DEVICEPATH
 endif
 
 config LV_USE_FBDEV_INTERFACE
-	bool "Framebuffer device driver"
+	bool "Framebuffer device interface"
 	default n
 
 if LV_USE_FBDEV_INTERFACE
@@ -46,7 +50,7 @@ config LV_USE_DOUBLE_BUFFER
 	default n
 
 menuconfig LV_USE_BUTTON_INTERFACE
-	bool "Button input driver"
+	bool "Button input interface"
 	default n
 
 if LV_USE_BUTTON_INTERFACE
@@ -106,7 +110,7 @@ config LV_BUTTON_INTERFACE_BUTTON_5_MAP_Y
 endif
 
 menuconfig LV_USE_KEYPAD_INTERFACE
-	bool "Keypad input driver"
+	bool "Keypad input interface"
 	default n
 	---help---
 	button bit map < 0 is no binding, must >= 0 and < 31 to binding button device.
@@ -168,7 +172,7 @@ config LV_KEYPAD_INTERFACE_KEY_END_MAP_BIT
 endif
 
 config LV_USE_TOUCHPAD_INTERFACE
-	bool "Touchpad input driver"
+	bool "Touchpad input interface"
 	default n
 
 if LV_USE_TOUCHPAD_INTERFACE
@@ -178,6 +182,11 @@ config LV_TOUCHPAD_INTERFACE_DEFAULT_DEVICEPATH
 	default "/dev/input0"
 
 endif
+
+config LV_USE_FREETYPE_INTERFACE
+	bool "Use FreeType interface"
+	depends on LIB_FREETYPE
+	default n
 
 config LV_USE_FFMPEG_INTERFACE
 	tristate "Use FFmpeg interface"

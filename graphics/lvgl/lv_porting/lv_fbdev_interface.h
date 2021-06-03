@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_porting/lv_fbdev_interface.h
+ * apps/graphics/lvgl/lv_porting/lv_fbdev_interface.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with

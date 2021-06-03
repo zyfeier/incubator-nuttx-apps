@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_porting/lv_fbdev_interface.c
+ * apps/graphics/lvgl/lv_porting/lv_fbdev_interface.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -183,7 +183,8 @@ static int fbdev_flush_internal(struct fbdev_obj_s *fbdev_obj)
   fb_area.y = act_y1;
   fb_area.w = act_x2 - act_x1 + 1;
   fb_area.h = act_y2 - act_y1 + 1;
-  ret = ioctl(fbdev_obj->fd, FBIO_UPDATE, (unsigned long)((uintptr_t)&fb_area));
+  ret = ioctl(fbdev_obj->fd, FBIO_UPDATE,
+              (unsigned long)((uintptr_t)&fb_area));
 #endif
 
   return ret;

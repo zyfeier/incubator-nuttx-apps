@@ -1,5 +1,5 @@
 /****************************************************************************
- * graphics/lvgl/lv_porting/lv_porting.h
+ * apps/graphics/lvgl/lv_porting/lv_porting.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -25,13 +25,13 @@
  * Included Files
  ****************************************************************************/
 
-#include <lv_porting/lv_button_interface.h>
-#include <lv_porting/lv_fbdev_interface.h>
 #include <lv_porting/lv_fs_interface.h>
-#include <lv_porting/lv_keypad_interface.h>
 #include <lv_porting/lv_lcddev_interface.h>
+#include <lv_porting/lv_fbdev_interface.h>
+#include <lv_porting/lv_button_interface.h>
+#include <lv_porting/lv_keypad_interface.h>
 #include <lv_porting/lv_touchpad_interface.h>
-
+#include <lv_porting/lv_freetype_interface.h>
 #include <lv_porting/lv_ffmpeg_interface.h>
 
 #endif /* __LV_PORTING_H__ */
