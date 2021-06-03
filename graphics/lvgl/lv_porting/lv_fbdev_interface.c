@@ -182,7 +182,7 @@ static int fbdev_flush_internal(struct fbdev_obj_s *fbdev_obj)
   fb_area.x = act_x1;
   fb_area.y = act_y1;
   fb_area.w = act_x2 - act_x1 + 1;
-  fb_area.h = act_y2 - cat_y1 + 1;
+  fb_area.h = act_y2 - act_y1 + 1;
   ret = ioctl(fbdev_obj->fd, FBIO_UPDATE, (unsigned long)((uintptr_t)&fb_area));
 #endif
 
