@@ -152,13 +152,14 @@ int nsh_builtin(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
 #  endif /* CONFIG_NSH_DISABLEBG */
         {
           int rc = 0;
+          int tc = 0;
 
-          /* Setup up to receive SIGINT if control-C entered.  The return
-           * value is ignored because this console device may not support
-           * SIGINT.
-           */
+          if (vtbl->isctty)
+            {
+              /* Setup up to receive SIGINT if control-C entered. */
 
-          ioctl(stdout->fs_fd, TIOCSCTTY, ret);
+              tc = ioctl(stdout->fs_fd, TIOCSCTTY, ret);
+            }
 
           /* Wait for the application to exit.  We did lock the scheduler
            * above, but that does not guarantee that the application did not
@@ -220,7 +221,10 @@ int nsh_builtin(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
                */
             }
 
-          ioctl(stdout->fs_fd, TIOCSCTTY, -1);
+          if (vtbl->isctty && tc == 0)
+            {
+              ioctl(stdout->fs_fd, TIOCNOTTY);
+            }
         }
 #  ifndef CONFIG_NSH_DISABLEBG
       else
