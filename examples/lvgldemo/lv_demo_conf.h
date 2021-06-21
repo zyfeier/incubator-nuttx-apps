@@ -1,5 +1,5 @@
 /****************************************************************************
- * examples/lvgldemo/lv_demo_conf.h
+ * apps/examples/lvgldemo/lv_demo_conf.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -44,30 +44,55 @@
 /* Show some widget */
 
 #define LV_USE_DEMO_WIDGETS        1
+
 #if LV_USE_DEMO_WIDGETS
-#ifdef CONFIG_EXAMPLES_LVGLDEMO_WIDGETS_SLIDESHOW
-#define LV_DEMO_WIDGETS_SLIDESHOW        CONFIG_EXAMPLES_LVGLDEMO_WIDGETS_SLIDESHOW
-#else
-#define LV_DEMO_WIDGETS_SLIDESHOW        0
-#endif
-#endif
+#  ifdef CONFIG_EXAMPLES_LVGLDEMO_WIDGETS_SLIDESHOW
+#    define LV_DEMO_WIDGETS_SLIDESHOW      CONFIG_EXAMPLES_LVGLDEMO_WIDGETS_SLIDESHOW
+#  else
+#    define LV_DEMO_WIDGETS_SLIDESHOW      0
+#  endif
+#endif /* LV_USE_DEMO_WIDGETS */
 
 /* Printer demo, optimized for 800x480 */
 
-#define LV_USE_DEMO_PRINTER     0
+#define LV_USE_DEMO_PRINTER        1
 
 /* Demonstrate the usage of encoder and keyboard */
 
-#define LV_USE_DEMO_KEYPAD_AND_ENCODER     0
+#define LV_USE_DEMO_KEYPAD_AND_ENCODER     1
 
 /* Benchmark your system */
 
-#define LV_USE_DEMO_BENCHMARK   0
+#define LV_USE_DEMO_BENCHMARK      1
 
 /* Stress test for LVGL */
 
-#define LV_USE_DEMO_STRESS      0
+#define LV_USE_DEMO_STRESS         1
 
-#define LV_USE_DEMO_MUSIC       0
+/* Music player demo */
 
-#endif /* __APPS_EXAMPLES_LVGLDEMO_LV_EX_CONF_H */
+#define LV_USE_DEMO_MUSIC          1
+
+#if LV_USE_DEMO_MUSIC
+
+#ifdef CONFIG_EXAMPLES_LVGLDEMO_MUSIC_LANDSCAPE
+#  define LV_DEMO_MUSIC_LANDSCAPE  CONFIG_EXAMPLES_LVGLDEMO_MUSIC_LANDSCAPE
+#else
+#  define LV_DEMO_MUSIC_LANDSCAPE  0
+#endif
+
+#ifdef CONFIG_EXAMPLES_LVGLDEMO_MUSIC_LARGE
+#  define LV_DEMO_MUSIC_LARGE      CONFIG_EXAMPLES_LVGLDEMO_MUSIC_LARGE
+#else
+#  define LV_DEMO_MUSIC_LARGE      0
+#endif
+
+#ifdef CONFIG_EXAMPLES_LVGLDEMO_MUSIC_AUTO_PLAY
+#  define LV_DEMO_MUSIC_AUTO_PLAY  CONFIG_EXAMPLES_LVGLDEMO_MUSIC_AUTO_PLAY
+#else
+#  define LV_DEMO_MUSIC_AUTO_PLAY  0
+#endif 
+
+#endif /* LV_USE_DEMO_MUSIC */
+
+#endif /* __APPS_EXAMPLES_LVGLDEMO_LV_DEMO_CONF_H */

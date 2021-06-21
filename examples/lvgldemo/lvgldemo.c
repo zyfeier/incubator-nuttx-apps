@@ -81,29 +81,8 @@
  ****************************************************************************/
 
 /****************************************************************************
- * Name: monitor_cb
- *
- * Description:
- *   Monitoring callback from lvgl every time the screen is flushed.
- *
- ****************************************************************************/
-
-static void monitor_cb(lv_disp_drv_t * disp_drv, uint32_t time, uint32_t px)
-{
-  ginfo("%" PRIu32 " px refreshed in %" PRIu32 " ms\n", px, time);
-}
-
-/****************************************************************************
  * Private Data
  ****************************************************************************/
-
-static lv_color_t buffer1[DISPLAY_BUFFER_SIZE];
-
-#ifdef CONFIG_EXAMPLES_LVGLDEMO_DOUBLE_BUFFERING
-static lv_color_t buffer2[DISPLAY_BUFFER_SIZE];
-#else
-# define buffer2 NULL
-#endif
 
 /****************************************************************************
  * Public Functions
@@ -140,6 +119,8 @@ int main(int argc, FAR char *argv[])
 
   lv_init();
 
+  /* LVGL interface initialization */
+
   lv_fs_interface_init();
 
 #if defined(CONFIG_LV_USE_FFMPEG_INTERFACE)
@@ -166,10 +147,14 @@ int main(int argc, FAR char *argv[])
   lv_touchpad_interface_init(NULL);
 #endif
 
+  /* LVGL demo creation */
+
 #if defined(CONFIG_EXAMPLES_LVGLDEMO_BENCHMARK)
   lv_demo_benchmark();
-#elif defined(CONFIG_EXAMPLES_LVGLDEMO_PRINTER)
-  lv_demo_printer();
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_KEYPAD_ENCODER)
+  lv_demo_keypad_encoder();
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_MUSIC)
+  lv_demo_music();
 #elif defined(CONFIG_EXAMPLES_LVGLDEMO_STRESS)
   lv_demo_stress();
 #elif defined(CONFIG_EXAMPLES_LVGLDEMO_WIDGETS)
@@ -180,7 +165,7 @@ int main(int argc, FAR char *argv[])
 
   while (1)
     {
-      lv_task_handler();
+      lv_timer_handler();
       usleep(5000);
     }
 

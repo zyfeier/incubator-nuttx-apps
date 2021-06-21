@@ -19,10 +19,11 @@ choice
 config EXAMPLES_LVGLDEMO_BENCHMARK
 	bool "Benchmark"
 
-config EXAMPLES_LVGLDEMO_PRINTER
-	bool "Printer"
-	---help---
-		This demo is optimized for 800 * 480 resolution
+config EXAMPLES_LVGLDEMO_KEYPAD_ENCODER
+	bool "Keypad encoder"
+
+config EXAMPLES_LVGLDEMO_MUSIC
+	bool "Music"
 
 config EXAMPLES_LVGLDEMO_STRESS
 	bool "Stress"
@@ -43,12 +44,28 @@ config EXAMPLES_LVGLDEMO_WIDGETS_SLIDESHOW
 
 endif # EXAMPLES_LVGLDEMO_WIDGETS
 
+if EXAMPLES_LVGLDEMO_MUSIC
+
+config EXAMPLES_LVGLDEMO_MUSIC_LANDSCAPE
+	bool "Enable Landscape for Music example"
+	default n
+
+config EXAMPLES_LVGLDEMO_MUSIC_LARGE
+	bool "Enable Large for Music example"
+	default n
+
+config EXAMPLES_LVGLDEMO_MUSIC_AUTO_PLAY
+	bool "Enable Autoplay for Music example"
+	default n
+
+endif # EXAMPLES_LVGLDEMO_MUSIC
+
 config EXAMPLES_LVGLDEMO_PRIORITY
-	int "lvgl task priority"
+	int "lvgldemo task priority"
 	default 100
 
 config EXAMPLES_LVGLDEMO_STACKSIZE
 	int "lvgldemo stack size"
-	default 16384
+	default 32768
 
 endif
