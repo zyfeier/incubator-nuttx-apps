@@ -198,7 +198,7 @@ static void *fbdev_update_thread(void *arg)
 {
   int ret = OK;
   int errcode;
-  struct fbdev_obj_s *fbdev_obj = arg;
+  struct fbdev_obj_s *fbdev_obj = (struct fbdev_obj_s *)arg;
 
   while (ret == OK)
     {
@@ -399,6 +399,16 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
       close(state.fd);
       return NULL;
     }
+
+#ifdef LV_COLOR_DEPTH
+  if (state.pinfo.bpp != LV_COLOR_DEPTH)
+    {
+      LV_LOG_ERROR("fbdev bpp = %d, LV_COLOR_DEPTH = %d,"
+          " color depth does not match", state.pinfo.bpp, LV_COLOR_DEPTH);
+      close(state.fd);
+      return NULL;
+    }
+#endif
 
   /* mmap() the framebuffer.
    *

@@ -86,7 +86,7 @@ static void *lcddev_update_thread(void *arg)
 {
   int ret = OK;
   int errcode;
-  struct lcddev_obj_s *lcddev_obj = arg;
+  struct lcddev_obj_s *lcddev_obj = (struct lcddev_obj_s *)arg;
 
   while (ret == OK)
     {
@@ -260,6 +260,31 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
   LV_LOG_INFO("     xres: %u", vinfo.xres);
   LV_LOG_INFO("     yres: %u", vinfo.yres);
   LV_LOG_INFO("  nplanes: %u", vinfo.nplanes);
+
+  struct lcd_planeinfo_s pinfo;
+  ret = ioctl(fd, LCDDEVIO_GETPLANEINFO,
+              (unsigned long)((uintptr_t)&pinfo));
+  if (ret < 0)
+    {
+      int errcode = errno;
+      LV_LOG_ERROR("ERROR: ioctl(LCDDEVIO_GETPLANEINFO) failed: %d",
+              errcode);
+      close(fd);
+      return NULL;
+    }
+
+  LV_LOG_INFO("PlaneInfo:");
+  LV_LOG_INFO("      bpp: %u", pinfo.bpp);
+
+#ifdef LV_COLOR_DEPTH
+  if (pinfo.bpp != LV_COLOR_DEPTH)
+    {
+      LV_LOG_ERROR("lcddev bpp = %d, LV_COLOR_DEPTH = %d,"
+          " color depth does not match", pinfo.bpp, LV_COLOR_DEPTH);
+      close(fd);
+      return NULL;
+    }
+#endif
 
   return lcddev_init(fd, vinfo.xres, vinfo.yres, line_buffer);
 }
