@@ -28,6 +28,7 @@
 #include <libavutil/timestamp.h>
 #include <libswscale/swscale.h>
 #include <lvgl/lvgl.h>
+#include <lvgl/src/draw/lv_img_cache.h>
 #include "lv_ffmpeg_interface.h"
 
 /****************************************************************************
@@ -48,6 +49,8 @@
 #error Unsupported  LV_COLOR_DEPTH
 #endif
 
+#define MY_CLASS &lv_ffmpeg_player_class
+
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
@@ -57,14 +60,14 @@ struct ffmpeg_context_s
     AVFormatContext *fmt_ctx;
     AVCodecContext *video_dec_ctx;
     AVStream *video_stream;
-    int video_stream_idx;
     uint8_t *video_src_data[4];
-    int video_src_linesize[4];
     uint8_t *video_dst_data[4];
-    int video_dst_linesize[4];
     struct SwsContext *sws_ctx;
     AVFrame *frame;
     AVPacket pkt;
+    int video_stream_idx;
+    int video_src_linesize[4];
+    int video_dst_linesize[4];
     enum AVPixelFormat video_dst_pix_fmt;
     bool is_alpha;
   };
@@ -91,11 +94,11 @@ static void decoder_close(lv_img_decoder_t *dec,
                           lv_img_decoder_dsc_t *dsc);
 static void convert_color_depth(uint8_t *img, uint32_t px_cnt);
 
-static struct ffmpeg_context_s *ffmpeg_open_file(const char *filename);
+static struct ffmpeg_context_s *ffmpeg_open_file(const char *filepath);
 static void ffmpeg_close(struct ffmpeg_context_s *ffmpeg_ctx);
 static void ffmpeg_close_src_ctx(struct ffmpeg_context_s *ffmpeg_ctx);
 static void ffmpeg_close_dst_ctx(struct ffmpeg_context_s *ffmpeg_ctx);
-static int ffmpeg_get_img_header(const char *filename,
+static int ffmpeg_get_img_header(const char *filepath,
                                  lv_img_header_t *header);
 static int ffmpeg_get_frame_interval_time(
                                     struct ffmpeg_context_s *ffmpeg_ctx);
@@ -104,6 +107,24 @@ static int ffmpeg_update_next_frame(struct ffmpeg_context_s *ffmpeg_ctx);
 static int ffmpeg_output_video_frame(struct ffmpeg_context_s *ffmpeg_ctx);
 static bool ffmpeg_pix_fmt_is_alpha(enum AVPixelFormat pix_fmt);
 static bool ffmpeg_pix_fmt_is_yuv(enum AVPixelFormat pix_fmt);
+
+static void lv_ffmpeg_player_constructor(const lv_obj_class_t *class_p,
+                                         lv_obj_t *obj);
+
+static void lv_ffmpeg_player_destructor(const lv_obj_class_t *class_p,
+                                        lv_obj_t *obj);
+
+/****************************************************************************
+ * Public Data
+ ****************************************************************************/
+
+const lv_obj_class_t lv_ffmpeg_player_class =
+  {
+    .constructor_cb = lv_ffmpeg_player_constructor,
+    .destructor_cb = lv_ffmpeg_player_destructor,
+    .instance_size = sizeof(lv_ffmpeg_player_t),
+    .base_class = &lv_img_class
+  };
 
 /****************************************************************************
  * Private Functions
@@ -117,7 +138,7 @@ static bool ffmpeg_pix_fmt_is_yuv(enum AVPixelFormat pix_fmt);
  *
  * Input Parameters:
  *   decoder - pointer to a decoder
- *   src     - can be file name
+ *   src     - can be file path
  *   header  - store the info here
  *
  * Returned Value:
@@ -133,8 +154,6 @@ static lv_res_t decoder_info(lv_img_decoder_t *decoder,
 
   lv_img_src_t src_type = lv_img_src_get_type(src);
 
-  /* If it's a file... */
-
   if (src_type == LV_IMG_SRC_FILE)
     {
       const char *fn = src;
@@ -146,9 +165,6 @@ static lv_res_t decoder_info(lv_img_decoder_t *decoder,
         }
 
       return LV_RES_OK;
-    }
-  else if (src_type == LV_IMG_SRC_VARIABLE)
-    {
     }
 
   /* If didn't succeeded earlier then it's an error */
@@ -164,7 +180,6 @@ static lv_res_t decoder_info(lv_img_decoder_t *decoder,
  *
  * Input Parameters:
  *   decoder - pointer to a decoder
- *   src     - can be file name or pointer to a C array
  *   dsc     - Describe an image decoding session
  *
  * Returned Value:
@@ -175,13 +190,11 @@ static lv_res_t decoder_info(lv_img_decoder_t *decoder,
 static lv_res_t decoder_open(lv_img_decoder_t *decoder,
                              lv_img_decoder_dsc_t *dsc)
 {
-  /* If it's a file... */
-
   if (dsc->src_type == LV_IMG_SRC_FILE)
     {
-      const char *filename = dsc->src;
+      const char *filepath = dsc->src;
 
-      struct ffmpeg_context_s *ffmpeg_ctx = ffmpeg_open_file(filename);
+      struct ffmpeg_context_s *ffmpeg_ctx = ffmpeg_open_file(filepath);
 
       if (ffmpeg_ctx == NULL)
         {
@@ -212,9 +225,6 @@ static lv_res_t decoder_open(lv_img_decoder_t *decoder,
       /* The image is fully decoded. Return with its pointer */
 
       return LV_RES_OK;
-    }
-  else if (dsc->src_type == LV_IMG_SRC_VARIABLE)
-    {
     }
 
   /* If not returned earlier then it failed */
@@ -266,7 +276,7 @@ static void convert_color_depth(uint8_t *img, uint32_t px_cnt)
     {
       lv_color32_t temp = *img_src_p;
       img_dst_p->c =
-        LV_COLOR_MAKE(temp.ch.red, temp.ch.green, temp.ch.blue);
+        lv_color_make(temp.ch.red, temp.ch.green, temp.ch.blue);
       img_dst_p->alpha = temp.ch.alpha;
 
       img_src_p++;
@@ -378,16 +388,16 @@ static int ffmpeg_output_video_frame(struct ffmpeg_context_s *ffmpeg_ctx)
        * decode the following frames into another rawvideo file.
        */
 
-      LV_LOG_ERROR("Error: Width, height and pixel format have to be "
-                    "constant in a rawvideo file, but the width, height or "
-                    "pixel format of the input video changed:\n"
-                    "old: width = %d, height = %d, format = %s\n"
-                    "new: width = %d, height = %d, format = %s\n",
-                  width,
-                  height,
-                  av_get_pix_fmt_name(ffmpeg_ctx->video_dec_ctx->pix_fmt),
-                  frame->width, frame->height,
-                  av_get_pix_fmt_name(frame->format));
+      LV_LOG_ERROR("Width, height and pixel format have to be "
+                   "constant in a rawvideo file, but the width, height or "
+                   "pixel format of the input video changed:\n"
+                   "old: width = %d, height = %d, format = %s\n"
+                   "new: width = %d, height = %d, format = %s\n",
+                   width,
+                   height,
+                   av_get_pix_fmt_name(ffmpeg_ctx->video_dec_ctx->pix_fmt),
+                   frame->width, frame->height,
+                   av_get_pix_fmt_name(frame->format));
       goto failed;
     }
 
@@ -420,7 +430,7 @@ static int ffmpeg_output_video_frame(struct ffmpeg_context_s *ffmpeg_ctx)
               LV_LOG_WARN("The width(%d) and height(%d) the image"
                           "is not a multiple of 8, "
                           "the decoding speed may be reduced",
-                  width, height);
+                          width, height);
               swsFlags |= SWS_ACCURATE_RND;
             }
         }
@@ -619,7 +629,7 @@ static int ffmpeg_open_codec_context(int *stream_idx,
  *   Get image information.
  *
  * Input Parameters:
- *   filename - image file path.
+ *   filepath - image file path.
  *   header   - pointer to an image header.
  *
  * Returned Value:
@@ -627,7 +637,7 @@ static int ffmpeg_open_codec_context(int *stream_idx,
  *
  ****************************************************************************/
 
-static int ffmpeg_get_img_header(const char *filename,
+static int ffmpeg_get_img_header(const char *filepath,
                                 lv_img_header_t *header)
 {
   int ret = -1;
@@ -638,9 +648,9 @@ static int ffmpeg_get_img_header(const char *filename,
 
   /* open input file, and allocate format context */
 
-  if (avformat_open_input(&fmt_ctx, filename, NULL, NULL) < 0)
+  if (avformat_open_input(&fmt_ctx, filepath, NULL, NULL) < 0)
     {
-      LV_LOG_ERROR("Could not open source file %s", filename);
+      LV_LOG_ERROR("Could not open source file %s", filepath);
       goto failed;
     }
 
@@ -772,14 +782,14 @@ static int ffmpeg_update_next_frame(struct ffmpeg_context_s *ffmpeg_ctx)
  *   Open a file, which can be any picture or video supported by FFMPEG.
  *
  * Input Parameters:
- *   filename - image or video file name.
+ *   filepath - image or video file path.
  *
  * Returned Value:
  *   pointer to a ffmpeg_ctx.
  *
  ****************************************************************************/
 
-struct ffmpeg_context_s *ffmpeg_open_file(const char *filename)
+struct ffmpeg_context_s *ffmpeg_open_file(const char *filepath)
 {
   struct ffmpeg_context_s *ffmpeg_ctx =
     calloc(1, sizeof(struct ffmpeg_context_s));
@@ -792,9 +802,9 @@ struct ffmpeg_context_s *ffmpeg_open_file(const char *filename)
 
   /* open input file, and allocate format context */
 
-  if (avformat_open_input(&(ffmpeg_ctx->fmt_ctx), filename, NULL, NULL) < 0)
+  if (avformat_open_input(&(ffmpeg_ctx->fmt_ctx), filepath, NULL, NULL) < 0)
     {
-      LV_LOG_ERROR("Could not open source file %s", filename);
+      LV_LOG_ERROR("Could not open source file %s", filepath);
       goto failed;
     }
 
@@ -857,11 +867,11 @@ struct ffmpeg_context_s *ffmpeg_open_file(const char *filename)
       LV_LOG_INFO("alloc video_dst_bufsize = %d\n", ret);
     }
 
-#if LV_USE_LOG != 0
+#if defined(CONFIG_LV_FFMPEG_INTERFACE_AV_DUMP_FORMAT)
 
   /* dump input information to stderr */
 
-  av_dump_format(ffmpeg_ctx->fmt_ctx, 0, filename, 0);
+  av_dump_format(ffmpeg_ctx->fmt_ctx, 0, filepath, 0);
 #endif
 
   if (ffmpeg_ctx->video_stream == NULL)
@@ -962,6 +972,106 @@ static void ffmpeg_close(struct ffmpeg_context_s *ffmpeg_ctx)
 }
 
 /****************************************************************************
+ * Name: lv_ffmpeg_player_frame_update_cb
+ *
+ * Description:
+ *   Video frame update timer.
+ *
+ * Input Parameters:
+ *   task - pointer to a task.
+ *
+ ****************************************************************************/
+
+static void lv_ffmpeg_player_frame_update_cb(lv_timer_t *timer)
+{
+  lv_obj_t *obj = (lv_obj_t *)timer->user_data;
+  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)obj;
+
+  if (!player->ffmpeg_ctx)
+    {
+      return;
+    }
+
+  int has_next = ffmpeg_update_next_frame(player->ffmpeg_ctx);
+
+  if (has_next < 0)
+    {
+      lv_ffmpeg_player_set_cmd(obj, player->auto_restart ?
+               LV_FFMPEG_PLAYER_CMD_START : LV_FFMPEG_PLAYER_CMD_STOP);
+      return;
+    }
+
+#if LV_COLOR_DEPTH != 32
+  if (player->ffmpeg_ctx->is_alpha)
+    {
+      convert_color_depth((uint8_t *)(player->imgdsc.data),
+                      player->imgdsc.header.w * player->imgdsc.header.h);
+    }
+#endif
+
+  lv_img_cache_invalidate_src(lv_img_get_src(obj));
+  lv_obj_invalidate(obj);
+}
+
+/****************************************************************************
+ * Name: lv_ffmpeg_player_constructor
+ *
+ * Description:
+ *   ffmpeg player constructor.
+ *
+ * Input Parameters:
+ *   class_p - pointer to a obj class.
+ *   obj     - pointer to ffmpeg player.
+ *
+ ****************************************************************************/
+
+static void lv_ffmpeg_player_constructor(const lv_obj_class_t *class_p,
+                                         lv_obj_t *obj)
+{
+  LV_TRACE_OBJ_CREATE("begin");
+
+  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)obj;
+
+  player->auto_restart = false;
+  player->ffmpeg_ctx = NULL;
+  player->timer = lv_timer_create(lv_ffmpeg_player_frame_update_cb,
+                                  1000, obj);
+  lv_timer_pause(player->timer);
+
+  LV_TRACE_OBJ_CREATE("finished");
+}
+
+/****************************************************************************
+ * Name: lv_ffmpeg_player_destructor
+ *
+ * Description:
+ *   ffmpeg player destructor.
+ *
+ * Input Parameters:
+ *   class_p - pointer to a obj class.
+ *   obj     - pointer to ffmpeg player.
+ *
+ ****************************************************************************/
+
+static void lv_ffmpeg_player_destructor(const lv_obj_class_t *class_p,
+                                        lv_obj_t *obj)
+{
+  LV_TRACE_OBJ_CREATE("begin");
+
+  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)obj;
+
+  if (player->timer)
+    {
+      lv_timer_del(player->timer);
+      player->timer = NULL;
+    }
+
+  ffmpeg_close(player->ffmpeg_ctx);
+
+  LV_TRACE_OBJ_CREATE("finished");
+}
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -975,8 +1085,190 @@ static void ffmpeg_close(struct ffmpeg_context_s *ffmpeg_ctx)
 
 void lv_ffmpeg_interface_init(void)
 {
-    lv_img_decoder_t *dec = lv_img_decoder_create();
-    lv_img_decoder_set_info_cb(dec, decoder_info);
-    lv_img_decoder_set_open_cb(dec, decoder_open);
-    lv_img_decoder_set_close_cb(dec, decoder_close);
+  lv_img_decoder_t *dec = lv_img_decoder_create();
+  lv_img_decoder_set_info_cb(dec, decoder_info);
+  lv_img_decoder_set_open_cb(dec, decoder_open);
+  lv_img_decoder_set_close_cb(dec, decoder_close);
+}
+
+/****************************************************************************
+ * Name: lv_ffmpeg_get_frame_num
+ *
+ * Description:
+ *   Get the number of frames contained in the file.
+ *
+ * Input Parameters:
+ *   filepath - image or video file path.
+ *
+ * Returned Value:
+ *   Number of frames.
+ *
+ ****************************************************************************/
+
+int lv_ffmpeg_get_frame_num(const char *filepath)
+{
+  int ret = -1;
+  struct ffmpeg_context_s *ffmpeg_ctx = ffmpeg_open_file(filepath);
+
+  if (ffmpeg_ctx)
+    {
+      ret = ffmpeg_ctx->video_stream->nb_frames;
+      ffmpeg_close(ffmpeg_ctx);
+    }
+
+  return ret;
+}
+
+/****************************************************************************
+ * Name: lv_ffmpeg_player_create
+ *
+ * Description:
+ *   Create ffmpeg_player object.
+ *
+ * Input Parameters:
+ *   parent - pointer to an object, it will be the parent of the new player.
+ *
+ * Returned Value:
+ *   pointer to the created ffmpeg_player.
+ *
+ ****************************************************************************/
+
+lv_obj_t *lv_ffmpeg_player_create(lv_obj_t *parent)
+{
+  lv_obj_t *obj = lv_obj_class_create_obj(MY_CLASS, parent);
+  lv_obj_class_init_obj(obj);
+  return obj;
+}
+
+/****************************************************************************
+ * Name: lv_ffmpeg_player_set_src
+ *
+ * Description:
+ *   Set the path of the file to be played.
+ *
+ * Input Parameters:
+ *   ffmpeg_player - pointer to an ffmpeg_player.
+ *   filepath      - video file path.
+ *
+ * Returned Value:
+ *   LV_RES_OK: no error; LV_RES_INV: can't get the info.
+ *
+ ****************************************************************************/
+
+lv_res_t lv_ffmpeg_player_set_src(lv_obj_t *ffmpeg_player,
+                                  const char *filepath)
+{
+  lv_res_t res = LV_RES_INV;
+
+  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)ffmpeg_player;
+
+  if (player->ffmpeg_ctx)
+    {
+      ffmpeg_close(player->ffmpeg_ctx);
+      player->ffmpeg_ctx = NULL;
+    }
+
+  lv_timer_pause(player->timer);
+
+  player->ffmpeg_ctx = ffmpeg_open_file(filepath);
+
+  if (!player->ffmpeg_ctx)
+    {
+      LV_LOG_ERROR("ffmpeg file: %s open failed", filepath);
+      goto failed;
+    }
+
+  player->imgdsc.data = ffmpeg_get_img_data(player->ffmpeg_ctx);
+  player->imgdsc.header.always_zero = 0;
+  player->imgdsc.header.cf = (player->ffmpeg_ctx->is_alpha ?
+                          LV_IMG_CF_TRUE_COLOR_ALPHA : LV_IMG_CF_TRUE_COLOR);
+  player->imgdsc.header.h = player->ffmpeg_ctx->video_dec_ctx->height;
+  player->imgdsc.header.w = player->ffmpeg_ctx->video_dec_ctx->width;
+
+  lv_img_set_src(&player->img.obj, &(player->imgdsc));
+
+  int time = ffmpeg_get_frame_interval_time(player->ffmpeg_ctx);
+
+  if (time > 0)
+    {
+      LV_LOG_INFO("frame interval time = %d ms, %d fps\n",
+                  time, 1000 / time);
+      lv_timer_set_period(player->timer, time);
+    }
+
+  res = LV_RES_OK;
+
+failed:
+  return res;
+}
+
+/****************************************************************************
+ * Name: lv_ffmpeg_player_set_cmd
+ *
+ * Description:
+ *   Send command control video player.
+ *
+ * Input Parameters:
+ *   ffmpeg_player - pointer to an image.
+ *   cmd           - control commands.
+ *
+ ****************************************************************************/
+
+void lv_ffmpeg_player_set_cmd(lv_obj_t *ffmpeg_player,
+                              lv_ffmpeg_player_cmd_t cmd)
+{
+  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)ffmpeg_player;
+
+  if (!player->ffmpeg_ctx)
+    {
+      LV_LOG_ERROR("ffmpeg_ctx is NULL");
+      return;
+    }
+
+  lv_timer_t *timer = player->timer;
+
+  switch (cmd)
+    {
+    case LV_FFMPEG_PLAYER_CMD_START:
+        av_seek_frame(player->ffmpeg_ctx->fmt_ctx,
+                      0, 0, AVSEEK_FLAG_BACKWARD);
+        lv_timer_resume(timer);
+        LV_LOG_INFO("ffmpeg player start");
+        break;
+    case LV_FFMPEG_PLAYER_CMD_STOP:
+        av_seek_frame(player->ffmpeg_ctx->fmt_ctx,
+                      0, 0, AVSEEK_FLAG_BACKWARD);
+        lv_timer_pause(timer);
+        LV_LOG_INFO("ffmpeg player stop");
+        break;
+    case LV_FFMPEG_PLAYER_CMD_PAUSE:
+        lv_timer_pause(timer);
+        LV_LOG_INFO("ffmpeg player pause");
+        break;
+    case LV_FFMPEG_PLAYER_CMD_RESUME:
+        lv_timer_resume(timer);
+        LV_LOG_INFO("ffmpeg player resume");
+        break;
+    default:
+        LV_LOG_ERROR("Error cmd: %d", cmd);
+        break;
+    }
+}
+
+/****************************************************************************
+ * Name: lv_ffmpeg_player_set_auto_restart
+ *
+ * Description:
+ *   Set the video to automatically replay.
+ *
+ * Input Parameters:
+ *   ffmpeg_player - pointer to an ffmpeg_player.
+ *   en            - true: enable the auto restart.
+ *
+ ****************************************************************************/
+
+void lv_ffmpeg_player_set_auto_restart(lv_obj_t *ffmpeg_player, bool en)
+{
+  lv_ffmpeg_player_t *player = (lv_ffmpeg_player_t *)ffmpeg_player;
+  player->auto_restart = en;
 }

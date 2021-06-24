@@ -189,8 +189,16 @@ config LV_USE_FREETYPE_INTERFACE
 	default n
 
 config LV_USE_FFMPEG_INTERFACE
-	tristate "Use FFmpeg interface"
+	bool "Use FFmpeg interface"
 	depends on LIB_FFMPEG
 	default n
+
+if LV_USE_FFMPEG_INTERFACE
+
+config LV_FFMPEG_INTERFACE_AV_DUMP_FORMAT
+	bool "FFmpeg dump av format"
+	default n
+
+endif
 
 endif # GRAPHICS_LVGL
