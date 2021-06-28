@@ -1,5 +1,5 @@
 /****************************************************************************
- * testing/sensortest.c
+ * apps/testing/sensortest/sensortest.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -142,7 +142,8 @@ static void print_gps(const char *buffer, const char *name)
 {
   struct sensor_event_gps *event = (struct sensor_event_gps *)buffer;
 
-  printf("%s: year: %d month: %d day: %d hour: %d min: %d sec: %d msec: %d\n",
+  printf("%s: year: %d month: %d day: %d hour: %d min: %d sec: %d"
+         "msec: %d\n",
          name, event->year, event->month, event->day, event->hour,
          event->min, event->sec, event->msec);
   printf("%s: yaw: %.4f height: %.4f speed: %.4f latitude: %.4f"
@@ -273,18 +274,6 @@ int main(int argc, FAR char *argv[])
       goto open_err;
     }
 
-  ret = ioctl(fd, SNIOC_ACTIVATE, 1);
-  if (ret < 0)
-    {
-      ret = -errno;
-      if (ret != -ENOTTY)
-        {
-          printf("Failed to enable sensor:%s, ret:%s\n",
-                 devname, strerror(errno));
-          goto ctl_err;
-        }
-    }
-
   ret = ioctl(fd, SNIOC_SET_INTERVAL, &interval);
   if (ret < 0)
     {
@@ -292,7 +281,7 @@ int main(int argc, FAR char *argv[])
       if (ret != -ENOTTY)
         {
           printf("Failed to set interval for sensor:%s, ret:%s\n",
-                devname, strerror(errno));
+                 devname, strerror(errno));
           goto ctl_err;
         }
     }
@@ -304,7 +293,19 @@ int main(int argc, FAR char *argv[])
       if (ret != -ENOTTY)
         {
           printf("Failed to batch for sensor:%s, ret:%s\n",
-                devname, strerror(errno));
+                 devname, strerror(errno));
+          goto ctl_err;
+        }
+    }
+
+  ret = ioctl(fd, SNIOC_ACTIVATE, 1);
+  if (ret < 0)
+    {
+      ret = -errno;
+      if (ret != -ENOTTY)
+        {
+          printf("Failed to enable sensor:%s, ret:%s\n",
+                 devname, strerror(errno));
           goto ctl_err;
         }
     }
