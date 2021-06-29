@@ -1,0 +1,30 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config SYSTEM_DMALLOC
+	tristate "dmalloc"
+	default n
+	depends on MM_DMALLOC
+	---help---
+		Enable dmalloc utility program
+
+if SYSTEM_DMALLOC
+
+config SYSTEM_DMALLOC_PRIORITY
+	int "dmalloc thread priority"
+	default 100
+
+config SYSTEM_DMALLOC_STACKSIZE
+	int "dmalloc stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+config SYSTEM_DMALLOC_PROGNAME
+	string "Program name"
+	default "dmalloc"
+	---help---
+		This is the name of the program that will be used
+		when the dmalloc ELF program is installed.
+
+endif
