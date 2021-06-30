@@ -25,41 +25,28 @@
  * Included Files
  ****************************************************************************/
 
+#include <nuttx/config.h>
 #include "lvgl/lvgl.h"
-#include "ft2build.h"
-#include FT_FREETYPE_H
-#include FT_GLYPH_H
-#include FT_CACHE_H
-#include FT_SIZES_H
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
+#if defined(CONFIG_LV_USE_FREETYPE_INTERFACE)
+
 /* The cache management macro. 0 for close, other for open */
 
+#ifndef LV_USE_FT_CACHE_MANAGER
+#ifdef CONFIG_LV_USE_FT_CACHE_MANAGER
 #define LV_USE_FT_CACHE_MANAGER  1
+#else
+#define LV_USE_FT_CACHE_MANAGER  0
+#endif
+#endif
 
 /****************************************************************************
  * Public Types
  ****************************************************************************/
-
-/* each freetype face can open many lvgl font, this type control face
- * information for use.
- */
-
-typedef struct
-{
-  uint16_t cnt;       /* Using counter */
-  char     *name;     /* name pointer */
-} lv_face_info_t;
-
-typedef struct
-{
-  uint16_t num;       /* Maximum number that can be opened */
-  uint16_t cnt;       /* The number of opened */
-  lv_ll_t  face_ll;   /* face list */
-} lv_faces_control_t;
 
 typedef enum
 {
@@ -75,17 +62,6 @@ typedef struct
     uint16_t   weight;  /* font size */
     uint16_t   style;   /* font style */
 } lv_ft_info_t;
-
-typedef struct
-{
-    FT_Face     face;   /* freetype face handle */
-    FT_Size     size;   /* freetype size handle */
-    lv_font_t   *font;  /* lvgl font handle */
-    uint16_t    style;  /* font style */
-    uint16_t    weight; /* font size */
-} lv_font_fmt_freetype_dsc_t;
-
-typedef lv_font_fmt_freetype_dsc_t lv_font_fmt_ft_dsc_t;
 
 /****************************************************************************
  * Public Function Prototypes
@@ -119,9 +95,9 @@ extern "C"
  *
  ****************************************************************************/
 
-bool lv_freetype_init(FT_UInt max_faces,
-                      FT_UInt max_sizes,
-                      FT_ULong max_bytes);
+bool lv_freetype_init(uint16_t max_faces,
+                      uint16_t max_sizes,
+                      uint32_t max_bytes);
 
 /****************************************************************************
  * Name: lv_freetype_destroy
@@ -176,5 +152,7 @@ void lv_ft_font_destroy(lv_font_t *font);
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* CONFIG_LV_USE_FREETYPE_INTERFACE */
 
 #endif /* __LV_FREETYPE_INTERFACE_H */
