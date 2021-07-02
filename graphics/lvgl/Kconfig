@@ -257,6 +257,11 @@ config LVX_USE_PICKER
 	---help---
 		Enable use lvx_picker widgets
 
+config LVX_USE_MSGBOX
+	bool "LVX_USE_MSGBOX"
+	default y
+	---help---
+		Enable use lvx_msgbox widgets
 endif
 
 endif
