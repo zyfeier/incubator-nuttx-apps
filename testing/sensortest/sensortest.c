@@ -142,11 +142,10 @@ static void print_gps(const char *buffer, const char *name)
 {
   struct sensor_event_gps *event = (struct sensor_event_gps *)buffer;
 
-  printf("%s: year: %d month: %d day: %d hour: %d min: %d sec: %d"
-         "msec: %d\n",
-         name, event->year, event->month, event->day, event->hour,
-         event->min, event->sec, event->msec);
-  printf("%s: yaw: %.4f height: %.4f speed: %.4f latitude: %.4f"
+  printf("%s: year: %d month: %d day: %d hour: %d min: %d sec: %d "
+         "msec: %d\n", name, event->year, event->month, event->day,
+         event->hour, event->min, event->sec, event->msec);
+  printf("%s: yaw: %.4f height: %.4f speed: %.4f latitude: %.4f "
          "longitude: %.4f\n", name, event->yaw, event->height, event->speed,
          event->latitude, event->longitude);
 }
