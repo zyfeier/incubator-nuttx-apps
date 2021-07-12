@@ -113,8 +113,4 @@ ifeq ($(CONFIG_NSH_LOGIN_PASSWD),y)
 CSRCS += nsh_passwdcmds.c
 endif
 
-ifneq ($(CONFIG_KVDB),)
-CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/frameworks/kvdb}
-endif
-
 include $(APPDIR)/Application.mk

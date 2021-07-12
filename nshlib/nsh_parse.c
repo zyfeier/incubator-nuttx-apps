@@ -40,10 +40,6 @@
 #include "nsh.h"
 #include "nsh_console.h"
 
-#ifdef CONFIG_KVDB
-#  include <kvdb.h>
-#endif
-
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -492,15 +488,6 @@ static int nsh_execute(FAR struct nsh_vtbl_s *vtbl,
   int fd = -1;
 #endif
   int ret;
-
-#ifdef CONFIG_KVDB
-  char name[64];
-  snprintf(name, sizeof(name), "persist.%s.disable", argv[0]);
-  if (property_get_bool(name, false))
-    {
-      return nsh_saveresult(vtbl, false);
-    }
-#endif
 
   /* DO NOT CHANGE THE ORDERING OF THE FOLLOWING STEPS
    *
