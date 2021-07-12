@@ -311,25 +311,16 @@ static void mm_test(void)
   printf("TEST COMPLETE\n");
 }
 
-static void mm_stress_test(int delay)
+static void mm_stress_test(void)
 {
   FAR char *tmp;
-  int i, size;
+  int size;
 
-  while (1)
+  size = random() % 1024;
+  tmp = malloc(size);
+  if (tmp)
     {
-      size = random() % 1024 + 1;
-      tmp = malloc(size);
-      assert(tmp);
-
-      memset(tmp, 0xfe, size);
-      usleep(delay);
-
-      for (i = 0; i < size; i++)
-        {
-          assert(tmp[i] == 0xfe);
-        }
-
+      memset(tmp, 0xff, size);
       free(tmp);
     }
 }
@@ -373,13 +364,16 @@ int main(int argc, FAR char *argv[])
       show_usage(argv[0], EXIT_FAILURE);
     }
 
-  if (delay)
-    {
-      mm_stress_test(delay);
-    }
-  else
+  if (!delay)
     {
       mm_test();
+      return 0;
+    }
+
+  while (1)
+    {
+      mm_stress_test();
+      usleep(delay);
     }
 
   return 0;
