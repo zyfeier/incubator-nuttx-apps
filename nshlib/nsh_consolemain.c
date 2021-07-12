@@ -81,7 +81,6 @@ int nsh_consolemain(int argc, FAR char *argv[])
   /* Execute the start-up script */
 
   nsh_initscript(&pstate->cn_vtbl);
-  syslog(LOG_INFO, "nsh: execute start-up script done\n");
 #endif
 
 #ifdef CONFIG_NSH_NETINIT
