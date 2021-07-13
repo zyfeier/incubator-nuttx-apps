@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <debug.h>
 #include <errno.h>
 #include <pthread.h>
 #include <semaphore.h>
