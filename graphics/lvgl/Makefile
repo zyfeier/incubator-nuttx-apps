@@ -27,6 +27,7 @@ LVGL_DIR_NAME = lvgl
 
 # Relax format check for LVGL to avoid errors on prinf() use
 
+-include ./ext/Makefile
 -include ./lvgl/examples/examples.mk
 -include ./lvgl/src/extra/extra.mk
 -include ./lvgl/src/core/lv_core.mk
