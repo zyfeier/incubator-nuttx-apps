@@ -262,6 +262,13 @@ config LVX_USE_MSGBOX
 	default y
 	---help---
 		Enable use lvx_msgbox widgets
+
+config LVX_USE_ARC_SCROLLBAR
+	bool "LVX_USE_ARC_SCROLLBAR"
+	default y
+	---help---
+		Enable use lvx_arc_scrollbar widgets
+
 endif
 
 endif
