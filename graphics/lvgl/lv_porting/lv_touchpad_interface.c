@@ -67,30 +67,26 @@ static void touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
   struct touch_sample_s sample;
 
-  int nbytes =
-    read(touchpad_obj->fd, &sample, sizeof(struct touch_sample_s));
+  int nbytes = read(touchpad_obj->fd, &sample,
+                    sizeof(struct touch_sample_s));
 
   /* Handle unexpected return values */
 
-  if (nbytes < 0 || nbytes != sizeof(struct touch_sample_s))
+  if (nbytes == sizeof(struct touch_sample_s))
     {
-      goto update_points;
-    }
+      uint8_t touch_flags = sample.point[0].flags;
 
-  uint8_t touch_flags = sample.point[0].flags;
-
-  if (touch_flags & TOUCH_DOWN || touch_flags & TOUCH_MOVE)
-    {
-      touchpad_obj->last_x = sample.point[0].x;
-      touchpad_obj->last_y = sample.point[0].y;
-      touchpad_obj->last_state = LV_INDEV_STATE_PR;
+      if (touch_flags & TOUCH_DOWN || touch_flags & TOUCH_MOVE)
+        {
+          touchpad_obj->last_x = sample.point[0].x;
+          touchpad_obj->last_y = sample.point[0].y;
+          touchpad_obj->last_state = LV_INDEV_STATE_PR;
+        }
+      else if (touch_flags & TOUCH_UP)
+        {
+          touchpad_obj->last_state = LV_INDEV_STATE_REL;
+        }
     }
-  else if (touch_flags & TOUCH_UP)
-    {
-      touchpad_obj->last_state = LV_INDEV_STATE_REL;
-    }
-
-update_points:
 
   /* Update touchpad data */
 
