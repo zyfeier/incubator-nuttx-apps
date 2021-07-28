@@ -194,6 +194,14 @@ config LV_USE_FT_CACHE_MANAGER
 	bool "use freetype cache manager"
 	default y
 
+if LV_USE_FT_CACHE_MANAGER
+
+config LV_USE_FT_SBIT_CACHE
+	bool "bitmap cache use the sbit cache, otherwise, use image cache"
+	default y
+
+endif
+
 endif
 
 config LV_USE_FFMPEG_INTERFACE

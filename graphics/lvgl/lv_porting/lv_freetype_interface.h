@@ -44,6 +44,21 @@
 #endif
 #endif
 
+/* 1: bitmap cache use the sbit cache, 0:bitmap cache use the image cache.
+ * sbit cache is much more memory efficient for small bitmaps(font
+ * size < 256). if font size >= 256, must be configured as image cache
+ */
+
+#if LV_USE_FT_CACHE_MANAGER
+#ifndef LV_USE_FT_SBIT_CACHE
+#ifdef CONFIG_LV_USE_FT_SBIT_CACHE
+#define LV_USE_FT_SBIT_CACHE      1
+#else
+#define LV_USE_FT_SBIT_CACHE      0
+#endif
+#endif
+#endif
+
 /****************************************************************************
  * Public Types
  ****************************************************************************/
