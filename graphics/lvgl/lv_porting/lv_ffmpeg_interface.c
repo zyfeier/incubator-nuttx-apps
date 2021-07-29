@@ -27,7 +27,6 @@
 #include <libavutil/samplefmt.h>
 #include <libavutil/timestamp.h>
 #include <libswscale/swscale.h>
-#include <lvgl/lvgl.h>
 #include <lvgl/src/draw/lv_img_cache.h>
 #include "lv_ffmpeg_interface.h"
 
@@ -69,7 +68,7 @@ struct ffmpeg_context_s
     int video_src_linesize[4];
     int video_dst_linesize[4];
     enum AVPixelFormat video_dst_pix_fmt;
-    bool is_alpha;
+    bool has_alpha;
   };
 
 #pragma pack(1)
@@ -92,7 +91,6 @@ static lv_res_t decoder_open(lv_img_decoder_t *dec,
                              lv_img_decoder_dsc_t *dsc);
 static void decoder_close(lv_img_decoder_t *dec,
                           lv_img_decoder_dsc_t *dsc);
-static void convert_color_depth(uint8_t *img, uint32_t px_cnt);
 
 static struct ffmpeg_context_s *ffmpeg_open_file(const char *filepath);
 static void ffmpeg_close(struct ffmpeg_context_s *ffmpeg_ctx);
@@ -105,7 +103,7 @@ static int ffmpeg_get_frame_interval_time(
 static uint8_t *ffmpeg_get_img_data(struct ffmpeg_context_s *ffmpeg_ctx);
 static int ffmpeg_update_next_frame(struct ffmpeg_context_s *ffmpeg_ctx);
 static int ffmpeg_output_video_frame(struct ffmpeg_context_s *ffmpeg_ctx);
-static bool ffmpeg_pix_fmt_is_alpha(enum AVPixelFormat pix_fmt);
+static bool ffmpeg_pix_fmt_has_alpha(enum AVPixelFormat pix_fmt);
 static bool ffmpeg_pix_fmt_is_yuv(enum AVPixelFormat pix_fmt);
 
 static void lv_ffmpeg_player_constructor(const lv_obj_class_t *class_p,
@@ -113,6 +111,10 @@ static void lv_ffmpeg_player_constructor(const lv_obj_class_t *class_p,
 
 static void lv_ffmpeg_player_destructor(const lv_obj_class_t *class_p,
                                         lv_obj_t *obj);
+
+#if LV_COLOR_DEPTH != 32
+static void convert_color_depth(uint8_t *img, uint32_t px_cnt);
+#endif
 
 /****************************************************************************
  * Public Data
@@ -213,7 +215,7 @@ static lv_res_t decoder_open(lv_img_decoder_t *decoder,
       uint8_t *img_data = ffmpeg_get_img_data(ffmpeg_ctx);
 
 #if LV_COLOR_DEPTH != 32
-      if (ffmpeg_ctx->is_alpha)
+      if (ffmpeg_ctx->has_alpha)
         {
           convert_color_depth(img_data, dsc->header.w * dsc->header.h);
         }
@@ -313,7 +315,7 @@ static uint8_t *ffmpeg_get_img_data(struct ffmpeg_context_s *ffmpeg_ctx)
 }
 
 /****************************************************************************
- * Name: ffmpeg_pix_fmt_is_alpha
+ * Name: ffmpeg_pix_fmt_has_alpha
  *
  * Description:
  *   Determine whether this pixel format supports alpha.
@@ -326,9 +328,14 @@ static uint8_t *ffmpeg_get_img_data(struct ffmpeg_context_s *ffmpeg_ctx)
  *
  ****************************************************************************/
 
-static bool ffmpeg_pix_fmt_is_alpha(enum AVPixelFormat pix_fmt)
+static bool ffmpeg_pix_fmt_has_alpha(enum AVPixelFormat pix_fmt)
 {
   const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(pix_fmt);
+
+  if (desc == NULL)
+    {
+      return false;
+    }
 
   if (pix_fmt == AV_PIX_FMT_PAL8)
     {
@@ -355,6 +362,12 @@ static bool ffmpeg_pix_fmt_is_alpha(enum AVPixelFormat pix_fmt)
 static bool ffmpeg_pix_fmt_is_yuv(enum AVPixelFormat pix_fmt)
 {
   const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(pix_fmt);
+
+  if (desc == NULL)
+    {
+      return false;
+    }
+
   return !(desc->flags & AV_PIX_FMT_FLAG_RGB) && desc->nb_components >= 2;
 }
 
@@ -442,7 +455,7 @@ static int ffmpeg_output_video_frame(struct ffmpeg_context_s *ffmpeg_ctx)
           NULL, NULL, NULL);
     }
 
-  if (!ffmpeg_ctx->is_alpha)
+  if (!ffmpeg_ctx->has_alpha)
     {
       int lv_linesize = sizeof(lv_color_t) * width;
       int dst_linesize = ffmpeg_ctx->video_dst_linesize[0];
@@ -665,7 +678,7 @@ static int ffmpeg_get_img_header(const char *filepath,
   if (ffmpeg_open_codec_context(&video_stream_idx, &video_dec_ctx,
                                 fmt_ctx, AVMEDIA_TYPE_VIDEO) >= 0)
     {
-      bool is_alpha = ffmpeg_pix_fmt_is_alpha(video_dec_ctx->pix_fmt);
+      bool has_alpha = ffmpeg_pix_fmt_has_alpha(video_dec_ctx->pix_fmt);
 
       /* allocate image where the decoded image will be put */
 
@@ -673,7 +686,7 @@ static int ffmpeg_get_img_header(const char *filepath,
       header->h = video_dec_ctx->height;
       header->always_zero = 0;
       header->cf =
-        (is_alpha ? LV_IMG_CF_TRUE_COLOR_ALPHA : LV_IMG_CF_TRUE_COLOR);
+        (has_alpha ? LV_IMG_CF_TRUE_COLOR_ALPHA : LV_IMG_CF_TRUE_COLOR);
 
       ret = 0;
     }
@@ -844,11 +857,11 @@ struct ffmpeg_context_s *ffmpeg_open_file(const char *filepath)
 
       LV_LOG_INFO("alloc video_src_bufsize = %d\n", ret);
 
-      ffmpeg_ctx->is_alpha =
-        ffmpeg_pix_fmt_is_alpha(ffmpeg_ctx->video_dec_ctx->pix_fmt);
+      ffmpeg_ctx->has_alpha =
+        ffmpeg_pix_fmt_has_alpha(ffmpeg_ctx->video_dec_ctx->pix_fmt);
 
       ffmpeg_ctx->video_dst_pix_fmt =
-        (ffmpeg_ctx->is_alpha ? AV_PIX_FMT_BGRA : AV_PIX_FMT_TRUE_COLOR);
+        (ffmpeg_ctx->has_alpha ? AV_PIX_FMT_BGRA : AV_PIX_FMT_TRUE_COLOR);
 
       ret = av_image_alloc(
         ffmpeg_ctx->video_dst_data,
@@ -1002,7 +1015,7 @@ static void lv_ffmpeg_player_frame_update_cb(lv_timer_t *timer)
     }
 
 #if LV_COLOR_DEPTH != 32
-  if (player->ffmpeg_ctx->is_alpha)
+  if (player->ffmpeg_ctx->has_alpha)
     {
       convert_color_depth((uint8_t *)(player->imgdsc.data),
                       player->imgdsc.header.w * player->imgdsc.header.h);
@@ -1178,12 +1191,27 @@ lv_res_t lv_ffmpeg_player_set_src(lv_obj_t *ffmpeg_player,
       goto failed;
     }
 
-  player->imgdsc.data = ffmpeg_get_img_data(player->ffmpeg_ctx);
+  bool has_alpha = player->ffmpeg_ctx->has_alpha;
+  int width = player->ffmpeg_ctx->video_dec_ctx->width;
+  int height = player->ffmpeg_ctx->video_dec_ctx->height;
+  uint32_t data_size = 0;
+
+  if (has_alpha)
+    {
+      data_size = width * height * LV_IMG_PX_SIZE_ALPHA_BYTE;
+    }
+  else
+    {
+      data_size = width * height * LV_COLOR_SIZE / 8;
+    }
+
   player->imgdsc.header.always_zero = 0;
-  player->imgdsc.header.cf = (player->ffmpeg_ctx->is_alpha ?
-                          LV_IMG_CF_TRUE_COLOR_ALPHA : LV_IMG_CF_TRUE_COLOR);
-  player->imgdsc.header.h = player->ffmpeg_ctx->video_dec_ctx->height;
-  player->imgdsc.header.w = player->ffmpeg_ctx->video_dec_ctx->width;
+  player->imgdsc.header.w = width;
+  player->imgdsc.header.h = height;
+  player->imgdsc.data_size = data_size;
+  player->imgdsc.header.cf =
+          has_alpha ? LV_IMG_CF_TRUE_COLOR_ALPHA : LV_IMG_CF_TRUE_COLOR;
+  player->imgdsc.data = ffmpeg_get_img_data(player->ffmpeg_ctx);
 
   lv_img_set_src(&player->img.obj, &(player->imgdsc));
 
