@@ -187,6 +187,10 @@ int main(int argc, FAR char *argv[])
   lv_lcddev_interface_init(NULL, 0);
 #endif
 
+#if defined(CONFIG_LV_USE_GPU_INTERFACE)
+  lv_gpu_interface_init();
+#endif
+
 #if defined(CONFIG_LV_USE_FBDEV_INTERFACE)
   lv_fbdev_interface_init(NULL, 0);
 #endif

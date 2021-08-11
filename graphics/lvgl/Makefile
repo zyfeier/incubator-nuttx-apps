@@ -73,6 +73,11 @@ ifneq ($(CONFIG_LV_USE_FREETYPE_INTERFACE),)
 CSRCS += lv_porting/lv_freetype_interface.c
 endif
 
+ifneq ($(CONFIG_LV_USE_GPU_INTERFACE),)
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu/drv/vglite/inc}
+CSRCS += lv_porting/lv_gpu_interface.c
+endif
+
 ifneq ($(CONFIG_LV_USE_FFMPEG_INTERFACE),)
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/ffmpeg}
 CSRCS += lv_porting/lv_ffmpeg_interface.c

@@ -57,6 +57,43 @@ config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
 
 endif
 
+config LV_USE_GPU_INTERFACE
+	bool "Use GPU acceleration"
+	default n
+        select LV_USE_EXTERNAL_RENDERER
+
+if LV_USE_GPU_INTERFACE
+
+config LV_GPU_USE_VGLITE
+	bool "Use vglite HW acceleration"
+	default y
+
+config LV_GPU_USE_DMA2D
+	bool "Use DMA2D HW acceleration"
+	default y
+
+config LV_GPU_USE_ARM2D
+	bool "Use ARM-2D graphics library"
+	default n
+	depends on GRAPHICS_ARM2D
+
+choice
+	prompt "Default power mode"
+	default GPU_MODE_PERFORMANCE
+
+config GPU_MODE_POWERSAVE
+	bool "Low power mode"
+
+config GPU_MODE_BALANCED
+	bool "Balanced mode"
+
+config GPU_MODE_PERFORMANCE
+	bool "High performance mode"
+
+endchoice
+
+endif
+
 menuconfig LV_USE_BUTTON_INTERFACE
 	bool "Button input interface"
 	default n
