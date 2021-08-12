@@ -215,10 +215,10 @@ $(LIBTOMCRYPT_UNPACKNAME): $(LIBTOMCRYPT_ZIP)
 	$(Q) patch -p0 < ltcrypt-flush.patch # Missing stdout flush in demo app
 	$(Q) touch $(LIBTOMCRYPT_UNPACKNAME)
 
-context:: $(LIBTOMCRYPT_UNPACKNAME)
+context::# $(LIBTOMCRYPT_UNPACKNAME)
 
 distclean::
-	$(call DELDIR, $(LIBTOMCRYPT_UNPACKNAME))
-	$(call DELFILE, $(LIBTOMCRYPT_ZIP))
+#	$(call DELDIR, $(LIBTOMCRYPT_UNPACKNAME))
+#	$(call DELFILE, $(LIBTOMCRYPT_ZIP))
 
 include $(APPDIR)/Application.mk
