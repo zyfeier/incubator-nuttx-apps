@@ -277,6 +277,12 @@ config LVX_USE_ARC_SCROLLBAR
 	---help---
 		Enable use lvx_arc_scrollbar widgets
 
+config LVX_USE_CHART
+	bool "LVX_USE_CHART"
+	default y
+	---help---
+		Enable use lvx_chart widgets
+
 endif
 
 endif
