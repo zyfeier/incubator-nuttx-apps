@@ -227,6 +227,22 @@ config LVGL_EXTENSION
 
 if LVGL_EXTENSION
 
+config LVX_USE_FONT_MANAGER
+	bool "LVX_USE_FONT_MANAGER"
+	default y
+	depends on LV_USE_FREETYPE_INTERFACE
+	---help---
+		Enable font-manager for freetype fonts.
+
+config FONT_LIB_PATH
+	string "The path of the font library"
+	depends on LVX_USE_FONT_MANAGER
+	default "/data/"
+	help
+		The path of the font library. eg:
+		/data/	, /data/font/xxxxx
+		Note: '/' is required at the end of the string.
+
 config LVX_USE_WIDGETS
 	bool "Enable widgets extension"
 	default y
