@@ -336,11 +336,6 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
       device_path = CONFIG_LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH;
     }
 
-  if (line_buffer <= 0)
-    {
-      line_buffer = CONFIG_LV_DEFAULT_LINE_BUFFER;
-    }
-
   LV_LOG_INFO("fbdev opening %s", device_path);
 
   struct fbdev_obj_s state;
@@ -432,5 +427,21 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
 
   LV_LOG_INFO("Mapped FB: %p", state.fbmem);
 
-  return fbdev_init(&state, state.vinfo.xres, state.vinfo.yres, line_buffer);
+#ifdef CONFIG_LV_USE_FULL_SCREEN_BUFFER
+  line_buffer = state.vinfo.yres;
+#else
+  if (line_buffer <= 0)
+    {
+      line_buffer = CONFIG_LV_DEFAULT_LINE_BUFFER;
+    }
+#endif
+
+  lv_disp_t *disp = fbdev_init(&state, state.vinfo.xres, state.vinfo.yres,
+                               line_buffer);
+  if (disp == NULL)
+    {
+      close(state.fd);
+    }
+
+  return disp;
 }

@@ -229,11 +229,6 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
       device_path = CONFIG_LV_LCDDEV_INTERFACE_DEFAULT_DEVICEPATH;
     }
 
-  if (line_buffer <= 0)
-    {
-      line_buffer = CONFIG_LV_DEFAULT_LINE_BUFFER;
-    }
-
   LV_LOG_INFO("lcddev opening %s", device_path);
   int fd = open(device_path, 0);
   if (fd < 0)
@@ -287,5 +282,21 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
     }
 #endif
 
-  return lcddev_init(fd, vinfo.xres, vinfo.yres, line_buffer);
+#ifdef CONFIG_LV_USE_FULL_SCREEN_BUFFER
+  line_buffer = vinfo.yres;
+#else
+  if (line_buffer <= 0)
+    {
+      line_buffer = CONFIG_LV_DEFAULT_LINE_BUFFER;
+    }
+#endif
+
+  lv_disp_t *disp = lcddev_init(fd, vinfo.xres, vinfo.yres,
+                                line_buffer);
+  if (disp == NULL)
+    {
+      close(fd);
+    }
+
+  return disp;
 }

@@ -41,9 +41,17 @@ config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
 
 endif
 
+config LV_USE_FULL_SCREEN_BUFFER
+	bool "Use full screen buffer"
+	default n
+
+if !LV_USE_FULL_SCREEN_BUFFER
+
 config LV_DEFAULT_LINE_BUFFER
 	int "Default buffer size (in line)"
 	default 10
+
+endif
 
 config LV_USE_DOUBLE_BUFFER
 	bool "Use double buffer"
