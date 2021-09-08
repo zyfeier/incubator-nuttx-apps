@@ -22,6 +22,7 @@
  * Included Files
  ****************************************************************************/
 
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/samplefmt.h>
@@ -1079,7 +1080,10 @@ static void lv_ffmpeg_player_destructor(const lv_obj_class_t *class_p,
       player->timer = NULL;
     }
 
+  lv_img_cache_invalidate_src(lv_img_get_src(obj));
+
   ffmpeg_close(player->ffmpeg_ctx);
+  player->ffmpeg_ctx = NULL;
 
   LV_TRACE_OBJ_CREATE("finished");
 }
