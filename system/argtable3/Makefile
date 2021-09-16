@@ -52,10 +52,10 @@ $(ARGTABLE3_UNPACK): $(ARGTABLE3_TARBALL)
 	$(Q) tar zxf $(ARGTABLE3_TARBALL)
 	$(Q) mv argtable3-$(ARGTABLE3_VERSION) $(ARGTABLE3_UNPACK)
 
-context:: $(ARGTABLE3_UNPACK)
+context::# $(ARGTABLE3_UNPACK)
 
 distclean::
-	$(call DELFILE, $(ARGTABLE3_TARBALL))
-	$(call DELDIR, $(ARGTABLE3_UNPACK))
+#	$(call DELFILE, $(ARGTABLE3_TARBALL))
+#	$(call DELDIR, $(ARGTABLE3_UNPACK))
 
 include $(APPDIR)/Application.mk
