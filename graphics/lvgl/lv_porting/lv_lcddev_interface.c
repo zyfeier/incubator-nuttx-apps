@@ -233,8 +233,7 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
   int fd = open(device_path, 0);
   if (fd < 0)
     {
-      int errcode = errno;
-      LV_LOG_ERROR("lcddev open failed: %d", errcode);
+      LV_LOG_ERROR("lcddev open failed: %d", errno);
       return NULL;
     }
 
@@ -245,8 +244,7 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
                     (unsigned long)((uintptr_t)&vinfo));
   if (ret < 0)
     {
-      int errcode = errno;
-      LV_LOG_ERROR("ioctl(LCDDEVIO_GETVIDEOINFO) failed: %d", errcode);
+      LV_LOG_ERROR("ioctl(LCDDEVIO_GETVIDEOINFO) failed: %d", errno);
       close(fd);
       return NULL;
     }
@@ -262,9 +260,8 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
               (unsigned long)((uintptr_t)&pinfo));
   if (ret < 0)
     {
-      int errcode = errno;
       LV_LOG_ERROR("ERROR: ioctl(LCDDEVIO_GETPLANEINFO) failed: %d",
-              errcode);
+                   errno);
       close(fd);
       return NULL;
     }

@@ -205,8 +205,7 @@ lv_indev_t *lv_button_interface_init(const char *dev_path)
   int fd = open(device_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
-      int errcode = errno;
-      LV_LOG_ERROR("button open failed: %d", errcode);
+      LV_LOG_ERROR("button open failed: %d", errno);
       return NULL;
     }
 
@@ -218,9 +217,8 @@ lv_indev_t *lv_button_interface_init(const char *dev_path)
               (unsigned long)((uintptr_t)&supported));
   if (ret < 0)
     {
-      int errcode = errno;
       LV_LOG_ERROR("button ioctl(BTNIOC_SUPPORTED) failed: %d",
-                   errcode);
+                   errno);
       return NULL;
     }
 

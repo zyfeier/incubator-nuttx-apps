@@ -343,8 +343,7 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
   state.fd = open(device_path, O_RDWR);
   if (state.fd < 0)
     {
-      int errcode = errno;
-      LV_LOG_ERROR("fbdev open failed: %d", errcode);
+      LV_LOG_ERROR("fbdev open failed: %d", errno);
       return NULL;
     }
 
@@ -354,8 +353,7 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
                     (unsigned long)((uintptr_t)&state.vinfo));
   if (ret < 0)
     {
-      int errcode = errno;
-      LV_LOG_ERROR("ioctl(FBIOGET_VIDEOINFO) failed: %d", errcode);
+      LV_LOG_ERROR("ioctl(FBIOGET_VIDEOINFO) failed: %d", errno);
       close(state.fd);
       return NULL;
     }
@@ -370,9 +368,8 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
               (unsigned long)((uintptr_t)&state.pinfo));
   if (ret < 0)
     {
-      int errcode = errno;
       LV_LOG_ERROR("ERROR: ioctl(FBIOGET_PLANEINFO) failed: %d",
-              errcode);
+                   errno);
       close(state.fd);
       return NULL;
     }
@@ -419,8 +416,7 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
                      MAP_SHARED | MAP_FILE, state.fd, 0);
   if (state.fbmem == MAP_FAILED)
     {
-      int errcode = errno;
-      LV_LOG_ERROR("ioctl(FBIOGET_PLANEINFO) failed: %d", errcode);
+      LV_LOG_ERROR("ioctl(FBIOGET_PLANEINFO) failed: %d", errno);
       close(state.fd);
       return NULL;
     }
