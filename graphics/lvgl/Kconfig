@@ -191,6 +191,19 @@ config LV_TOUCHPAD_INTERFACE_DEFAULT_DEVICEPATH
 
 endif
 
+config LV_USE_ENCODER_INTERFACE
+	depends on INPUT_MOUSE_WHEEL
+	bool "Encoder input interface"
+	default n
+
+if LV_USE_ENCODER_INTERFACE
+
+config LV_ENCODER_INTERFACE_DEFAULT_DEVICEPATH
+	string "Encoder default device path"
+	default "/dev/input0"
+
+endif
+
 config LV_USE_FREETYPE_INTERFACE
 	bool "Use FreeType interface"
 	depends on LIB_FREETYPE

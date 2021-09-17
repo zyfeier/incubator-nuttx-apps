@@ -53,6 +53,10 @@ ifneq ($(CONFIG_LV_USE_TOUCHPAD_INTERFACE),)
 CSRCS += lv_porting/lv_touchpad_interface.c
 endif
 
+ifneq ($(CONFIG_LV_USE_ENCODER_INTERFACE),)
+CSRCS += lv_porting/lv_encoder_interface.c
+endif
+
 ifneq ($(CONFIG_LV_USE_LCDDEV_INTERFACE),)
 CSRCS += lv_porting/lv_lcddev_interface.c
 endif

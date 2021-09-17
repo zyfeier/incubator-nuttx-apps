@@ -132,6 +132,10 @@ int main(int argc, FAR char *argv[])
   lv_touchpad_interface_init(NULL);
 #endif
 
+#if defined(CONFIG_LV_USE_ENCODER_INTERFACE)
+  lv_encoder_interface_init(NULL);
+#endif
+
   /* LVGL demo creation */
 
 #if defined(CONFIG_EXAMPLES_LVGLDEMO_BENCHMARK)
