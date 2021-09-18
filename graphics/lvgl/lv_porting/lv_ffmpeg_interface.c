@@ -97,6 +97,7 @@ static struct ffmpeg_context_s *ffmpeg_open_file(const char *filepath);
 static void ffmpeg_close(struct ffmpeg_context_s *ffmpeg_ctx);
 static void ffmpeg_close_src_ctx(struct ffmpeg_context_s *ffmpeg_ctx);
 static void ffmpeg_close_dst_ctx(struct ffmpeg_context_s *ffmpeg_ctx);
+static int ffmpeg_image_allocate(struct ffmpeg_context_s *ffmpeg_ctx);
 static int ffmpeg_get_img_header(const char *filepath,
                                  lv_img_header_t *header);
 static int ffmpeg_get_frame_interval_time(
@@ -202,6 +203,13 @@ static lv_res_t decoder_open(lv_img_decoder_t *decoder,
       if (ffmpeg_ctx == NULL)
         {
           LV_LOG_ERROR("ffmpeg file open failed");
+          return LV_RES_INV;
+        }
+
+      if (ffmpeg_image_allocate(ffmpeg_ctx) < 0)
+        {
+          LV_LOG_ERROR("ffmpeg image allocate failed");
+          ffmpeg_close(ffmpeg_ctx);
           return LV_RES_INV;
         }
 
@@ -441,7 +449,7 @@ static int ffmpeg_output_video_frame(struct ffmpeg_context_s *ffmpeg_ctx)
 
           if ((width & 0x7) || (height & 0x7))
             {
-              LV_LOG_WARN("The width(%d) and height(%d) the image"
+              LV_LOG_WARN("The width(%d) and height(%d) the image "
                           "is not a multiple of 8, "
                           "the decoding speed may be reduced",
                           width, height);
@@ -805,6 +813,12 @@ static int ffmpeg_update_next_frame(struct ffmpeg_context_s *ffmpeg_ctx)
 
 struct ffmpeg_context_s *ffmpeg_open_file(const char *filepath)
 {
+  if (filepath == NULL || strlen(filepath) == 0)
+    {
+      LV_LOG_ERROR("file path is empty");
+      return NULL;
+    }
+
   struct ffmpeg_context_s *ffmpeg_ctx =
     calloc(1, sizeof(struct ffmpeg_context_s));
 
@@ -838,47 +852,11 @@ struct ffmpeg_context_s *ffmpeg_open_file(const char *filepath)
       ffmpeg_ctx->video_stream =
         ffmpeg_ctx->fmt_ctx->streams[ffmpeg_ctx->video_stream_idx];
 
-      /* allocate image where the decoded image will be put */
-
-      int ret;
-
-      ret = av_image_alloc(
-        ffmpeg_ctx->video_src_data,
-        ffmpeg_ctx->video_src_linesize,
-        ffmpeg_ctx->video_dec_ctx->width,
-        ffmpeg_ctx->video_dec_ctx->height,
-        ffmpeg_ctx->video_dec_ctx->pix_fmt,
-        4);
-
-      if (ret < 0)
-        {
-          LV_LOG_ERROR("Could not allocate src raw video buffer");
-          goto failed;
-        }
-
-      LV_LOG_INFO("alloc video_src_bufsize = %d\n", ret);
-
       ffmpeg_ctx->has_alpha =
         ffmpeg_pix_fmt_has_alpha(ffmpeg_ctx->video_dec_ctx->pix_fmt);
 
       ffmpeg_ctx->video_dst_pix_fmt =
         (ffmpeg_ctx->has_alpha ? AV_PIX_FMT_BGRA : AV_PIX_FMT_TRUE_COLOR);
-
-      ret = av_image_alloc(
-        ffmpeg_ctx->video_dst_data,
-        ffmpeg_ctx->video_dst_linesize,
-        ffmpeg_ctx->video_dec_ctx->width,
-        ffmpeg_ctx->video_dec_ctx->height,
-        ffmpeg_ctx->video_dst_pix_fmt,
-        4);
-
-      if (ret < 0)
-        {
-          LV_LOG_ERROR("Could not allocate dst raw video buffer");
-          goto failed;
-        }
-
-      LV_LOG_INFO("alloc video_dst_bufsize = %d\n", ret);
     }
 
 #if defined(CONFIG_LV_FFMPEG_INTERFACE_AV_DUMP_FORMAT)
@@ -894,12 +872,68 @@ struct ffmpeg_context_s *ffmpeg_open_file(const char *filepath)
       goto failed;
     }
 
+  return ffmpeg_ctx;
+
+failed:
+  ffmpeg_close(ffmpeg_ctx);
+  return NULL;
+}
+
+/****************************************************************************
+ * Name: ffmpeg_image_allocate
+ *
+ * Description:
+ *   Allocate image buffer.
+ *
+ * Input Parameters:
+ *   ffmpeg_ctx - pointer to a ffmpeg_ctx.
+ *
+ ****************************************************************************/
+
+static int ffmpeg_image_allocate(struct ffmpeg_context_s *ffmpeg_ctx)
+{
+  /* allocate image where the decoded image will be put */
+
+  int ret;
+
+  ret = av_image_alloc(
+    ffmpeg_ctx->video_src_data,
+    ffmpeg_ctx->video_src_linesize,
+    ffmpeg_ctx->video_dec_ctx->width,
+    ffmpeg_ctx->video_dec_ctx->height,
+    ffmpeg_ctx->video_dec_ctx->pix_fmt,
+    4);
+
+  if (ret < 0)
+    {
+      LV_LOG_ERROR("Could not allocate src raw video buffer");
+      return ret;
+    }
+
+  LV_LOG_INFO("alloc video_src_bufsize = %d", ret);
+
+  ret = av_image_alloc(
+    ffmpeg_ctx->video_dst_data,
+    ffmpeg_ctx->video_dst_linesize,
+    ffmpeg_ctx->video_dec_ctx->width,
+    ffmpeg_ctx->video_dec_ctx->height,
+    ffmpeg_ctx->video_dst_pix_fmt,
+    4);
+
+  if (ret < 0)
+    {
+      LV_LOG_ERROR("Could not allocate dst raw video buffer");
+      return ret;
+    }
+
+  LV_LOG_INFO("allocate video_dst_bufsize = %d", ret);
+
   ffmpeg_ctx->frame = av_frame_alloc();
 
   if (ffmpeg_ctx->frame == NULL)
     {
       LV_LOG_ERROR("Could not allocate frame");
-      goto failed;
+      return -1;
     }
 
   /* initialize packet, set data to NULL, let the demuxer fill it */
@@ -908,11 +942,7 @@ struct ffmpeg_context_s *ffmpeg_open_file(const char *filepath)
   ffmpeg_ctx->pkt.data = NULL;
   ffmpeg_ctx->pkt.size = 0;
 
-  return ffmpeg_ctx;
-
-failed:
-  ffmpeg_close(ffmpeg_ctx);
-  return NULL;
+  return 0;
 }
 
 /****************************************************************************
@@ -1195,6 +1225,13 @@ lv_res_t lv_ffmpeg_player_set_src(lv_obj_t *ffmpeg_player,
       goto failed;
     }
 
+  if (ffmpeg_image_allocate(player->ffmpeg_ctx) < 0)
+    {
+      LV_LOG_ERROR("ffmpeg image allocate failed");
+      ffmpeg_close(player->ffmpeg_ctx);
+      goto failed;
+    }
+
   bool has_alpha = player->ffmpeg_ctx->has_alpha;
   int width = player->ffmpeg_ctx->video_dec_ctx->width;
   int height = player->ffmpeg_ctx->video_dec_ctx->height;
@@ -1223,7 +1260,7 @@ lv_res_t lv_ffmpeg_player_set_src(lv_obj_t *ffmpeg_player,
 
   if (time > 0)
     {
-      LV_LOG_INFO("frame interval time = %d ms, %d fps\n",
+      LV_LOG_INFO("frame interval time = %d ms, %d fps",
                   time, 1000 / time);
       lv_timer_set_period(player->timer, time);
     }
