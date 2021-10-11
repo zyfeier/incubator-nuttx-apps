@@ -52,6 +52,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <debug.h>
+#include <pthread.h>
 
 #include <arpa/inet.h>
 #include <netinet/udp.h>
@@ -129,12 +130,15 @@ struct dhcp_msg
 struct dhcpc_state_s
 {
   FAR const char    *interface;
-  FAR const void    *ds_macaddr;
+  uint8_t            ds_macaddr[IFHWADDRLEN];
   int                ds_maclen;
   int                sockfd;
   struct in_addr     ipaddr;
   struct in_addr     serverid;
   struct dhcp_msg    packet;
+  bool               cancel;
+  pthread_t          thread;              /* Thread ID of the DHCPC thread */
+  dhcpc_callback_t   callback;            /* Thread callback of the DHCPC thread */
 };
 
 /****************************************************************************
@@ -446,6 +450,47 @@ static uint8_t dhcpc_parsemsg(FAR struct dhcpc_state_s *pdhcpc, int buflen,
 }
 
 /****************************************************************************
+ * Name: dhcpc_run
+ ****************************************************************************/
+
+static void *dhcpc_run(void *args)
+{
+  FAR struct dhcpc_state_s *pdhcpc = (FAR struct dhcpc_state_s *)args;
+  struct dhcpc_state result;
+  int ret;
+
+  while (1)
+    {
+      ret = dhcpc_request(pdhcpc, &result);
+      if (ret == OK)
+        {
+          pdhcpc->callback(&result);
+        }
+      else
+        {
+          pdhcpc->callback(NULL);
+          nerr("dhcpc_request error\n");
+        }
+
+      if (pdhcpc->cancel)
+        {
+          return NULL;
+        }
+
+      while (result.lease_time)
+        {
+          result.lease_time = sleep(result.lease_time);
+          if (pdhcpc->cancel)
+            {
+              return NULL;
+            }
+        }
+    }
+
+  return NULL;
+}
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -475,8 +520,8 @@ FAR void *dhcpc_open(FAR const char *interface, FAR const void *macaddr,
 
       memset(pdhcpc, 0, sizeof(struct dhcpc_state_s));
       pdhcpc->interface  = interface;
-      pdhcpc->ds_macaddr = macaddr;
-      pdhcpc->ds_maclen  = maclen;
+      pdhcpc->ds_maclen  = maclen > IFHWADDRLEN? IFHWADDRLEN : maclen;
+      memcpy(pdhcpc->ds_macaddr, macaddr, pdhcpc->ds_maclen);
 
       /* Create a UDP socket */
 
@@ -551,12 +596,57 @@ void dhcpc_close(FAR void *handle)
 
   if (pdhcpc)
     {
+      if (pdhcpc->thread)
+        {
+          dhcpc_cancel(pdhcpc);
+        }
+
       if (pdhcpc->sockfd)
         {
           close(pdhcpc->sockfd);
         }
 
       free(pdhcpc);
+    }
+}
+
+/****************************************************************************
+ * Name: dhcpc_cancel
+ ****************************************************************************/
+
+void dhcpc_cancel(FAR void *handle)
+{
+  struct dhcpc_state_s *pdhcpc = (struct dhcpc_state_s *)handle;
+  sighandler_t old;
+  int ret;
+
+  if (pdhcpc)
+    {
+      pdhcpc->cancel = true;
+
+      if (pdhcpc->thread)
+        {
+          old = signal(SIGQUIT, SIG_IGN);
+
+          /* Signal the dhcpc_run */
+
+          ret = pthread_kill(pdhcpc->thread, SIGQUIT);
+          if (ret != 0)
+            {
+              nerr("ERROR: pthread_kill DHCPC thread\n");
+            }
+
+          /* Wait for the end of dhcpc_run */
+
+          ret = pthread_join(pdhcpc->thread, NULL);
+          if (ret != 0)
+            {
+              nerr("ERROR: pthread_join DHCPC thread\n");
+            }
+
+          pdhcpc->thread = 0;
+          signal(SIGQUIT, old);
+        }
     }
 }
 
@@ -599,6 +689,11 @@ int dhcpc_request(FAR void *handle, FAR struct dhcpc_state *presult)
   state = STATE_INITIAL;
   do
     {
+      if (pdhcpc->cancel)
+        {
+          return ERROR;
+        }
+
       /* Send the DISCOVER command */
 
       ninfo("Broadcast DISCOVER\n");
@@ -666,6 +761,11 @@ int dhcpc_request(FAR void *handle, FAR struct dhcpc_state *presult)
   retries = 0;
   do
     {
+      if (pdhcpc->cancel)
+        {
+          return ERROR;
+        }
+
       /* Send the REQUEST message to obtain the lease that was offered to
        * us.
        */
@@ -773,5 +873,36 @@ int dhcpc_request(FAR void *handle, FAR struct dhcpc_state *presult)
         (int)((presult->default_router.s_addr >> 16) & 0xff),
         (int)((presult->default_router.s_addr >> 24) & 0xff));
   ninfo("Lease expires in %" PRId32 " seconds\n", presult->lease_time);
+  return OK;
+}
+
+/****************************************************************************
+ * Name: dhcpc_request_async
+ ****************************************************************************/
+
+int dhcpc_request_async(FAR void *handle, dhcpc_callback_t callback)
+{
+  FAR struct dhcpc_state_s *pdhcpc = (FAR struct dhcpc_state_s *)handle;
+  int ret;
+
+  if (!handle || !callback)
+    {
+      return ERROR;
+    }
+
+  if (pdhcpc->thread)
+    {
+      nerr("ERROR: DHCPC thread already running\n");
+      return ERROR;
+    }
+
+  pdhcpc->callback = callback;
+  ret = pthread_create(&pdhcpc->thread, NULL, dhcpc_run, pdhcpc);
+  if (ret != 0)
+    {
+      nerr("ERROR: Failed to start the DHCPC thread\n");
+      return ERROR;
+    }
+
   return OK;
 }
