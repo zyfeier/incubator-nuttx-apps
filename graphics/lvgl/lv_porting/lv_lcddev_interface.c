@@ -69,8 +69,7 @@ struct lcddev_obj_s
 
 static void lcddev_wait(lv_disp_drv_t *disp_drv)
 {
-  struct lcddev_obj_s *lcddev_obj;
-  lcddev_obj = (struct lcddev_obj_s *)(disp_drv->user_data);
+  struct lcddev_obj_s *lcddev_obj = disp_drv->user_data;
 
   sem_wait(&(lcddev_obj->wait_sem));
 
@@ -87,7 +86,7 @@ static void *lcddev_update_thread(void *arg)
 {
   int ret = OK;
   int errcode;
-  struct lcddev_obj_s *lcddev_obj = (struct lcddev_obj_s *)arg;
+  struct lcddev_obj_s *lcddev_obj = arg;
 
   while (ret == OK)
     {
@@ -117,8 +116,7 @@ static void *lcddev_update_thread(void *arg)
 static void lcddev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
                       lv_color_t *color_p)
 {
-  struct lcddev_obj_s *lcddev_obj;
-  lcddev_obj = (struct lcddev_obj_s *)(disp_drv->user_data);
+  struct lcddev_obj_s *lcddev_obj = disp_drv->user_data;
 
   lcddev_obj->area.row_start = area_p->y1;
   lcddev_obj->area.row_end = area_p->y2;
@@ -138,7 +136,8 @@ static lv_disp_t *lcddev_init(int fd, int hor_res, int ver_res, int line_buf)
   lv_color_t *buf1 = NULL;
   lv_color_t *buf2 = NULL;
   struct lcddev_obj_s *lcddev_obj;
-  lcddev_obj = (struct lcddev_obj_s *)malloc(sizeof(struct lcddev_obj_s));
+  const size_t buf_size = hor_res * line_buf * sizeof(lv_color_t);
+  lcddev_obj = malloc(sizeof(struct lcddev_obj_s));
 
   if (lcddev_obj == NULL)
     {
@@ -146,9 +145,7 @@ static lv_disp_t *lcddev_init(int fd, int hor_res, int ver_res, int line_buf)
       return NULL;
     }
 
-  const size_t buf_size = hor_res * line_buf * sizeof(lv_color_t);
-
-  buf1 = (lv_color_t *)malloc(buf_size);
+  buf1 = malloc(buf_size);
   if (buf1 == NULL)
     {
       LV_LOG_ERROR("display buf1 malloc failed");
@@ -156,8 +153,8 @@ static lv_disp_t *lcddev_init(int fd, int hor_res, int ver_res, int line_buf)
       return NULL;
     }
 
-#if CONFIG_LV_USE_DOUBLE_BUFFER
-  buf2 = (lv_color_t *)malloc(buf_size);
+#ifdef CONFIG_LV_USE_DOUBLE_BUFFER
+  buf2 = malloc(buf_size);
   if (buf2 == NULL)
     {
       LV_LOG_ERROR("display buf2 malloc failed");
@@ -172,7 +169,7 @@ static lv_disp_t *lcddev_init(int fd, int hor_res, int ver_res, int line_buf)
   lcddev_obj->fd = fd;
 
   lv_disp_draw_buf_init(&(lcddev_obj->disp_draw_buf), buf1, buf2,
-                       hor_res * line_buf);
+                        hor_res * line_buf);
 
   lv_disp_drv_init(&(lcddev_obj->disp_drv));
   lcddev_obj->disp_drv.flush_cb = lcddev_flush;
@@ -194,7 +191,7 @@ static lv_disp_t *lcddev_init(int fd, int hor_res, int ver_res, int line_buf)
   /* Initialize the buffer flushing thread */
 
   pthread_create(&(lcddev_obj->write_thread), NULL,
-                  lcddev_update_thread, lcddev_obj);
+                 lcddev_update_thread, lcddev_obj);
 
   return lv_disp_drv_register(&(lcddev_obj->disp_drv));
 }
@@ -223,14 +220,20 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
 {
   const char *device_path = dev_path;
   int line_buffer = line_buf;
+  int fd;
+  int ret;
+  lv_disp_t *disp;
+
+  struct fb_videoinfo_s vinfo;
+  struct lcd_planeinfo_s pinfo;
 
   if (device_path == NULL)
     {
       device_path = CONFIG_LV_LCDDEV_INTERFACE_DEFAULT_DEVICEPATH;
     }
 
-  LV_LOG_INFO("lcddev opening %s", device_path);
-  int fd = open(device_path, 0);
+  LV_LOG_INFO("lcddev %s opening", device_path);
+  fd = open(device_path, 0);
   if (fd < 0)
     {
       LV_LOG_ERROR("lcddev open failed: %d", errno);
@@ -239,9 +242,8 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
 
   LV_LOG_INFO("lcddev %s open success", device_path);
 
-  struct fb_videoinfo_s vinfo;
-  int ret = ioctl(fd, LCDDEVIO_GETVIDEOINFO,
-                    (unsigned long)((uintptr_t)&vinfo));
+  ret = ioctl(fd, LCDDEVIO_GETVIDEOINFO,
+              (unsigned long)((uintptr_t)&vinfo));
   if (ret < 0)
     {
       LV_LOG_ERROR("ioctl(LCDDEVIO_GETVIDEOINFO) failed: %d", errno);
@@ -255,7 +257,6 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
   LV_LOG_INFO("     yres: %u", vinfo.yres);
   LV_LOG_INFO("  nplanes: %u", vinfo.nplanes);
 
-  struct lcd_planeinfo_s pinfo;
   ret = ioctl(fd, LCDDEVIO_GETPLANEINFO,
               (unsigned long)((uintptr_t)&pinfo));
   if (ret < 0)
@@ -288,8 +289,8 @@ lv_disp_t *lv_lcddev_interface_init(const char *dev_path, int line_buf)
     }
 #endif
 
-  lv_disp_t *disp = lcddev_init(fd, vinfo.xres, vinfo.yres,
-                                line_buffer);
+  disp = lcddev_init(fd, vinfo.xres, vinfo.yres,
+                     line_buffer);
   if (disp == NULL)
     {
       close(fd);

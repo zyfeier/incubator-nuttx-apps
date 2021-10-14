@@ -132,17 +132,18 @@ static lv_indev_t *encoder_init(int fd)
 lv_indev_t *lv_encoder_interface_init(const char *dev_path)
 {
   const char *device_path = dev_path;
+  int fd;
 
   if (device_path == NULL)
     {
       device_path = CONFIG_LV_ENCODER_INTERFACE_DEFAULT_DEVICEPATH;
     }
 
-  LV_LOG_INFO("encoder opening %s", device_path);
-  int fd = open(device_path, O_RDONLY | O_NONBLOCK);
+  LV_LOG_INFO("encoder %s opening", device_path);
+  fd = open(device_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
-      LV_LOG_ERROR("encoder open failed: %d", errno);
+      LV_LOG_ERROR("encoder %s open failed: %d", device_path, errno);
       return NULL;
     }
 

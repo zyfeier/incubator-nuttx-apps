@@ -106,6 +106,7 @@ static uint32_t keypad_get_key(int fd)
   uint32_t act_key = 0;
   btn_buttonset_t buttonset;
   const int buttonset_bits = sizeof(btn_buttonset_t) * 8;
+  int i;
 
   int ret = read(fd, &buttonset, sizeof(btn_buttonset_t));
   if (ret < 0)
@@ -113,7 +114,7 @@ static uint32_t keypad_get_key(int fd)
       return 0;
     }
 
-  for (int i = 0; i < sizeof(keypad_map) / sizeof(struct keypad_map_s); i++)
+  for (i = 0; i < sizeof(keypad_map) / sizeof(struct keypad_map_s); i++)
     {
       int bit = keypad_map[i].bit;
 
@@ -137,7 +138,7 @@ static uint32_t keypad_get_key(int fd)
 
 static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-  struct keypad_obj_s *keypad_obj = (struct keypad_obj_s *)drv->user_data;
+  struct keypad_obj_s *keypad_obj = drv->user_data;
 
   /* Get whether the a key is pressed and save the pressed key */
 
@@ -161,8 +162,8 @@ static void keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
 static lv_indev_t *keypad_init(int fd)
 {
-  struct keypad_obj_s *keypad_obj =
-    (struct keypad_obj_s *)lv_mem_alloc(sizeof(struct keypad_obj_s));
+  struct keypad_obj_s *keypad_obj;
+  keypad_obj = malloc(sizeof(struct keypad_obj_s));
 
   if (keypad_obj == NULL)
     {
@@ -207,25 +208,26 @@ static lv_indev_t *keypad_init(int fd)
 lv_indev_t *lv_keypad_interface_init(const char *dev_path)
 {
   const char *device_path = dev_path;
+  int fd;
+  int ret;
+  btn_buttonset_t supported;
 
   if (device_path == NULL)
     {
       device_path = CONFIG_LV_KEYPAD_INTERFACE_DEFAULT_DEVICEPATH;
     }
 
-  LV_LOG_INFO("keypad opening %s", device_path);
-  int fd = open(device_path, O_RDONLY | O_NONBLOCK);
+  LV_LOG_INFO("keypad %s opening", device_path);
+  fd = open(device_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
-      LV_LOG_ERROR("keypad open failed: %d", errno);
+      LV_LOG_ERROR("keypad %s open failed: %d", device_path, errno);
       return NULL;
     }
 
   /* Get the set of BUTTONs supported */
 
-  btn_buttonset_t supported;
-
-  int ret = ioctl(fd, BTNIOC_SUPPORTED,
+  ret = ioctl(fd, BTNIOC_SUPPORTED,
               (unsigned long)((uintptr_t)&supported));
   if (ret < 0)
     {

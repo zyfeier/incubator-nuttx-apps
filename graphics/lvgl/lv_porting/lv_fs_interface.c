@@ -27,6 +27,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "lv_fs_interface.h"
 
 /****************************************************************************
@@ -90,6 +91,9 @@ static lv_fs_res_t fs_dir_close(lv_fs_drv_t *drv, void *dir_p);
 static void *fs_open(lv_fs_drv_t *drv, const char *path, lv_fs_mode_t mode)
 {
   int oflag = 0;
+  file_t f;
+  file_t *fp;
+
   if (mode == LV_FS_MODE_WR)
     {
       oflag = O_WRONLY | O_CREAT;
@@ -103,13 +107,13 @@ static void *fs_open(lv_fs_drv_t *drv, const char *path, lv_fs_mode_t mode)
       oflag = O_RDWR | O_CREAT;
     }
 
-  file_t f = open(--path, oflag);
+  f = open(--path, oflag);
   if (f < 0)
     {
       return NULL;
     }
 
-  file_t *fp = lv_mem_alloc(sizeof(file_t));
+  fp = malloc(sizeof(file_t));
   if (fp == NULL)
     {
       return NULL;
@@ -143,7 +147,7 @@ static lv_fs_res_t fs_close(lv_fs_drv_t *drv, void *file_p)
   file_t *fp = file_p;
 
   int retval = close(*fp);
-  lv_mem_free(file_p);
+  free(file_p);
   return retval < 0 ? LV_FS_RES_FS_ERR : LV_FS_RES_OK;
 }
 
@@ -372,7 +376,7 @@ static lv_fs_res_t fs_dir_close(lv_fs_drv_t *drv, void *dir_p)
 
 void lv_fs_interface_init(void)
 {
-  lv_fs_drv_t *fs_drv = (lv_fs_drv_t *)lv_mem_alloc(sizeof(lv_fs_drv_t));
+  lv_fs_drv_t *fs_drv = malloc(sizeof(lv_fs_drv_t));
 
   if (fs_drv == NULL)
     {

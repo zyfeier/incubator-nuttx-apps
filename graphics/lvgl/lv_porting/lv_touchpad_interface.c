@@ -60,12 +60,10 @@ struct touchpad_obj_s
 
 static void touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-  struct touchpad_obj_s *touchpad_obj =
-    (struct touchpad_obj_s *)drv->user_data;
+  struct touchpad_obj_s *touchpad_obj = drv->user_data;
+  struct touch_sample_s sample;
 
   /* Read one sample */
-
-  struct touch_sample_s sample;
 
   int nbytes = read(touchpad_obj->fd, &sample,
                     sizeof(struct touch_sample_s));
@@ -101,8 +99,8 @@ static void touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
 static lv_indev_t *touchpad_init(int fd)
 {
-  struct touchpad_obj_s *touchpad_obj =
-    (struct touchpad_obj_s *)malloc(sizeof(struct touchpad_obj_s));
+  struct touchpad_obj_s *touchpad_obj;
+  touchpad_obj = malloc(sizeof(struct touchpad_obj_s));
 
   if (touchpad_obj == NULL)
     {
@@ -147,17 +145,18 @@ static lv_indev_t *touchpad_init(int fd)
 lv_indev_t *lv_touchpad_interface_init(const char *dev_path)
 {
   const char *device_path = dev_path;
+  int fd;
 
   if (device_path == NULL)
     {
       device_path = CONFIG_LV_TOUCHPAD_INTERFACE_DEFAULT_DEVICEPATH;
     }
 
-  LV_LOG_INFO("touchpad opening %s", device_path);
-  int fd = open(device_path, O_RDONLY | O_NONBLOCK);
+  LV_LOG_INFO("touchpad %s opening", device_path);
+  fd = open(device_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
-      LV_LOG_ERROR("touchpad open failed: %d", errno);
+      LV_LOG_ERROR("touchpad %s open failed: %d", device_path, errno);
       return NULL;
     }
 

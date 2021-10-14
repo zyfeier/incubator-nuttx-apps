@@ -75,8 +75,7 @@ struct fbdev_obj_s
 
 static void fbdev_wait(lv_disp_drv_t *disp_drv)
 {
-  struct fbdev_obj_s *fbdev_obj;
-  fbdev_obj = (struct fbdev_obj_s *)(disp_drv->user_data);
+  struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
 
   sem_wait(&(fbdev_obj->wait_sem));
 
@@ -92,98 +91,64 @@ static void fbdev_wait(lv_disp_drv_t *disp_drv)
 static int fbdev_flush_internal(struct fbdev_obj_s *fbdev_obj)
 {
   int ret = OK;
-  int32_t x1 = fbdev_obj->area.x1;
-  int32_t y1 = fbdev_obj->area.y1;
-  int32_t x2 = fbdev_obj->area.x2;
-  int32_t y2 = fbdev_obj->area.y2;
-  int32_t act_x1;
-  int32_t act_y1;
-  int32_t act_x2;
-  int32_t act_y2;
+  int x1 = fbdev_obj->area.x1;
+  int y1 = fbdev_obj->area.y1;
+  int x2 = fbdev_obj->area.x2;
+  int y2 = fbdev_obj->area.y2;
+
+#ifdef CONFIG_FB_UPDATE
+  struct fb_area_s fb_area;
+#endif
+
   lv_color_t *color_p = fbdev_obj->color_p;
 
-  if (fbdev_obj->fbmem == NULL)
-    {
-      return ERROR;
-    }
-
-  /* Return if the area is out the screen */
-
-  if (x2 < 0)
-    {
-      return ERROR;
-    }
-
-  if (y2 < 0)
-    {
-      return ERROR;
-    }
-
-  if (x1 > fbdev_obj->vinfo.xres - 1)
-    {
-      return ERROR;
-    }
-
-  if (y1 > fbdev_obj->vinfo.yres - 1)
-    {
-      return ERROR;
-    }
-
-  /* Truncate the area to the screen */
-
-  act_x1 = x1 < 0 ? 0 : x1;
-  act_y1 = y1 < 0 ? 0 : y1;
-  act_x2 = x2 > fbdev_obj->vinfo.xres - 1 ? fbdev_obj->vinfo.xres - 1 : x2;
-  act_y2 = y2 > fbdev_obj->vinfo.yres - 1 ? fbdev_obj->vinfo.yres - 1 : y2;
-
-  const uint32_t color_step = x2 - act_x1 + 1;
+  const uint32_t width = x2 - x1 + 1;
   const fb_coord_t xres = fbdev_obj->vinfo.xres;
   const uint8_t bpp = fbdev_obj->pinfo.bpp;
-  uint32_t y;
+  int y;
 
   if (bpp == 8)
     {
-      uint8_t *fbp8 = (uint8_t *)fbdev_obj->fbmem;
-      const uint32_t hor_len = (act_x2 - act_x1 + 1) * sizeof(uint8_t);
+      uint8_t *fbp8 = fbdev_obj->fbmem;
+      const uint32_t hor_bytes = width * sizeof(uint8_t);
 
-      for (y = act_y1; y <= act_y2; y++)
+      for (y = y1; y <= y2; y++)
         {
-          uint8_t *fb_pos = fbp8 + (y * xres) + act_x1;
-          memcpy(fb_pos, color_p, hor_len);
-          color_p += color_step;
+          uint8_t *fb_pos = fbp8 + (y * xres) + x1;
+          memcpy(fb_pos, color_p, hor_bytes);
+          color_p += width;
         }
     }
   else if (bpp == 16)
     {
-      uint16_t *fbp16 = (uint16_t *)fbdev_obj->fbmem;
-      const uint32_t hor_len = (act_x2 - act_x1 + 1) * sizeof(uint16_t);
+      uint16_t *fbp16 = fbdev_obj->fbmem;
+      const uint32_t hor_bytes = width * sizeof(uint16_t);
 
-      for (y = act_y1; y <= act_y2; y++)
+      for (y = y1; y <= y2; y++)
         {
-          uint16_t *fb_pos = fbp16 + (y * xres) + act_x1;
-          memcpy(fb_pos, color_p, hor_len);
-          color_p += color_step;
+          uint16_t *fb_pos = fbp16 + (y * xres) + x1;
+          memcpy(fb_pos, color_p, hor_bytes);
+          color_p += width;
         }
     }
   else if (bpp == 24 || bpp == 32)
     {
-      uint32_t *fbp32 = (uint32_t *)fbdev_obj->fbmem;
-      const uint32_t hor_len = (act_x2 - act_x1 + 1) * sizeof(uint32_t);
+      uint32_t *fbp32 = fbdev_obj->fbmem;
+      const uint32_t hor_bytes = width * sizeof(uint32_t);
 
-      for (y = act_y1; y <= act_y2; y++)
+      for (y = y1; y <= y2; y++)
         {
-          uint32_t *fb_pos = fbp32 + (y * xres) + act_x1;
-          memcpy(fb_pos, color_p, hor_len);
-          color_p += color_step;
+          uint32_t *fb_pos = fbp32 + (y * xres) + x1;
+          memcpy(fb_pos, color_p, hor_bytes);
+          color_p += width;
         }
     }
 
 #ifdef CONFIG_FB_UPDATE
-  struct fb_area_s fb_area;
-  fb_area.x = act_x1;
-  fb_area.y = act_y1;
-  fb_area.w = act_x2 - act_x1 + 1;
-  fb_area.h = act_y2 - act_y1 + 1;
+  fb_area.x = x1;
+  fb_area.y = y1;
+  fb_area.w = x2 - x1 + 1;
+  fb_area.h = y2 - y1 + 1;
   ret = ioctl(fbdev_obj->fd, FBIO_UPDATE,
               (unsigned long)((uintptr_t)&fb_area));
 #endif
@@ -199,7 +164,7 @@ static void *fbdev_update_thread(void *arg)
 {
   int ret = OK;
   int errcode;
-  struct fbdev_obj_s *fbdev_obj = (struct fbdev_obj_s *)arg;
+  struct fbdev_obj_s *fbdev_obj = arg;
 
   while (ret == OK)
     {
@@ -226,8 +191,7 @@ static void *fbdev_update_thread(void *arg)
 static void fbdev_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area_p,
                         lv_color_t *color_p)
 {
-  struct fbdev_obj_s *fbdev_obj;
-  fbdev_obj = (struct fbdev_obj_s *)disp_drv->user_data;
+  struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
 
   fbdev_obj->area = *area_p;
   fbdev_obj->color_p = color_p;
@@ -244,8 +208,8 @@ static lv_disp_t *fbdev_init(struct fbdev_obj_s *state,
 {
   lv_color_t *buf1 = NULL;
   lv_color_t *buf2 = NULL;
-  struct fbdev_obj_s *fbdev_obj;
-  fbdev_obj = (struct fbdev_obj_s *)malloc(sizeof(struct fbdev_obj_s));
+  const size_t buf_size = hor_res * line_buf * sizeof(lv_color_t);
+  struct fbdev_obj_s *fbdev_obj = malloc(sizeof(struct fbdev_obj_s));
 
   if (fbdev_obj == NULL)
     {
@@ -253,9 +217,7 @@ static lv_disp_t *fbdev_init(struct fbdev_obj_s *state,
       return NULL;
     }
 
-  const size_t buf_size = hor_res * line_buf * sizeof(lv_color_t);
-
-  buf1 = (lv_color_t *)malloc(buf_size);
+  buf1 = malloc(buf_size);
   if (buf1 == NULL)
     {
       LV_LOG_ERROR("display buf1 malloc failed");
@@ -263,8 +225,8 @@ static lv_disp_t *fbdev_init(struct fbdev_obj_s *state,
       return NULL;
     }
 
-#if CONFIG_LV_USE_DOUBLE_BUFFER
-  buf2 = (lv_color_t *)malloc(buf_size);
+#ifdef CONFIG_LV_USE_DOUBLE_BUFFER
+  buf2 = malloc(buf_size);
   if (buf2 == NULL)
     {
       LV_LOG_ERROR("display buf2 malloc failed");
@@ -276,10 +238,10 @@ static lv_disp_t *fbdev_init(struct fbdev_obj_s *state,
 
   LV_LOG_INFO("display buffer malloc success, buf size = %lu", buf_size);
 
-  memcpy(fbdev_obj, state, sizeof(struct fbdev_obj_s));
+  *fbdev_obj = *state;
 
   lv_disp_draw_buf_init(&(fbdev_obj->disp_draw_buf), buf1, buf2,
-                          hor_res * line_buf);
+                        hor_res * line_buf);
 
   lv_disp_drv_init(&(fbdev_obj->disp_drv));
   fbdev_obj->disp_drv.flush_cb = fbdev_flush;
@@ -301,7 +263,7 @@ static lv_disp_t *fbdev_init(struct fbdev_obj_s *state,
   /* Initialize the buffer flushing thread */
 
   pthread_create(&(fbdev_obj->write_thread), NULL,
-                  fbdev_update_thread, fbdev_obj);
+                 fbdev_update_thread, fbdev_obj);
 
   return lv_disp_drv_register(&(fbdev_obj->disp_drv));
 }
@@ -330,27 +292,28 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
 {
   const char *device_path = dev_path;
   int line_buffer = line_buf;
+  struct fbdev_obj_s state;
+  int ret;
+  lv_disp_t *disp;
 
   if (device_path == NULL)
     {
       device_path = CONFIG_LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH;
     }
 
-  LV_LOG_INFO("fbdev opening %s", device_path);
-
-  struct fbdev_obj_s state;
+  LV_LOG_INFO("fbdev %s opening", device_path);
 
   state.fd = open(device_path, O_RDWR);
   if (state.fd < 0)
     {
-      LV_LOG_ERROR("fbdev open failed: %d", errno);
+      LV_LOG_ERROR("fbdev %s open failed: %d", device_path, errno);
       return NULL;
     }
 
   /* Get the characteristics of the framebuffer */
 
-  int ret = ioctl(state.fd, FBIOGET_VIDEOINFO,
-                    (unsigned long)((uintptr_t)&state.vinfo));
+  ret = ioctl(state.fd, FBIOGET_VIDEOINFO,
+              (unsigned long)((uintptr_t)&state.vinfo));
   if (ret < 0)
     {
       LV_LOG_ERROR("ioctl(FBIOGET_VIDEOINFO) failed: %d", errno);
@@ -368,8 +331,7 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
               (unsigned long)((uintptr_t)&state.pinfo));
   if (ret < 0)
     {
-      LV_LOG_ERROR("ERROR: ioctl(FBIOGET_PLANEINFO) failed: %d",
-                   errno);
+      LV_LOG_ERROR("ERROR: ioctl(FBIOGET_PLANEINFO) failed: %d", errno);
       close(state.fd);
       return NULL;
     }
@@ -396,8 +358,9 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
 #ifdef LV_COLOR_DEPTH
   if (state.pinfo.bpp != LV_COLOR_DEPTH)
     {
-      LV_LOG_ERROR("fbdev bpp = %d, LV_COLOR_DEPTH = %d,"
-          " color depth does not match", state.pinfo.bpp, LV_COLOR_DEPTH);
+      LV_LOG_ERROR("fbdev bpp = %d, LV_COLOR_DEPTH = %d, "
+                   "color depth does not match",
+                   state.pinfo.bpp, LV_COLOR_DEPTH);
       close(state.fd);
       return NULL;
     }
@@ -432,8 +395,8 @@ lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf)
     }
 #endif
 
-  lv_disp_t *disp = fbdev_init(&state, state.vinfo.xres, state.vinfo.yres,
-                               line_buffer);
+  disp = fbdev_init(&state, state.vinfo.xres, state.vinfo.yres,
+                    line_buffer);
   if (disp == NULL)
     {
       close(state.fd);

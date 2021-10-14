@@ -94,6 +94,7 @@ static int button_get_pressed_id(int fd)
   int btn_act = -1;
   btn_buttonset_t buttonset;
   const int buttonset_bits = sizeof(btn_buttonset_t) * 8;
+  int bit;
 
   int ret = read(fd, &buttonset, sizeof(btn_buttonset_t));
   if (ret < 0)
@@ -101,7 +102,7 @@ static int button_get_pressed_id(int fd)
       return -1;
     }
 
-  for (int bit = 0; bit < buttonset_bits; bit++)
+  for (bit = 0; bit < buttonset_bits; bit++)
     {
       btn_buttonset_t mask = 1 << bit;
 
@@ -121,7 +122,7 @@ static int button_get_pressed_id(int fd)
 
 static void button_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-  struct button_obj_s *button_obj = (struct button_obj_s *)drv->user_data;
+  struct button_obj_s *button_obj = drv->user_data;
 
   /* Get the pressed button's ID */
 
@@ -148,8 +149,8 @@ static void button_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
 static lv_indev_t *button_init(int fd)
 {
-  struct button_obj_s *button_obj =
-    (struct button_obj_s *)malloc(sizeof(struct button_obj_s));
+  struct button_obj_s *button_obj = malloc(sizeof(struct button_obj_s));
+  lv_indev_t *indev_button;
 
   if (button_obj == NULL)
     {
@@ -168,7 +169,7 @@ static lv_indev_t *button_init(int fd)
 #else
 #error LV_USE_USER_DATA must be enabled
 #endif
-  lv_indev_t *indev_button = lv_indev_drv_register(&(button_obj->indev_drv));
+  indev_button = lv_indev_drv_register(&(button_obj->indev_drv));
   lv_indev_set_button_points(indev_button, button_points_map);
 
   return indev_button;
@@ -195,30 +196,30 @@ static lv_indev_t *button_init(int fd)
 lv_indev_t *lv_button_interface_init(const char *dev_path)
 {
   const char *device_path = dev_path;
+  int fd;
+  btn_buttonset_t supported;
+  int ret;
 
   if (device_path == NULL)
     {
       device_path = CONFIG_LV_BUTTON_INTERFACE_DEFAULT_DEVICEPATH;
     }
 
-  LV_LOG_INFO("button opening %s", device_path);
-  int fd = open(device_path, O_RDONLY | O_NONBLOCK);
+  LV_LOG_INFO("button %s opening", device_path);
+  fd = open(device_path, O_RDONLY | O_NONBLOCK);
   if (fd < 0)
     {
-      LV_LOG_ERROR("button open failed: %d", errno);
+      LV_LOG_ERROR("button %s open failed: %d", device_path, errno);
       return NULL;
     }
 
   /* Get the set of BUTTONs supported */
 
-  btn_buttonset_t supported;
-
-  int ret = ioctl(fd, BTNIOC_SUPPORTED,
+  ret = ioctl(fd, BTNIOC_SUPPORTED,
               (unsigned long)((uintptr_t)&supported));
   if (ret < 0)
     {
-      LV_LOG_ERROR("button ioctl(BTNIOC_SUPPORTED) failed: %d",
-                   errno);
+      LV_LOG_ERROR("button ioctl(BTNIOC_SUPPORTED) failed: %d", errno);
       return NULL;
     }
 
