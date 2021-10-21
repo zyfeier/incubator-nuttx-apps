@@ -27,8 +27,6 @@ LVGL_DIR_NAME = lvgl
 
 # Relax format check for LVGL to avoid errors on prinf() use
 
--include ./ext/Makefile
--include ./lvgl/examples/examples.mk
 -include ./lvgl/src/extra/extra.mk
 -include ./lvgl/src/core/lv_core.mk
 -include ./lvgl/src/draw/lv_draw.mk
@@ -37,6 +35,12 @@ LVGL_DIR_NAME = lvgl
 -include ./lvgl/src/hal/lv_hal.mk
 -include ./lvgl/src/misc/lv_misc.mk
 -include ./lvgl/src/widgets/lv_widgets.mk
+
+ifneq ($(CONFIG_LV_BUILD_EXAMPLES),)
+-include ./lvgl/examples/examples.mk
+endif
+
+-include ./ext/Makefile
 
 CSRCS += lv_porting/lv_tick_interface.c
 CSRCS += lv_porting/lv_fs_interface.c
