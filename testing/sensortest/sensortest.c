@@ -95,6 +95,9 @@ static const struct sensor_info g_sensor_info[] =
   {print_valf,  sizeof(struct sensor_event_dust),  "dust"},
   {print_valf,  sizeof(struct sensor_event_hrate), "hrate"},
   {print_valf,  sizeof(struct sensor_event_hbeat), "hbeat"},
+  {print_valf,  sizeof(struct sensor_event_ecg),   "ecg"},
+  {print_valf,  sizeof(struct sensor_event_ppg),   "ppg"},
+  {print_valf,  sizeof(struct sensor_event_impd),  "impd"},
 };
 
 /****************************************************************************
