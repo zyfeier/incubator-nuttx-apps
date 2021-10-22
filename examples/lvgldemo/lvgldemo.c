@@ -34,7 +34,7 @@
 
 #include <lvgl/lvgl.h>
 #include <lv_porting/lv_porting.h>
-#include "lv_examples/lv_demo.h"
+#include "lv_demos/lv_demo.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -140,7 +140,7 @@ int main(int argc, FAR char *argv[])
 
 #if defined(CONFIG_EXAMPLES_LVGLDEMO_BENCHMARK)
   lv_demo_benchmark();
-#elif defined(CONFIG_EXAMPLES_LVGLDEMO_KEYPAD_ENCODER)
+#elif defined(CONFIG_EXAMPLES_LVGLDEMO_KEYPAD_AND_ENCODER)
   lv_demo_keypad_encoder();
 #elif defined(CONFIG_EXAMPLES_LVGLDEMO_MUSIC)
   lv_demo_music();

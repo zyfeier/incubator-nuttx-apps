@@ -39,34 +39,13 @@ MODULE = $(CONFIG_EXAMPLES_LVGLDEMO)
 
 # static common assets used in mutiple example
 
-ifneq ($(CONFIG_EXAMPLES_LVGLDEMO_BENCHMARK),)
-CSRCS += lv_demo_benchmark.c
-CSRCS += $(wildcard ./lv_examples/src/lv_demo_stress/assets/*.c)
-VPATH += lv_examples/src/lv_demo_benchmark
-endif
+CSRCS += $(shell find -L ./lv_demos -name "*.c")
 
-ifneq ($(CONFIG_EXAMPLES_LVGLDEMO_KEYPAD_ENCODER),)
-CSRCS += lv_demo_keypad_encoder.c
-VPATH += lv_examples/src/lv_demo_keypad_encoder
-endif
-
-ifneq ($(CONFIG_EXAMPLES_LVGLDEMO_MUSIC),)
-CSRCS += $(wildcard ./lv_examples/src/lv_demo_music/*.c)
-CSRCS += $(wildcard ./lv_examples/src/lv_demo_music/assets/*.c)
-VPATH += lv_examples/src/lv_demo_music
-endif
-
-ifneq ($(CONFIG_EXAMPLES_LVGLDEMO_STRESS),)
-CSRCS += lv_demo_stress.c
-CSRCS += $(wildcard ./lv_examples/src/lv_demo_stress/assets/*.c)
-VPATH += lv_examples/src/lv_demo_stress
-endif
-
-ifneq ($(CONFIG_EXAMPLES_LVGLDEMO_WIDGETS),)
-CSRCS += lv_demo_widgets.c
-CSRCS += $(wildcard ./lv_examples/src/lv_demo_widgets/assets/*.c)
-VPATH += lv_examples/src/lv_demo_widgets
-endif
+VPATH += lv_demos/src/lv_demo_benchmark
+VPATH += lv_demos/src/lv_demo_keypad_encoder
+VPATH += lv_demos/src/lv_demo_music
+VPATH += lv_demos/src/lv_demo_stress
+VPATH += lv_demos/src/lv_demo_widgets
 
 MAINSRC = lvgldemo.c
 

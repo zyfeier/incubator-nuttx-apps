@@ -12,31 +12,39 @@ menuconfig EXAMPLES_LVGLDEMO
 
 if EXAMPLES_LVGLDEMO
 
+config EXAMPLES_LVGLDEMO_EX_KEYBOARD
+	bool "Enable keyboard support"
+	default n
+
+config EXAMPLES_LVGLDEMO_EX_MOUSEWHEEL
+	bool "Enable encoder (mouse wheel) support"
+	default n
+
 choice
 	prompt "Select a demo application"
 	default EXAMPLES_LVGLDEMO_WIDGETS
 
+config EXAMPLES_LVGLDEMO_WIDGETS
+	bool "Widgets"
+
+config EXAMPLES_LVGLDEMO_KEYPAD_AND_ENCODER
+	bool "Keypad and encoder"
+
 config EXAMPLES_LVGLDEMO_BENCHMARK
 	bool "Benchmark"
-
-config EXAMPLES_LVGLDEMO_KEYPAD_ENCODER
-	bool "Keypad encoder"
-
-config EXAMPLES_LVGLDEMO_MUSIC
-	bool "Music"
 
 config EXAMPLES_LVGLDEMO_STRESS
 	bool "Stress"
 
-config EXAMPLES_LVGLDEMO_WIDGETS
-	bool "Widgets"
+config EXAMPLES_LVGLDEMO_MUSIC
+	bool "Music"
 
 endchoice
 
 if EXAMPLES_LVGLDEMO_WIDGETS
 
 config EXAMPLES_LVGLDEMO_WIDGETS_SLIDESHOW
-	bool "Enable Slideshow mode for Widgets example"
+	bool "Enable Slideshow mode"
 	default n
 	---help---
 		Slideshow mode consists of a non-interactive demonstration of the
@@ -46,16 +54,24 @@ endif # EXAMPLES_LVGLDEMO_WIDGETS
 
 if EXAMPLES_LVGLDEMO_MUSIC
 
+config EXAMPLES_LVGLDEMO_MUSIC_SQUARE
+	bool "Enable Square"
+	default n
+
 config EXAMPLES_LVGLDEMO_MUSIC_LANDSCAPE
-	bool "Enable Landscape for Music example"
+	bool "Enable Landscape"
+	default n
+
+config EXAMPLES_LVGLDEMO_MUSIC_ROUND
+	bool "Enable Round"
 	default n
 
 config EXAMPLES_LVGLDEMO_MUSIC_LARGE
-	bool "Enable Large for Music example"
+	bool "Enable Large"
 	default n
 
 config EXAMPLES_LVGLDEMO_MUSIC_AUTO_PLAY
-	bool "Enable Autoplay for Music example"
+	bool "Enable Autoplay"
 	default n
 
 endif # EXAMPLES_LVGLDEMO_MUSIC
