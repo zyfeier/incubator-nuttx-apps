@@ -36,4 +36,10 @@ config INTERPRETERS_QUICKJS_EXT_HOOK
 		Since minimal interpreter only support 'console.log',
 		you can export custom module by implement init/destory hook.
 
+config INTERPRETERS_QUICKJS_DEBUG
+	bool "QuickJS interpreter debug support"
+	default n
+	---help---
+		Enable this if you want js debugger support.
+
 endif
