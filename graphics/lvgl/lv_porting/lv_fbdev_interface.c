@@ -115,7 +115,7 @@ static int fbdev_flush_internal(struct fbdev_obj_s *fbdev_obj)
       for (y = y1; y <= y2; y++)
         {
           uint8_t *fb_pos = fbp8 + (y * xres) + x1;
-          memcpy(fb_pos, color_p, hor_bytes);
+          lv_memcpy(fb_pos, color_p, hor_bytes);
           color_p += width;
         }
     }
@@ -127,7 +127,7 @@ static int fbdev_flush_internal(struct fbdev_obj_s *fbdev_obj)
       for (y = y1; y <= y2; y++)
         {
           uint16_t *fb_pos = fbp16 + (y * xres) + x1;
-          memcpy(fb_pos, color_p, hor_bytes);
+          lv_memcpy(fb_pos, color_p, hor_bytes);
           color_p += width;
         }
     }
@@ -139,7 +139,7 @@ static int fbdev_flush_internal(struct fbdev_obj_s *fbdev_obj)
       for (y = y1; y <= y2; y++)
         {
           uint32_t *fb_pos = fbp32 + (y * xres) + x1;
-          memcpy(fb_pos, color_p, hor_bytes);
+          lv_memcpy(fb_pos, color_p, hor_bytes);
           color_p += width;
         }
     }
