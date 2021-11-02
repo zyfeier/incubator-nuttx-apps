@@ -19,7 +19,7 @@
 ############################################################################
 
 include $(APPDIR)/Make.defs
-include ./ext/Makefile
+-include ./ext/Makefile
 
 LIBUV_PATCHS ?= $(sort $(wildcard $(LIBUV_DIR)/000*.patch))
 
