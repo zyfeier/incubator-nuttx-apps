@@ -355,10 +355,7 @@ static void memcpy_speed_test(FAR void *dest, FAR const void *src,
   uint32_t start_time;
   uint32_t cost_time;
   uint32_t cnt;
-  irqstate_t flags;
   const size_t total_size = size * repeat_cnt;
-
-  flags = enter_critical_section();
 
   start_time = get_timestamp();
 
@@ -369,11 +366,7 @@ static void memcpy_speed_test(FAR void *dest, FAR const void *src,
 
   cost_time = get_time_elaps(start_time);
 
-  leave_critical_section(flags);
-
   print_rate("system memcpy():\t", total_size, cost_time);
-
-  flags = enter_critical_section();
 
   start_time = get_timestamp();
 
@@ -383,8 +376,6 @@ static void memcpy_speed_test(FAR void *dest, FAR const void *src,
     }
 
   cost_time = get_time_elaps(start_time);
-
-  leave_critical_section(flags);
 
   print_rate("internal memcpy():\t", total_size, cost_time);
 }
@@ -399,10 +390,7 @@ static void memset_speed_test(FAR void *dest, uint8_t value,
   uint32_t start_time;
   uint32_t cost_time;
   uint32_t cnt;
-  irqstate_t flags;
   const size_t total_size = size * repeat_num;
-
-  flags = enter_critical_section();
 
   start_time = get_timestamp();
 
@@ -413,11 +401,7 @@ static void memset_speed_test(FAR void *dest, uint8_t value,
 
   cost_time = get_time_elaps(start_time);
 
-  leave_critical_section(flags);
-
   print_rate("system memset():\t", total_size, cost_time);
-
-  flags = enter_critical_section();
 
   start_time = get_timestamp();
 
@@ -427,8 +411,6 @@ static void memset_speed_test(FAR void *dest, uint8_t value,
     }
 
   cost_time = get_time_elaps(start_time);
-
-  leave_critical_section(flags);
 
   print_rate("internal memset():\t", total_size, cost_time);
 }
