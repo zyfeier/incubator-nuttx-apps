@@ -261,7 +261,7 @@ void icmp6_ping(FAR const struct ping6_info_s *info)
           recvfd.events   = POLLIN;
           recvfd.revents  = 0;
 
-          ret = poll(&recvfd, 1, info->timeout - elapsed);
+          ret = poll(&recvfd, 1, info->timeout - elapsed / USEC_PER_MSEC);
           if (ret < 0)
             {
               icmp6_callback(&result, ICMPv6_E_POLL, errno);
@@ -289,7 +289,7 @@ void icmp6_ping(FAR const struct ping6_info_s *info)
               goto done;
             }
 
-          elapsed = (unsigned int)TICK2MSEC(clock() - start);
+          elapsed = (unsigned int)TICK2USEC(clock() - start);
           inhdr   = (FAR struct icmpv6_echo_reply_s *)iobuffer;
 
           if (inhdr->type == ICMPv6_ECHO_REPLY)
@@ -314,7 +314,7 @@ void icmp6_ping(FAR const struct ping6_info_s *info)
                     {
                       icmp6_callback(&result, ICMPv6_W_SEQNOSMALL,
                                      ntohs(inhdr->seqno));
-                      pktdelay += info->delay;
+                      pktdelay += info->delay * USEC_PER_MSEC;
                       retry     = true;
                     }
 
@@ -361,7 +361,8 @@ void icmp6_ping(FAR const struct ping6_info_s *info)
               icmp6_callback(&result, ICMPv6_W_TYPE, inhdr->type);
             }
         }
-      while (retry && info->delay > elapsed && info->timeout > elapsed);
+      while (retry && info->delay > elapsed / USEC_PER_MSEC &&
+             info->timeout > elapsed / USEC_PER_MSEC);
 
       /* Wait if necessary to preserved the requested ping rate */
 
@@ -387,7 +388,7 @@ void icmp6_ping(FAR const struct ping6_info_s *info)
     }
 
 done:
-  icmp6_callback(&result, ICMPv6_I_FINISH, TICK2MSEC(clock() - kickoff));
+  icmp6_callback(&result, ICMPv6_I_FINISH, TICK2USEC(clock() - kickoff));
   close(sockfd);
   free(iobuffer);
 }

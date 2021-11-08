@@ -23,6 +23,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <nuttx/clock.h>
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -181,9 +182,10 @@ static void ping6_result(FAR const struct ping6_result_s *result)
       case ICMPv6_I_ROUNDTRIP:
         inet_ntop(AF_INET6, result->dest.s6_addr16, strbuffer,
                   INET6_ADDRSTRLEN);
-        printf("%u bytes from %s icmp_seq=%u time=%u ms\n",
+        printf("%u bytes from %s icmp_seq=%u time=%u.%d ms\n",
                result->info->datalen, strbuffer, result->seqno,
-               result->extra);
+               result->extra / USEC_PER_MSEC,
+               result->extra % USEC_PER_MSEC / MSEC_PER_DSEC);
         break;
 
       case ICMPv6_W_RECVBIG:
@@ -213,9 +215,9 @@ static void ping6_result(FAR const struct ping6_result_s *result)
                    (result->nrequests >> 1)) /
                    result->nrequests;
 
-            printf("%u packets transmitted, %u received, "
-                   "%u%% packet loss, time %d ms\n",
-                   result->nrequests, result->nreplies, tmp, result->extra);
+            printf("%u packets transmitted, %u received, %u%% packet loss, time %d ms\n",
+                   result->nrequests, result->nreplies, tmp,
+                   result->extra / USEC_PER_MSEC);
           }
         break;
     }
