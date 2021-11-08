@@ -70,7 +70,8 @@ extern "C"
  *
  ****************************************************************************/
 
-lv_disp_t *lv_fbdev_interface_init(const char *dev_path, int line_buf);
+FAR lv_disp_t *lv_fbdev_interface_init(FAR const char *dev_path,
+                                       int line_buf);
 
 #undef EXTERN
 #ifdef __cplusplus
