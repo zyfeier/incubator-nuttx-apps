@@ -32,6 +32,7 @@
 #include <poll.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
 
 #ifdef CONFIG_LIBC_NETDB
 #  include <netdb.h>
@@ -58,10 +59,20 @@
  */
 
 static uint16_t g_ping6_id = 0;
+static volatile int exiting = 0;
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: sigexit
+ ****************************************************************************/
+
+static void sigexit(int signo)
+{
+  exiting = 1;
+}
 
 /****************************************************************************
  * Name: ping6_newid
@@ -172,6 +183,9 @@ void icmp6_ping(FAR const struct ping6_info_s *info)
   int ch;
   int i;
 
+  exiting = 0;
+  signal(SIGINT, sigexit);
+
   /* Initialize result structure */
 
   memset(&result, 0, sizeof(result));
@@ -217,6 +231,11 @@ void icmp6_ping(FAR const struct ping6_info_s *info)
 
   while (result.nrequests < info->count)
     {
+      if (exiting)
+        {
+          break;
+        }
+
       /* Copy the ICMP header into the I/O buffer */
 
       memcpy(iobuffer, &outhdr, SIZEOF_ICMPV6_ECHO_REQUEST_S(0));
