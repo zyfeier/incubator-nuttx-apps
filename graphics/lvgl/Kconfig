@@ -27,20 +27,6 @@ config LV_LCDDEV_INTERFACE_DEFAULT_DEVICEPATH
 	string "LCD default device path"
 	default "/dev/lcd0"
 
-endif
-
-config LV_USE_FBDEV_INTERFACE
-	bool "Framebuffer device interface"
-	default n
-
-if LV_USE_FBDEV_INTERFACE
-
-config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
-	string "Framebuffer default device path"
-	default "/dev/fb0"
-
-endif
-
 config LV_USE_FULL_SCREEN_BUFFER
 	bool "Use full screen buffer"
 	default n
@@ -56,6 +42,20 @@ endif
 config LV_USE_DOUBLE_BUFFER
 	bool "Use double buffer"
 	default n
+
+endif
+
+config LV_USE_FBDEV_INTERFACE
+	bool "Framebuffer device interface"
+	default n
+
+if LV_USE_FBDEV_INTERFACE
+
+config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
+	string "Framebuffer default device path"
+	default "/dev/fb0"
+
+endif
 
 menuconfig LV_USE_BUTTON_INTERFACE
 	bool "Button input interface"

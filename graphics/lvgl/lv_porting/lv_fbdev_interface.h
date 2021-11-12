@@ -61,9 +61,7 @@ extern "C"
  *   Framebuffer device interface initialization.
  *
  * Input Parameters:
- *   dev_path - Framebuffer device path, set to NULL to use the default path
- *   line_buf - Number of line buffers,
- *              set to 0 to use the default line buffer
+ *   dev_path - Framebuffer device path, set to NULL to use the default path.
  *
  * Returned Value:
  *   lv_disp object address on success; NULL on failure.
