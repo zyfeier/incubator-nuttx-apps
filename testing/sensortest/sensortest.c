@@ -64,6 +64,7 @@ static void print_valb(FAR const char *buffer, FAR const char *name);
 static void print_vali2(FAR const char *buffer, FAR const char *name);
 static void print_valu(FAR const char *buffer, FAR const char *name);
 static void print_gps(FAR const char *buffer, FAR const char *name);
+static void print_gps_satellite(FAR const char *buffer, FAR const char *name);
 
 /****************************************************************************
  * Private Data
@@ -101,6 +102,7 @@ static const struct sensor_info g_sensor_info[] =
   {print_valu,  sizeof(struct sensor_event_ppg),   "ppg"},
   {print_valf2, sizeof(struct sensor_event_impd),  "impd"},
   {print_vali2, sizeof(struct sensor_event_ots),   "ots"},
+  {print_gps_satellite, sizeof(struct sensor_event_gps_satellite), "gps_satellite"}
 };
 
 /****************************************************************************
@@ -162,12 +164,22 @@ static void print_gps(const char *buffer, const char *name)
 {
   struct sensor_event_gps *event = (struct sensor_event_gps *)buffer;
 
-  printf("%s: year: %d month: %d day: %d hour: %d min: %d sec: %d "
-         "msec: %d\n", name, event->year, event->month, event->day,
-         event->hour, event->min, event->sec, event->msec);
-  printf("%s: yaw: %.4f height: %.4f speed: %.4f latitude: %.4f "
-         "longitude: %.4f\n", name, event->yaw, event->height, event->speed,
-         event->latitude, event->longitude);
+  printf("%s: timestamp: %llu time_utc: %llu latitude: %f longitude: %f "
+         "altitude: %f altitude_ellipsoid: %f eph: %f epv: %f "
+         "hdop: %f vdop: %f ground_speed: %f course: %f satellites_used: %u\n",
+         name, event->timestamp, event->time_utc, event->latitude,
+         event->longitude, event->altitude, event->altitude_ellipsoid,
+         event->eph, event->epv, event->hdop, event->vdop,
+         event->ground_speed, event->course, event->satellites_used);
+}
+
+static void print_gps_satellite(FAR const char *buffer, FAR const char *name)
+{
+  FAR struct sensor_event_gps_satellite *event =
+        (struct sensor_event_gps_satellite *)buffer;
+
+  printf("%s: timestamp: %llu count: %u satellites: %u", name,
+         event->timestamp, event->count, event->satellites);
 }
 
 static void usage(void)
