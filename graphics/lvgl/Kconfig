@@ -339,6 +339,13 @@ config LVX_USE_CHART
 	---help---
 		Enable use lvx_chart widgets
 
+config LVX_USE_RLE
+	bool "RLE binary file compression support"
+	default y
+	---help---
+		Enalbe decoder to file .rle. When enabled, rle file decoder is
+		registered to lvgl.
+
 endif
 
 endif
