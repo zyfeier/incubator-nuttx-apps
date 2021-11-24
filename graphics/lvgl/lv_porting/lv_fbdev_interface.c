@@ -50,6 +50,7 @@ struct fbdev_obj_s
   lv_disp_draw_buf_t disp_draw_buf;
   lv_disp_drv_t disp_drv;
   bool color_match;
+  bool double_buffer;
   int fd;
   struct fb_videoinfo_s vinfo;
   struct fb_planeinfo_s pinfo;
@@ -92,50 +93,54 @@ static void fbdev_flush_direct(FAR lv_disp_drv_t *disp_drv,
                                FAR lv_color_t *color_p)
 {
   FAR struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
-  lv_disp_t *disp_refr;
 
+  if (disp_drv->draw_buf->flushing_last)
+    {
+      lv_disp_t *disp_refr = lv_disp_get_default();
 #ifdef CONFIG_FB_UPDATE
-  struct fb_area_s fb_area;
+      struct fb_area_s fb_area;
 #endif
 
-  disp_refr = lv_disp_get_default();
-
-  if (disp_refr->inv_p != 0)
-    {
-      lv_disp_draw_buf_t *vdb = lv_disp_get_draw_buf(disp_refr);
-
-      lv_color_t *buf_act = vdb->buf_act;
-      lv_color_t *buf_ina = fbdev_obj->fbmem;
-
-      lv_coord_t hor_res = lv_disp_get_hor_res(disp_refr);
-      uint16_t inv_index;
-      for (inv_index = 0; inv_index < disp_refr->inv_p; inv_index++)
+      if (fbdev_obj->double_buffer && disp_refr->inv_p != 0)
         {
-          if (disp_refr->inv_area_joined[inv_index] == 0)
+          lv_disp_draw_buf_t *vdb = lv_disp_get_draw_buf(disp_refr);
+
+          lv_color_t *buf_act = vdb->buf_act;
+          lv_color_t *buf_ina = fbdev_obj->fbmem;
+
+          lv_coord_t hor_res = lv_disp_get_hor_res(disp_refr);
+          uint16_t inv_index;
+          for (inv_index = 0; inv_index < disp_refr->inv_p; inv_index++)
             {
-              const lv_area_t *inv_area = &(disp_refr->inv_areas[inv_index]);
-              uint32_t start_offs = hor_res * inv_area->y1 + inv_area->x1;
+              if (disp_refr->inv_area_joined[inv_index] == 0)
+                {
+                  const lv_area_t *inv_area;
+                  uint32_t start_offs;
 
-              uint16_t width = lv_area_get_width(inv_area);
-              uint16_t height = lv_area_get_height(inv_area);
-              uint32_t stride = hor_res - width;
+                  inv_area = &(disp_refr->inv_areas[inv_index]);
+                  start_offs = hor_res * inv_area->y1 + inv_area->x1;
 
-              fbdev_area_copy(buf_ina + start_offs,
-                              buf_act + start_offs,
-                              width, height,
-                              stride, stride);
+                  uint16_t width = lv_area_get_width(inv_area);
+                  uint16_t height = lv_area_get_height(inv_area);
+                  uint32_t stride = hor_res - width;
+
+                  fbdev_area_copy(buf_ina + start_offs,
+                                  buf_act + start_offs,
+                                  width, height,
+                                  stride, stride);
+                }
             }
         }
-    }
 
 #ifdef CONFIG_FB_UPDATE
-  fb_area.x = area_p->x1;
-  fb_area.y = area_p->y1;
-  fb_area.w = area_p->x2 - area_p->x1 + 1;
-  fb_area.h = area_p->y2 - area_p->y1 + 1;
-  ioctl(fbdev_obj->fd, FBIO_UPDATE,
-        (unsigned long)((uintptr_t)&fb_area));
+        fb_area.x = area_p->x1;
+        fb_area.y = area_p->y1;
+        fb_area.w = area_p->x2 - area_p->x1 + 1;
+        fb_area.h = area_p->y2 - area_p->y1 + 1;
+        ioctl(fbdev_obj->fd, FBIO_UPDATE,
+              (unsigned long)((uintptr_t)&fb_area));
 #endif
+    }
 
   /* Tell the flushing is ready */
 
@@ -252,7 +257,7 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
           return NULL;
         }
     }
-  else if (state->pinfo.yres_virtual == (state->vinfo.yres * 2))
+  else if (state->double_buffer)
     {
       buf1 = buf1 + (hor_res * ver_res);
     }
@@ -380,6 +385,8 @@ FAR lv_disp_t *lv_fbdev_interface_init(FAR const char *dev_path,
                   "which makes LVGL much slower.");
       state.color_match = false;
     }
+
+  state.double_buffer = (state.pinfo.yres_virtual == (state.vinfo.yres * 2));
 
   /* mmap() the framebuffer.
    *
