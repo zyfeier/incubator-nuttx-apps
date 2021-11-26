@@ -20,8 +20,12 @@ INITIAL_MEMORY ?= 65536
 
 WCC = $(WASI_SDK_ROOT)/bin/clang
 
-WCFLAGS = $(filter-out $(ARCHCPUFLAGS) $(ARCHCFLAGS) $(ARCHINCLUDES) $(ARCHDEFINES) $(ARCHOPTIMIZATION) $(EXTRAFLAGS),$(CFLAGS))
-WCFLAGS += --sysroot=$(WASI_SDK_ROOT)/share/wasi-sysroot -nostdlib $(MAXOPTIMIZATION)
+CFLAGS_STRIP = -fsanitize=kernel-address -fsanitize=address -fsanitize=undefined
+CFLAGS_STRIP += $(ARCHCPUFLAGS) $(ARCHCFLAGS) $(ARCHINCLUDES) $(ARCHDEFINES) $(ARCHOPTIMIZATION) $(EXTRAFLAGS)
+
+WCFLAGS = $(filter-out $(CFLAGS_STRIP),$(CFLAGS))
+
+WCFLAGS += --sysroot=$(WASI_SDK_ROOT)/share/wasi-sysroot -nostdlib
 
 WLDFLAGS = -z stack-size=$(STACKSIZE) -Wl,--initial-memory=$(INITIAL_MEMORY) -Wl,--export=main -Wl,--export=__main_argc_argv
 WLDFLAGS += -Wl,--export=__heap_base -Wl,--export=__data_end
