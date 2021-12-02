@@ -59,24 +59,6 @@
 #endif
 #endif
 
-/****************************************************************************
- * Public Types
- ****************************************************************************/
-
-typedef enum
-{
-    FT_FONT_STYLE_NORMAL = 0,       /* normal style */
-    FT_FONT_STYLE_ITALIC = 1 << 0,  /* italic */
-    FT_FONT_STYLE_BOLD   = 1 << 1   /* bold */
-} LV_FT_FONT_STYLE;
-
-typedef struct
-{
-    const char *name;   /* The name of the font file */
-    lv_font_t  *font;   /* point to lvgl font */
-    uint16_t   weight;  /* font size */
-    uint16_t   style;   /* font style */
-} lv_ft_info_t;
 
 /****************************************************************************
  * Public Function Prototypes

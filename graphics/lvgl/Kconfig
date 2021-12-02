@@ -290,7 +290,7 @@ menu "font manager config"
 config LVX_USE_FONT_MANAGER
 	bool "LVX_USE_FONT_MANAGER"
 	default y
-	depends on LV_USE_FREETYPE_INTERFACE
+	depends on LV_USE_FREETYPE
 	---help---
 		Enable font-manager for freetype fonts.
 
@@ -302,21 +302,6 @@ config FONT_LIB_PATH
 		The path of the font library. eg:
 		/data/	, /data/font/xxxxx
 		Note: '/' is required at the end of the string.
-
-config FONT_MAX_FACES
-	int "the face num to freetype cache"
-	depends on LVX_USE_FONT_MANAGER
-	default 16
-
-config FONT_MAX_SIZES
-	int "the size num to freetype cache"
-	depends on LVX_USE_FONT_MANAGER
-	default 32
-
-config FONT_MAX_BYTES
-	int "the bytes num to freetype cache"
-	depends on LVX_USE_FONT_MANAGER
-	default 1048576
 
 endmenu
 

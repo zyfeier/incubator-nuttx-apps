@@ -30,6 +30,7 @@ LVGL_DIR_NAME = lvgl
 -include ./lvgl/src/extra/extra.mk
 -include ./lvgl/src/core/lv_core.mk
 -include ./lvgl/src/draw/lv_draw.mk
+-include ./lvgl/src/draw/sw/lv_draw_sw.mk
 -include ./lvgl/src/font/lv_font.mk
 -include ./lvgl/src/gpu/lv_gpu.mk
 -include ./lvgl/src/hal/lv_hal.mk
