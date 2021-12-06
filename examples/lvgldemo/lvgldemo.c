@@ -58,16 +58,71 @@
 #endif
 
 /****************************************************************************
- * Public Functions Prototypes
+ * Private Type Declarations
  ****************************************************************************/
+
+typedef void (*demo_create_func_t)(void);
+
+struct func_key_pair_s
+{
+  FAR const char *name;
+  demo_create_func_t func;
+};
+
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+static const struct func_key_pair_s func_key_pair[] =
+{
+  { "benchmark",      lv_demo_benchmark      },
+  { "keypad_encoder", lv_demo_keypad_encoder },
+  { "music",          lv_demo_music          },
+  { "stress",         lv_demo_stress         },
+  { "widgets",        lv_demo_widgets        }
+};
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Private Data
+ * Name: show_usage
  ****************************************************************************/
+
+static void show_usage(void)
+{
+  printf("\nUsage: lvgldemo demo_name\n");
+  printf("\ndemo_name:\n");
+  printf("  benchmark\n");
+  printf("  keypad_encoder\n");
+  printf("  music\n");
+  printf("  stress\n");
+  printf("  widgets\n");
+  exit(EXIT_FAILURE);
+}
+
+/****************************************************************************
+ * Name: find_demo_create_func
+ ****************************************************************************/
+
+static demo_create_func_t find_demo_create_func(FAR const char *name)
+{
+  int i;
+  const int len = sizeof(func_key_pair)
+                  / sizeof(struct func_key_pair_s);
+
+  for (i = 0; i < len; i++)
+    {
+      if (strcmp(name, func_key_pair[i].name) == 0)
+        {
+          return func_key_pair[i].func;
+        }
+    }
+
+  printf("lvgldemo: %s not found.\n", name);
+  return NULL;
+}
 
 /****************************************************************************
  * Public Functions
@@ -88,6 +143,22 @@
 
 int main(int argc, FAR char *argv[])
 {
+  demo_create_func_t demo_create_func;
+
+  if (argc != 2)
+    {
+      show_usage();
+      return EXIT_FAILURE;
+    }
+
+  demo_create_func = find_demo_create_func(argv[1]);
+
+  if (demo_create_func == NULL)
+    {
+      show_usage();
+      return EXIT_FAILURE;
+    }
+
 #ifdef NEED_BOARDINIT
   /* Perform board-specific driver initialization */
 
@@ -138,17 +209,7 @@ int main(int argc, FAR char *argv[])
 
   /* LVGL demo creation */
 
-#if defined(CONFIG_EXAMPLES_LVGLDEMO_BENCHMARK)
-  lv_demo_benchmark();
-#elif defined(CONFIG_EXAMPLES_LVGLDEMO_KEYPAD_AND_ENCODER)
-  lv_demo_keypad_encoder();
-#elif defined(CONFIG_EXAMPLES_LVGLDEMO_MUSIC)
-  lv_demo_music();
-#elif defined(CONFIG_EXAMPLES_LVGLDEMO_STRESS)
-  lv_demo_stress();
-#elif defined(CONFIG_EXAMPLES_LVGLDEMO_WIDGETS)
-  lv_demo_widgets();
-#endif
+  demo_create_func();
 
   /* Handle LVGL tasks */
 

@@ -6,6 +6,10 @@
 menuconfig EXAMPLES_LVGLDEMO
 	tristate "LVGL Demo"
 	depends on GRAPHICS_LVGL
+	select LV_FONT_MONTSERRAT_12
+	select LV_FONT_MONTSERRAT_16
+	select LV_FONT_MONTSERRAT_22
+	select LV_FONT_MONTSERRAT_32
 	default n
 	---help---
 		Enable build the Light and Versatile Graphics Library Demo programs
@@ -20,28 +24,7 @@ config EXAMPLES_LVGLDEMO_EX_MOUSEWHEEL
 	bool "Enable encoder (mouse wheel) support"
 	default n
 
-choice
-	prompt "Select a demo application"
-	default EXAMPLES_LVGLDEMO_WIDGETS
-
-config EXAMPLES_LVGLDEMO_WIDGETS
-	bool "Widgets"
-
-config EXAMPLES_LVGLDEMO_KEYPAD_AND_ENCODER
-	bool "Keypad and encoder"
-
-config EXAMPLES_LVGLDEMO_BENCHMARK
-	bool "Benchmark"
-
-config EXAMPLES_LVGLDEMO_STRESS
-	bool "Stress"
-
-config EXAMPLES_LVGLDEMO_MUSIC
-	bool "Music"
-
-endchoice
-
-if EXAMPLES_LVGLDEMO_WIDGETS
+menu "Widgets"
 
 config EXAMPLES_LVGLDEMO_WIDGETS_SLIDESHOW
 	bool "Enable Slideshow mode"
@@ -50,9 +33,9 @@ config EXAMPLES_LVGLDEMO_WIDGETS_SLIDESHOW
 		Slideshow mode consists of a non-interactive demonstration of the
 		Widgets example.
 
-endif # EXAMPLES_LVGLDEMO_WIDGETS
+endmenu
 
-if EXAMPLES_LVGLDEMO_MUSIC
+menu "Music"
 
 config EXAMPLES_LVGLDEMO_MUSIC_SQUARE
 	bool "Enable Square"
@@ -74,7 +57,7 @@ config EXAMPLES_LVGLDEMO_MUSIC_AUTO_PLAY
 	bool "Enable Autoplay"
 	default n
 
-endif # EXAMPLES_LVGLDEMO_MUSIC
+endmenu
 
 config EXAMPLES_LVGLDEMO_PRIORITY
 	int "lvgldemo task priority"

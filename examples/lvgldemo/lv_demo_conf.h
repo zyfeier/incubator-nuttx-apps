@@ -53,11 +53,7 @@
 
 /* Show some widget */
 
-#ifdef CONFIG_EXAMPLES_LVGLDEMO_WIDGETS
 #  define LV_USE_DEMO_WIDGETS                   1
-#else
-#  define LV_USE_DEMO_WIDGETS                   0
-#endif /* CONFIG_EXAMPLES_LVGLDEMO_WIDGETS */
 
 #if LV_USE_DEMO_WIDGETS
 
@@ -71,35 +67,19 @@
 
 /* Demonstrate the usage of encoder and keyboard */
 
-#ifdef CONFIG_EXAMPLES_LVGLDEMO_KEYPAD_AND_ENCODER
-#  define LV_USE_DEMO_KEYPAD_AND_ENCODER        1
-#else
-#  define LV_USE_DEMO_KEYPAD_AND_ENCODER        0
-#endif /* CONFIG_EXAMPLES_LVGLDEMO_KEYPAD_AND_ENCODER */
+#define LV_USE_DEMO_KEYPAD_AND_ENCODER          1
 
 /* Benchmark your system */
 
-#ifdef CONFIG_EXAMPLES_LVGLDEMO_BENCHMARK
-#  define LV_USE_DEMO_BENCHMARK                 1
-#else
-#  define LV_USE_DEMO_BENCHMARK                 0
-#endif /* CONFIG_EXAMPLES_LVGLDEMO_BENCHMARK */
+#define LV_USE_DEMO_BENCHMARK                   1
 
 /* Stress test for LVGL */
 
-#ifdef CONFIG_EXAMPLES_LVGLDEMO_STRESS
-#  define LV_USE_DEMO_STRESS                    1
-#else
-#  define LV_USE_DEMO_STRESS                    0
-#endif /* CONFIG_EXAMPLES_LVGLDEMO_STRESS */
+#define LV_USE_DEMO_STRESS                      1
 
 /* Music player demo */
 
-#ifdef CONFIG_EXAMPLES_LVGLDEMO_MUSIC
-#  define LV_USE_DEMO_MUSIC                     1
-#else
-#  define LV_USE_DEMO_MUSIC                     0
-#endif /* CONFIG_EXAMPLES_LVGLDEMO_MUSIC */
+#define LV_USE_DEMO_MUSIC                       1
 
 #if LV_USE_DEMO_MUSIC
 
