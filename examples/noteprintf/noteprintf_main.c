@@ -28,6 +28,12 @@
 #include "nuttx/sched_note.h"
 
 /****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+#define MAIN_MODULE NOTE_MODULE('m', 'a', 'i', 'n')
+
+/****************************************************************************
  * note_printf_main
  ****************************************************************************/
 
@@ -66,25 +72,25 @@ int main(int argc, FAR char *argv[])
   while (1) {
     sched_note_printf("shced note test count = %d.", count++);
     sched_note_string(str);
-    sched_note_dump('n', 1, &binary, sizeof(struct binary));
-    sched_note_bprintf('n', 2, "%hhd", c);
-    sched_note_bprintf('n', 3, "%hd", s);
-    sched_note_bprintf('n', 4, "%d", i);
-    sched_note_bprintf('n', 5, "%ld", l);
-    sched_note_bprintf('n', 6, "%lld", ll);
-    sched_note_bprintf('n', 7, "%jd", im);
-    sched_note_bprintf('n', 8, "%zd",sz);
-    sched_note_bprintf('n', 9, "%td", ptr);
+    sched_note_dump(MAIN_MODULE, 1, &binary, sizeof(struct binary));
+    sched_note_bprintf(MAIN_MODULE, 2, "%hhd", c);
+    sched_note_bprintf(MAIN_MODULE, 3, "%hd", s);
+    sched_note_bprintf(MAIN_MODULE, 4, "%d", i);
+    sched_note_bprintf(MAIN_MODULE, 5, "%ld", l);
+    sched_note_bprintf(MAIN_MODULE, 6, "%lld", ll);
+    sched_note_bprintf(MAIN_MODULE, 7, "%jd", im);
+    sched_note_bprintf(MAIN_MODULE, 8, "%zd", sz);
+    sched_note_bprintf(MAIN_MODULE, 9, "%td", ptr);
 #ifdef CONFIG_HAVE_FLOAT
-    sched_note_bprintf('n', 10, "%e", f);
+    sched_note_bprintf(MAIN_MODULE, 10, "%e", f);
 #endif
 #ifdef CONFIG_HAVE_DOUBLE
-    sched_note_bprintf('n', 11, "%le", d);
+    sched_note_bprintf(MAIN_MODULE, 11, "%le", d);
 #endif
 #ifdef CONFIG_HAVE_LONG_DOUBLE
-    sched_note_bprintf('n', 12, "%Le", ld);
+    sched_note_bprintf(MAIN_MODULE, 12, "%Le", ld);
 #endif
-    sched_note_bprintf('n', 13,
+    sched_note_bprintf(MAIN_MODULE, 13,
                         "%hhd  %hd  %d  %ld  %lld  %jd  %zd  %td",
                          c,    s,   i,  l,    ll,  im,  sz,  ptr);
     usleep(10);
