@@ -27,19 +27,7 @@ LVGL_DIR_NAME = lvgl
 
 # Relax format check for LVGL to avoid errors on prinf() use
 
--include ./lvgl/src/extra/extra.mk
--include ./lvgl/src/core/lv_core.mk
--include ./lvgl/src/draw/lv_draw.mk
--include ./lvgl/src/draw/sw/lv_draw_sw.mk
--include ./lvgl/src/font/lv_font.mk
--include ./lvgl/src/gpu/lv_gpu.mk
--include ./lvgl/src/hal/lv_hal.mk
--include ./lvgl/src/misc/lv_misc.mk
--include ./lvgl/src/widgets/lv_widgets.mk
-
-ifneq ($(CONFIG_LV_BUILD_EXAMPLES),)
--include ./lvgl/examples/examples.mk
-endif
+-include ./lvgl/lvgl.mk
 
 -include ./ext/Makefile
 
@@ -70,18 +58,13 @@ ifneq ($(CONFIG_LV_USE_FBDEV_INTERFACE),)
 CSRCS += lv_porting/lv_fbdev_interface.c
 endif
 
-ifneq ($(CONFIG_LV_USE_FREETYPE_INTERFACE),)
-CSRCS += lv_porting/lv_freetype_interface.c
-endif
-
 ifneq ($(CONFIG_LV_USE_GPU_INTERFACE),)
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu/drv/vglite/inc}
 CSRCS += lv_porting/lv_gpu_interface.c
 endif
 
-ifneq ($(CONFIG_LV_USE_FFMPEG_INTERFACE),)
+ifneq ($(CONFIG_LV_USE_FFMPEG),)
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/ffmpeg}
-CSRCS += lv_porting/lv_ffmpeg_interface.c
 endif
 
 # Set up build configuration and environment
