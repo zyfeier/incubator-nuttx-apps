@@ -55,6 +55,34 @@ config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
 	string "Framebuffer default device path"
 	default "/dev/fb0"
 
+config LV_FBDEV_USE_STATIC_BUFFER
+	bool "Use static buffer"
+	default n
+
+if LV_FBDEV_USE_STATIC_BUFFER
+
+config LV_FBDEV_HOR_RES
+	int "Horizontal resolution"
+	default 480
+
+config LV_FBDEV_VER_RES
+	int "Vertical resolution"
+	default 480
+
+config LV_FBDEV_USE_CUSTOM_SECTION
+	bool "Use custom section"
+	default n
+
+if LV_FBDEV_USE_CUSTOM_SECTION
+
+config LV_FBDEV_SECTION_NAME
+	string "Section name"
+	default ""
+
+endif
+
+endif
+
 endif
 
 config LV_USE_GPU_INTERFACE

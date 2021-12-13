@@ -41,6 +41,19 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
+#if defined(CONFIG_LV_FBDEV_USE_STATIC_BUFFER)
+#define LV_FBDEV_BUFFER_SIZE \
+       (CONFIG_LV_FBDEV_HOR_RES * CONFIG_LV_FBDEV_VER_RES)
+
+#if defined(CONFIG_LV_FBDEV_USE_CUSTOM_SECTION)
+#define LV_FBDEV_BUFFER_SECTION \
+        __attribute__((section(CONFIG_LV_FBDEV_SECTION_NAME)))
+#else
+#define LV_FBDEV_BUFFER_SECTION
+#endif
+
+#endif
+
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
@@ -58,6 +71,15 @@ struct fbdev_obj_s
 };
 
 /****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+#if defined(CONFIG_LV_FBDEV_USE_STATIC_BUFFER)
+static lv_color_t g_fbdev_buffer[LV_FBDEV_BUFFER_SIZE]
+                  LV_FBDEV_BUFFER_SECTION;
+#endif
+
+/****************************************************************************
  * Public Data
  ****************************************************************************/
 
@@ -66,22 +88,25 @@ struct fbdev_obj_s
  ****************************************************************************/
 
 /****************************************************************************
- * Name: fbdev_area_copy
+ * Name: get_buffer
  ****************************************************************************/
 
-static void fbdev_area_copy(lv_color_t *dest, const lv_color_t *src,
-                            uint16_t width, uint16_t height,
-                            uint32_t dest_stride, uint32_t src_stride)
+FAR static lv_color_t *get_buffer(int hor_res, int ver_res)
 {
-  int y;
-  size_t hor_size = width * sizeof(lv_color_t);
-
-  for (y = 0; y < height; y++)
+#if defined(CONFIG_LV_FBDEV_USE_STATIC_BUFFER)
+  if (hor_res != CONFIG_LV_FBDEV_HOR_RES
+      || ver_res != CONFIG_LV_FBDEV_VER_RES)
     {
-      lv_memcpy(dest, src, hor_size);
-      dest += (width + dest_stride);
-      src += (width + src_stride);
+      LV_LOG_ERROR("Resolution mismatch, fb: %dx%d, lvgl: %dx%d.",
+                   hor_res, ver_res,
+                   CONFIG_LV_FBDEV_HOR_RES, CONFIG_LV_FBDEV_VER_RES);
+      return NULL;
     }
+
+  return g_fbdev_buffer;
+#else
+  return malloc(hor_res * ver_res * sizeof(lv_color_t));
+#endif
 }
 
 /****************************************************************************
@@ -94,51 +119,49 @@ static void fbdev_flush_direct(FAR lv_disp_drv_t *disp_drv,
 {
   FAR struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
 
-  if (disp_drv->draw_buf->flushing_last)
+  if (lv_disp_flush_is_last(disp_drv))
     {
-      lv_disp_t *disp_refr = lv_disp_get_default();
 #ifdef CONFIG_FB_UPDATE
       struct fb_area_s fb_area;
 #endif
+      FAR void *target = fbdev_obj->fbmem;
+      const size_t frame_size = fbdev_obj->vinfo.xres
+                                * fbdev_obj->vinfo.yres
+                                * sizeof(lv_color_t);
 
-      if (fbdev_obj->double_buffer && disp_refr->inv_p != 0)
+      if (fbdev_obj->double_buffer)
         {
-          lv_disp_draw_buf_t *vdb = lv_disp_get_draw_buf(disp_refr);
+          struct fb_planeinfo_s pinfo;
+          int ret;
+          ret = ioctl(fbdev_obj->fd, FBIOGET_PLANEINFO,
+                      (unsigned long)((uintptr_t)&pinfo));
 
-          lv_color_t *buf_act = vdb->buf_act;
-          lv_color_t *buf_ina = fbdev_obj->fbmem;
-
-          lv_coord_t hor_res = lv_disp_get_hor_res(disp_refr);
-          uint16_t inv_index;
-          for (inv_index = 0; inv_index < disp_refr->inv_p; inv_index++)
+          if (ret == OK)
             {
-              if (disp_refr->inv_area_joined[inv_index] == 0)
-                {
-                  const lv_area_t *inv_area;
-                  uint32_t start_offs;
+              pinfo.yoffset = (pinfo.yoffset == 0)
+                              ? fbdev_obj->vinfo.yres : 0;
 
-                  inv_area = &(disp_refr->inv_areas[inv_index]);
-                  start_offs = hor_res * inv_area->y1 + inv_area->x1;
+              target = (FAR uint8_t *)fbdev_obj->fbmem
+                        + pinfo.yoffset * pinfo.stride;
 
-                  uint16_t width = lv_area_get_width(inv_area);
-                  uint16_t height = lv_area_get_height(inv_area);
-                  uint32_t stride = hor_res - width;
+              lv_memcpy(target, color_p, frame_size);
 
-                  fbdev_area_copy(buf_ina + start_offs,
-                                  buf_act + start_offs,
-                                  width, height,
-                                  stride, stride);
-                }
+              ioctl(fbdev_obj->fd, FBIOPAN_DISPLAY,
+                    (unsigned long)((uintptr_t)&pinfo));
             }
+        }
+      else
+        {
+          lv_memcpy(target, color_p, frame_size);
         }
 
 #ifdef CONFIG_FB_UPDATE
-        fb_area.x = area_p->x1;
-        fb_area.y = area_p->y1;
-        fb_area.w = area_p->x2 - area_p->x1 + 1;
-        fb_area.h = area_p->y2 - area_p->y1 + 1;
-        ioctl(fbdev_obj->fd, FBIO_UPDATE,
-              (unsigned long)((uintptr_t)&fb_area));
+      fb_area.x = area_p->x1;
+      fb_area.y = area_p->y1;
+      fb_area.w = area_p->x2 - area_p->x1 + 1;
+      fb_area.h = area_p->y2 - area_p->y1 + 1;
+      ioctl(fbdev_obj->fd, FBIO_UPDATE,
+            (unsigned long)((uintptr_t)&fb_area));
 #endif
     }
 
@@ -237,9 +260,8 @@ static void fbdev_flush_convert(FAR lv_disp_drv_t *disp_drv,
 static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
                                  int hor_res, int ver_res)
 {
-  FAR lv_color_t *buf1 = state->fbmem;
-
   FAR struct fbdev_obj_s *fbdev_obj = malloc(sizeof(struct fbdev_obj_s));
+  FAR lv_color_t *buf;
 
   if (fbdev_obj == NULL)
     {
@@ -247,24 +269,17 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
       return NULL;
     }
 
-  if (!state->color_match)
+  buf = get_buffer(hor_res, ver_res);
+
+  if (buf == NULL)
     {
-      buf1 = malloc(hor_res * ver_res * sizeof(lv_color_t));
-      if (buf1 == NULL)
-        {
-          LV_LOG_ERROR("display buf1 malloc failed");
-          free(fbdev_obj);
-          return NULL;
-        }
-    }
-  else if (state->double_buffer)
-    {
-      buf1 = buf1 + (hor_res * ver_res);
+      LV_LOG_ERROR("Unable to get buffer");
+      return NULL;
     }
 
   *fbdev_obj = *state;
 
-  lv_disp_draw_buf_init(&(fbdev_obj->disp_draw_buf), buf1, NULL,
+  lv_disp_draw_buf_init(&(fbdev_obj->disp_draw_buf), buf, NULL,
                         hor_res * ver_res);
 
   lv_disp_drv_init(&(fbdev_obj->disp_drv));
@@ -381,8 +396,6 @@ FAR lv_disp_t *lv_fbdev_interface_init(FAR const char *dev_path,
       LV_LOG_WARN("fbdev bpp = %d, LV_COLOR_DEPTH = %d, "
                   "color depth does not match.",
                   state.pinfo.bpp, LV_COLOR_DEPTH);
-      LV_LOG_WARN("Use software color conversion "
-                  "which makes LVGL much slower.");
       state.color_match = false;
     }
 
@@ -412,6 +425,7 @@ FAR lv_disp_t *lv_fbdev_interface_init(FAR const char *dev_path,
 
   if (disp == NULL)
     {
+      munmap(state.fbmem, state.pinfo.fblen);
       close(state.fd);
     }
 
