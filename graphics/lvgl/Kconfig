@@ -60,7 +60,6 @@ endif
 config LV_USE_GPU_INTERFACE
 	bool "Use GPU acceleration"
 	default n
-        select LV_USE_EXTERNAL_RENDERER
 
 if LV_USE_GPU_INTERFACE
 
