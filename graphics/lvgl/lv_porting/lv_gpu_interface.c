@@ -28,6 +28,7 @@
 #include <debug.h>
 #include <lvgl/src/lv_conf_internal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #ifdef CONFIG_ARM_HAVE_MVE
 #include "arm_mve.h"
@@ -36,14 +37,12 @@
 /****************************************************************************
  * Preprocessor Definitions
  ****************************************************************************/
-#if LV_COLOR_DEPTH == 16
-#define VGLITE_PX_FMT VG_LITE_BGR565
-#elif LV_COLOR_DEPTH == 32
-#define VGLITE_PX_FMT VG_LITE_BGRA8888
-#endif
+#define BPP_TO_VG_FMT(x)  ((x) == 16 ? VG_LITE_BGR565 : VG_LITE_BGRA8888)
+#define VG_FMT_TO_BPP(y)  ((y) == VG_LITE_BGR565 ? 16 : 32)
+#define VGLITE_PX_FMT     BPP_TO_VG_FMT(LV_COLOR_DEPTH)
 
-#define GPU_SIZE_LIMIT 240
-#define GPU_SPLIT_SIZE (480 * 100)
+#define GPU_SIZE_LIMIT    240
+#define GPU_SPLIT_SIZE    (480 * 100)
 /****************************************************************************
  * Macros
  ****************************************************************************/
@@ -110,7 +109,6 @@ LV_ATTRIBUTE_FAST_MEM static inline void bgra5658_to_8888(const uint8_t* src, ui
 static lv_res_t init_vg_buf(void* vdst, uint32_t width, uint32_t height, uint32_t stride, void* ptr, uint8_t format, bool source)
 {
   vg_lite_buffer_t* dst = vdst;
-  // LV_LOG_WARN("width:%d height:%d stride:%d ptr:%p format:%d\n", width, height, stride, ptr, format);
   if (source && (width & 0xF)) { /*Test for stride alignment*/
     LV_LOG_ERROR("Buffer width (%d) not aligned to 16px.", width);
     return -1;
@@ -200,7 +198,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
   lv_opa_t recolor_opa = draw_dsc->recolor_opa;
   vg_lite_buffer_t src_vgbuf;
   bool transformed = (angle != 0) || (zoom != LV_IMG_ZOOM_NONE);
-  LV_LOG_WARN("clip:%d %d %d %d map:%d %d %d %d ang:%d zoom:%d pivot:(%d %d) opa:%d\n", clip_area->x1, clip_area->y1, clip_area->x2, clip_area->y2, map_area->x1, map_area->y1, map_area->x2, map_area->y2, angle, zoom, pivot.x, pivot.y, opa);
   lv_disp_t* disp = _lv_refr_get_disp_refreshing();
   lv_disp_draw_buf_t* draw_buf = lv_disp_get_draw_buf(disp);
   const lv_area_t* disp_area = &draw_buf->area;
@@ -210,18 +207,15 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
   int32_t map_w = lv_area_get_width(map_area);
   int32_t map_h = lv_area_get_height(map_area);
   vg_lite_buffer_t dst_vgbuf;
-  LV_LOG_WARN("disp_area:%d %d %d %d\n", disp_area->x1, disp_area->y1, disp_area->x2, disp_area->y2);
 
   init_vg_buf(&dst_vgbuf, disp_w, disp_h, disp_w * sizeof(lv_color_t), disp_buf, VGLITE_PX_FMT, false);
-  uint32_t rect[4];
+  uint32_t rect[4] = {0, 0};
   lv_area_t map_tf, draw_area;
   lv_area_copy(&draw_area, clip_area);
   lv_area_move(&draw_area, -disp_area->x1, -disp_area->y1);
 
   _lv_img_buf_get_transformed_area(&map_tf, map_w, map_h, angle, zoom, &pivot);
-  LV_LOG_WARN("map_tf:%d %d %d %d\n", map_tf.x1, map_tf.y1, map_tf.x2, map_tf.y2);
   lv_area_move(&map_tf, map_area->x1 - disp_area->x1, map_area->y1 - disp_area->y1);
-  LV_LOG_WARN("after move:%d %d %d %d\n", map_tf.x1, map_tf.y1, map_tf.x2, map_tf.y2);
   if (_lv_area_intersect(&draw_area, &draw_area, &map_tf) == false) {
     return LV_RES_OK;
   }
@@ -229,11 +223,10 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     LV_LOG_ERROR("Transformed image clipped, fallback to SW for now\n");
     return LV_RES_INV;
   }
-  LV_LOG_WARN("draw_area:%d %d %d %d\n", draw_area.x1, draw_area.y1, draw_area.x2, draw_area.y2);
   int32_t draw_area_w = lv_area_get_width(&draw_area);
   int32_t draw_area_h = lv_area_get_height(&draw_area);
   if (lv_area_get_size(&draw_area) < GPU_SIZE_LIMIT) {
-    LV_LOG_WARN("GPU blit failed: too small");
+    LV_LOG_ERROR("GPU blit failed: too small");
     return LV_RES_INV;
   }
 
@@ -308,10 +301,16 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
             vecIn = vshlcq(vecIn, &carry, 6);
             uint32x4_t vecB = vandq(vecIn, maskRB);
             vecB = vmulq(vecB, shiftC);
+            /* pre-multiply alpha to all channels */
+            vecR = vmulhq(vecR, vecA);
+            vecG = vmulhq(vecG, vecA);
+            vecB = vmulhq(vecB, vecA);
             /* merge channels */
-            uint32x4_t vOut = vecA | vecR >> 8 | vecG >> 16 | vecB >> 24;
+            vecG = vsriq(vecG, vecB, 8);
+            vecR = vsriq(vecR, vecG, 8);
+            vecA = vsriq(vecA, vecR, 8);
             /* store a vector of 4 bgra8888 pixels */
-            vst1q_p(pwTarget, vOut, tailPred);
+            vst1q_p(pwTarget, vecA, tailPred);
             phwSource += 6;
             pwTarget += 4;
             blkCnt -= 4;
@@ -319,10 +318,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
 #else
           uint32_t carry;
           __asm volatile(
-              "   vldrw.32                q4, [%[maskA]]                      \n"
-              "   vldrw.32                q5, [%[shiftC]]                     \n"
-              "   vldrw.32                q6, [%[maskRB]]                     \n"
-              "   vldrw.32                q7, [%[maskG]]                      \n"
               "   .p2align 2                                                  \n"
               "   wlstp.32                lr, %[loopCnt], 1f                  \n"
               "   2:                                                          \n"
@@ -331,15 +326,18 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
               /* q0 => |****|AQPA|QPAQ|PAQP| */
               "   vshlc                   q0, %[pCarry], #8                   \n"
               /* q0 => |***A|QPAQ|PAQP|AQP0| */
-              "   vand                    q2, q0, q4                          \n"
+              "   vldrw.32                q1, [%[maskA]]                      \n"
+              "   vand                    q2, q0, q1                          \n"
               /* q2 => |000A|00A0|0A00|A000| */
-              "   vmul.i32                q1, q2, q5                          \n"
+              "   vldrw.32                q4, [%[shiftC]]                     \n"
+              "   vmul.i32                q1, q2, q4                          \n"
               /* q1 => |A000|A000|A000|A000|, use q1 as final output */
               "   vshlc                   q0, %[pCarry], #8                   \n"
               /* q0 => |**AQ|PAQP|AQPA|QP**| */
-              "   vand                    q2, q0, q6                          \n"
+              "   vldrw.32                q3, [%[maskRB]]                     \n"
+              "   vand                    q2, q0, q3                          \n"
               /* q2 => |000r|00r0|0r00|r000| */
-              "   vmul.i32                q3, q2, q5                          \n"
+              "   vmul.i32                q3, q2, q4                          \n"
               /* q3 => |r000|r000|r000|r000| */
               "   vsri.32                 q1, q3, #8                          \n"
               /* q1 => |Ar00|Ar00|Ar00|Ar00| */
@@ -347,9 +345,10 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
               /* q1 => |AR*0|AR*0|AR*0|AR*0| */
               "   vshlc                   q0, %[pCarry], #5                   \n"
               /* Similar operation on G channel */
-              "   vand                    q2, q0, q7                          \n"
+              "   vldrw.32                q3, [%[maskG]]                      \n"
+              "   vand                    q2, q0, q3                          \n"
               /* q2 => |000g|00g0|0g00|g000| */
-              "   vmul.i32                q3, q2, q5                          \n"
+              "   vmul.i32                q3, q2, q4                          \n"
               /* q3 => |g000|g000|g000|g000| */
               "   vsri.32                 q1, q3, #16                         \n"
               /* q1 => |ARg0|ARg0|ARg0|ARg0| */
@@ -357,23 +356,30 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
               /* q1 => |ARG*|ARG*|ARG*|ARG*| */
               "   vshlc                   q0, %[pCarry], #6                   \n"
               /* Similar operation on B channel */
-              "   vand                    q2, q0, q6                          \n"
+              "   vldrw.32                q3, [%[maskRB]]                     \n"
+              "   vand                    q2, q0, q3                          \n"
               /* q2 => |000b|00b0|0b00|b000| */
-              "   vmul.i32                q3, q2, q5                          \n"
+              "   vmul.i32                q3, q2, q4                          \n"
               /* q3 => |b000|b000|b000|b000| */
               "   vsri.32                 q1, q3, #24                         \n"
               /* q1 => |ARGb|ARGb|ARGb|ARGb| */
               "   vsri.32                 q1, q3, #29                         \n"
               /* q1 => |ARGB|ARGB|ARGB|ARGB| */
+              "   vsri.32                 q3, q1, #8                          \n"
+              "   vsri.32                 q3, q1, #16                         \n"
+              "   vsri.32                 q3, q1, #24                         \n"
+              /* pre-multiply alpha to all channels */
+              "   vmulh.u8                q2, q1, q3                          \n"
+              "   vsli.32                 q2, q3, #24                         \n"
               /* store a vector of 4 bgra8888 pixels */
-              "   vstrw.32                q1, [%[pTarget]], #16               \n"
+              "   vstrw.32                q2, [%[pTarget]], #16               \n"
               "   letp                    lr, 2b                              \n"
               "   1:                                                          \n"
 
               : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
               : [loopCnt] "r"(blkCnt), [maskA] "r"(_maskA), [shiftC] "r"(_shiftC),
               [maskRB] "r"(_maskRB), [maskG] "r"(_maskG), [pCarry] "r"(carry)
-              : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "lr", "memory");
+              : "q0", "q1", "q2", "q3", "q4", "lr", "memory");
 #endif
           px_map += map_stride;
           px_buf += vgbuf_stride;
@@ -383,10 +389,10 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
           for (uint32_t j = 0; j < map_w; j++) {
             lv_color32_t* c32 = (uint32_t*)px_buf + j;
             lv_color16_t* c16 = (const lv_color16_t*)px_map;
-            c32->ch.red = (c16->ch.red * 263 + 7) >> 5;
-            c32->ch.green = (c16->ch.green * 259 + 3) >> 6;
-            c32->ch.blue = (c16->ch.blue * 263 + 7) >> 5;
             c32->ch.alpha = px_map[LV_IMG_PX_SIZE_ALPHA_BYTE - 1];
+            c32->ch.red = (c16->ch.red * 263 + 7) * c32->ch.alpha >> 13;
+            c32->ch.green = (c16->ch.green * 259 + 3) * c32->ch.alpha >> 14;
+            c32->ch.blue = (c16->ch.blue * 263 + 7) * c32->ch.alpha >> 13;
             // *((uint32_t*)px_buf + j) = c32.full;
             px_map += LV_IMG_PX_SIZE_ALPHA_BYTE;
           }
@@ -397,8 +403,31 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
       } else
 #endif
         for (int i = 0; i < map_h; i++) {
+          int32_t blkCnt = map_w;
+          const uint16_t* phwSource = px_map;
+          uint32_t* pwTarget = px_buf;
+#ifdef CONFIG_ARM_HAVE_MVE
+          __asm volatile(
+              "   .p2align 2                                                  \n"
+              "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+              "   2:                                                          \n"
+              "   vldrw.32                q0, [%[pSource]], #16               \n"
+              "   vsri.32                 q1, q0, #8                          \n"
+              "   vsri.32                 q1, q0, #16                         \n"
+              "   vsri.32                 q1, q0, #24                         \n"
+              "   vmulh.u8                q2, q0, q1                          \n"
+              "   vsli.32                 q2, q1, #24                         \n"
+              "   vstrw.32                q2, [%[pTarget]], #16               \n"
+              "   letp                    lr, 2b                              \n"
+              "   1:                                                          \n"
+              : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+              : [loopCnt] "r"(blkCnt)
+              : "q0", "q1", "q2", "lr", "memory");
+#else
+          /* Warning: no pre-multiply here */
           lv_memcpy(px_buf, px_map, map_stride);
-          //   lv_memset_00(px_buf + map_stride, vgbuf_stride - map_stride);
+#endif
+          // lv_memset_00(px_buf + map_stride, vgbuf_stride - map_stride);
           px_map += map_stride;
           px_buf += vgbuf_stride;
         }
@@ -407,18 +436,20 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
       return LV_RES_INV;
     }
   }
-  if (!transformed) {
-    map_w = draw_area_w;
-    map_h = draw_area_h;
-    src_vgbuf.memory = (uint8_t*)src_vgbuf.memory + (draw_area.y1 - map_tf.y1) * src_vgbuf.stride + draw_area.x1 - map_tf.x1;
-  }
-  rect[0] = 0;
-  rect[1] = 0;
-  rect[2] = map_w;
-  rect[3] = map_h;
   vg_lite_matrix_t matrix;
   vg_lite_identity(&matrix);
-  vg_lite_translate(MAX(0, map_area->x1 - disp_area->x1), MAX(0, map_area->y1 - disp_area->y1), &matrix);
+  if (!transformed && (draw_area_w < map_w || draw_area_h < map_h)) {
+    int32_t offset = src_vgbuf.stride * (draw_area.y1 - map_tf.y1) + (draw_area.x1 - map_tf.x1) * VG_FMT_TO_BPP(src_vgbuf.format) / 8;
+    src_vgbuf.address = (uint8_t*)src_vgbuf.memory + offset;
+    vg_lite_translate(draw_area.x1, draw_area.y1, &matrix);
+    map_w = draw_area_w;
+    map_h = draw_area_h;
+  }
+  else {
+    vg_lite_translate(map_area->x1 - disp_area->x1, map_area->y1 - disp_area->y1, &matrix);
+  }
+  rect[2] = map_w;
+  rect[3] = map_h;
   if (transformed) {
     vg_lite_translate(pivot.x, pivot.y, &matrix);
     vg_lite_float_t scale = zoom * 1.0f / LV_IMG_ZOOM_NONE;
@@ -451,7 +482,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
 
   cpu_cache_flush(src_vgbuf.memory, src_vgbuf.height * src_vgbuf.stride);
 
-  LV_LOG_WARN("rect:(%d %d %d %d) dst:%p src:%p\n", rect[0], rect[1], rect[2], rect[3], dst_vgbuf.memory, src_vgbuf.memory);
   vg_lite_error_t error = VG_LITE_SUCCESS;
   vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR : VG_LITE_FILTER_POINT;
   CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend, color.full, filter));
@@ -461,7 +491,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     free(mem);
   }
   if (error != VG_LITE_SUCCESS) {
-    LV_LOG_WARN("GPU blit failed. Fallback to SW.\n");
+    LV_LOG_ERROR("GPU blit failed. Fallback to SW.\n");
     /*Fall back to SW render in case of error*/
     return LV_RES_INV;
   }
