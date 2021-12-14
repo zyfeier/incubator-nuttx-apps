@@ -35,7 +35,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include "lv_fbdev_interface.h"
+#include <lv_porting/lv_porting.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -143,8 +143,18 @@ static void fbdev_flush_direct(FAR lv_disp_drv_t *disp_drv,
 
               target = (FAR uint8_t *)fbdev_obj->fbmem
                         + pinfo.yoffset * pinfo.stride;
-
+#if defined(CONFIG_LV_USE_GPU_INTERFACE)
+              lv_gpu_color_fmt_convert_dsc_t dsc;
+              dsc.dst = target;
+              dsc.dst_bpp = pinfo.bpp;
+              dsc.src = color_p;
+              dsc.src_bpp = LV_COLOR_DEPTH;
+              dsc.width = fbdev_obj->vinfo.xres;
+              dsc.height = fbdev_obj->vinfo.yres;
+              lv_gpu_color_fmt_convert(&dsc);
+#else
               lv_memcpy(target, color_p, frame_size);
+#endif
 
               ioctl(fbdev_obj->fd, FBIOPAN_DISPLAY,
                     (unsigned long)((uintptr_t)&pinfo));
@@ -169,6 +179,8 @@ static void fbdev_flush_direct(FAR lv_disp_drv_t *disp_drv,
 
   lv_disp_flush_ready(disp_drv);
 }
+
+#if !defined(CONFIG_LV_USE_GPU_INTERFACE)
 
 /****************************************************************************
  * Name: fbdev_flush_convert
@@ -253,6 +265,8 @@ static void fbdev_flush_convert(FAR lv_disp_drv_t *disp_drv,
   lv_disp_flush_ready(disp_drv);
 }
 
+#endif
+
 /****************************************************************************
  * Name: fbdev_init
  ****************************************************************************/
@@ -283,10 +297,15 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
                         hor_res * ver_res);
 
   lv_disp_drv_init(&(fbdev_obj->disp_drv));
+#if defined(CONFIG_LV_USE_GPU_INTERFACE)
+  fbdev_obj->disp_drv.direct_mode = 1;
+  fbdev_obj->disp_drv.flush_cb = fbdev_flush_direct;
+#else
   fbdev_obj->disp_drv.direct_mode = fbdev_obj->color_match;
   fbdev_obj->disp_drv.flush_cb = fbdev_obj->color_match
                                  ? fbdev_flush_direct
                                  : fbdev_flush_convert;
+#endif
   fbdev_obj->disp_drv.draw_buf = &(fbdev_obj->disp_draw_buf);
   fbdev_obj->disp_drv.hor_res = hor_res;
   fbdev_obj->disp_drv.ver_res = ver_res;
