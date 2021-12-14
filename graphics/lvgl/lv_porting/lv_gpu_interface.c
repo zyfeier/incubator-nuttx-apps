@@ -72,6 +72,10 @@ static char* error_type[] = {
 #define IS_ALIGNED(num, align) (((uint32_t)(num) & ((align)-1)) == 0)
 #endif
 
+#ifndef IS_CACHED
+#define IS_CACHED(addr) (((uint32_t)addr & 0xFF000000) == 0x3C000000)
+#endif
+
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
@@ -110,7 +114,7 @@ static lv_res_t init_vg_buf(void* vdst, uint32_t width, uint32_t height, uint32_
 {
   vg_lite_buffer_t* dst = vdst;
   if (source && (width & 0xF)) { /*Test for stride alignment*/
-    LV_LOG_ERROR("Buffer width (%d) not aligned to 16px.", width);
+    LV_LOG_WARN("Buffer width (%d) not aligned to 16px.", width);
     return -1;
   }
 
@@ -406,7 +410,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
           int32_t blkCnt = map_w;
           const uint16_t* phwSource = px_map;
           uint32_t* pwTarget = px_buf;
-#ifdef CONFIG_ARM_HAVE_MVE
+#if 0//def CONFIG_ARM_HAVE_MVE
           __asm volatile(
               "   .p2align 2                                                  \n"
               "   wlstp.32                lr, %[loopCnt], 1f                  \n"
@@ -462,9 +466,10 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     vg_lite_translate(-pivot.x, -pivot.y, &matrix);
   }
   lv_color32_t color;
-  vg_lite_blend_t blend = (blend_mode == LV_BLEND_MODE_NORMAL) ? VG_LITE_BLEND_SRC_OVER : (blend_mode == LV_BLEND_MODE_ADDITIVE) ? VG_LITE_BLEND_ADDITIVE
-      : (blend_mode == LV_BLEND_MODE_SUBTRACTIVE)                                                                                ? VG_LITE_BLEND_SUBTRACT
-                                                                                                                                 : VG_LITE_BLEND_NONE;
+  vg_lite_blend_t blend = (blend_mode == LV_BLEND_MODE_NORMAL) ? VG_LITE_BLEND_SRC_OVER :
+                          (blend_mode == LV_BLEND_MODE_ADDITIVE) ? VG_LITE_BLEND_ADDITIVE :
+                          (blend_mode == LV_BLEND_MODE_SUBTRACTIVE) ? VG_LITE_BLEND_SUBTRACT :
+                          VG_LITE_BLEND_NONE;
   if (opa >= LV_OPA_MAX && recolor_opa == LV_OPA_TRANSP) {
     color.full = 0x0;
     src_vgbuf.image_mode = VG_LITE_NORMAL_IMAGE_MODE;
@@ -479,9 +484,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     }
     src_vgbuf.image_mode = VG_LITE_MULTIPLY_IMAGE_MODE;
   }
-
-  cpu_cache_flush(src_vgbuf.memory, src_vgbuf.height * src_vgbuf.stride);
-
+  if (IS_CACHED(src_vgbuf.memory)) {
+    cpu_cache_flush(src_vgbuf.memory, src_vgbuf.height * src_vgbuf.stride);
+  }
   vg_lite_error_t error = VG_LITE_SUCCESS;
   vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR : VG_LITE_FILTER_POINT;
   CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend, color.full, filter));
@@ -495,7 +500,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     /*Fall back to SW render in case of error*/
     return LV_RES_INV;
   }
-  cpu_gpu_data_cache_invalid(dst_vgbuf.memory, dst_vgbuf.height * dst_vgbuf.stride);
+  if (IS_CACHED(dst_vgbuf.memory)) {
+    cpu_gpu_data_cache_invalid(dst_vgbuf.memory, dst_vgbuf.height * dst_vgbuf.stride);
+  }
   return LV_RES_OK;
 }
 
@@ -557,5 +564,47 @@ lv_res_t lv_gpu_setmode(lv_gpu_mode_t mode)
 {
   power_mode = mode;
   /* TODO: set driver power*/
+  return LV_RES_OK;
+}
+
+/****************************************************************************
+ * Name: lv_gpu_color_fmt_convert
+ *
+ * Description:
+ *   Use GPU to convert color formats (16 to/from 32).
+ *
+ * Input Parameters:
+ * @param[in] dsc descriptor of destination and source
+ *   (see lv_gpu_color_fmt_convert_dsc_t)
+ *
+ * Returned Value:
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
+ *
+ ****************************************************************************/
+
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_convert_dsc_t *dsc)
+{
+  vg_lite_buffer_t src;
+  vg_lite_buffer_t dst;
+  lv_coord_t w = dsc->width;
+  lv_coord_t h = dsc->height;
+  vg_lite_error_t error;
+
+  if (init_vg_buf(&src, w, h, w * dsc->src_bpp >> 3, dsc->src, BPP_TO_VG_FMT(dsc->src_bpp), 1) != LV_RES_OK ||
+      init_vg_buf(&dst, w, h, w * dsc->dst_bpp >> 3, dsc->dst, BPP_TO_VG_FMT(dsc->dst_bpp), 0) != LV_RES_OK) {
+    return LV_RES_INV;
+  }
+  if (IS_CACHED(src.memory)) {
+    cpu_cache_flush(src.memory, h * src.stride);
+  }
+  CHECK_ERROR(vg_lite_blit(&dst, &src, NULL, 0, 0, 0));
+  CHECK_ERROR(vg_lite_flush());
+  if (error != VG_LITE_SUCCESS) {
+    LV_LOG_ERROR("GPU convert failed.\n");
+    return LV_RES_INV;
+  }
+  if (IS_CACHED(dst.memory)) {
+    cpu_gpu_data_cache_invalid(dst.memory, h * dst.stride);
+  }
   return LV_RES_OK;
 }

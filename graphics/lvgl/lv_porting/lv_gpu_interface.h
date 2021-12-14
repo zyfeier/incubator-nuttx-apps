@@ -57,6 +57,15 @@ enum {
 
 typedef uint8_t lv_gpu_mode_t;
 
+typedef struct {
+  void *dst;
+  const void *src;
+  uint8_t dst_bpp;
+  uint8_t src_bpp;
+  lv_coord_t width;
+  lv_coord_t height;
+} lv_gpu_color_fmt_convert_dsc_t;
+
 /****************************************************************************
  * Public Data
  ****************************************************************************/
@@ -139,6 +148,23 @@ lv_res_t lv_gpu_setmode(lv_gpu_mode_t mode);
 
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const lv_area_t* clip_area,
     const lv_color_t* map_buf, const lv_draw_img_dsc_t* draw_dsc, bool chroma_key, bool alpha_byte);
+
+/****************************************************************************
+ * Name: lv_gpu_color_fmt_convert
+ *
+ * Description:
+ *   Use GPU to convert color formats (16 to/from 32).
+ *
+ * Input Parameters:
+ * @param[in] dsc descriptor of destination and source
+ *   (see lv_gpu_color_fmt_convert_dsc_t)
+ *
+ * Returned Value:
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
+ *
+ ****************************************************************************/
+
+lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_convert_dsc_t *dsc);
 
 #undef EXTERN
 #ifdef __cplusplus
