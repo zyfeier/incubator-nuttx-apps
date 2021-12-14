@@ -33,7 +33,5 @@
 #include <lv_porting/lv_keypad_interface.h>
 #include <lv_porting/lv_touchpad_interface.h>
 #include <lv_porting/lv_encoder_interface.h>
-#include <lv_porting/lv_freetype_interface.h>
-#include <lv_porting/lv_ffmpeg_interface.h>
 
 #endif /* __LV_PORTING_H__ */

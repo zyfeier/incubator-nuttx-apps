@@ -240,40 +240,6 @@ config LV_ENCODER_INTERFACE_DEFAULT_DEVICEPATH
 
 endif
 
-config LV_USE_FREETYPE_INTERFACE
-	bool "Use FreeType interface"
-	depends on LIB_FREETYPE
-	default n
-
-if LV_USE_FREETYPE_INTERFACE
-
-config LV_USE_FT_CACHE_MANAGER
-	bool "use freetype cache manager"
-	default y
-
-if LV_USE_FT_CACHE_MANAGER
-
-config LV_USE_FT_SBIT_CACHE
-	bool "bitmap cache use the sbit cache, otherwise, use image cache"
-	default y
-
-endif
-
-endif
-
-config LV_USE_FFMPEG_INTERFACE
-	bool "Use FFmpeg interface"
-	depends on LIB_FFMPEG
-	default n
-
-if LV_USE_FFMPEG_INTERFACE
-
-config LV_FFMPEG_INTERFACE_AV_DUMP_FORMAT
-	bool "FFmpeg dump av format"
-	default n
-
-endif
-
 menu "LVGL extension"
 
 config LVGL_EXTENSION
