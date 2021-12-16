@@ -6,9 +6,8 @@
 config LIBUV
 	bool "libuv asynchronous I/O Library"
 	default n
-	select EVENT_FD
-	select EVENT_FD_POLL
 	select CLOCK_MONOTONIC
+	select PIPES
 	---help---
 		Enable build for libuv asynchronous I/O Library
 
@@ -17,28 +16,28 @@ if LIBUV
 menu "libuv extension"
 
 config LIBUV_EXTENSION
-    bool "Enable libuv extension"
-    default n
-    ---help---
-      Enable libuv extension
+	bool "Enable libuv extension"
+	default n
+	---help---
+		Enable libuv extension
 
 if LIBUV_EXTENSION
 
 config LIBUV_EXTENSION_TEST
-    bool "libuv extension test"
-    default n
-    ---help---
-      Enable libuv extension test
+	bool "libuv extension test"
+	default n
+	---help---
+		Enable libuv extension test
 
 if LIBUV_EXTENSION_TEST
 
 config LIBUV_EXTENSION_TEST_PRIORITY
-    int "libuv extension test priority"
-    default 100
+	int "libuv extension test priority"
+	default 100
 
 config LIBUV_EXTENSION_TEST_TASK_STACKSIZE
-    int "libuv extension test stack size"
-    default 65535
+	int "libuv extension test stack size"
+	default 65535
 
 endif
 
