@@ -13,6 +13,10 @@ config LIBUV
 
 if LIBUV
 
+config LIBUV_THREADPOOL_SIZE
+	int "libuv default thread pool size"
+	default 1
+
 menu "libuv extension"
 
 config LIBUV_EXTENSION
