@@ -361,6 +361,13 @@ config LVX_USE_RLE
 		Enalbe decoder to file .rle. When enabled, rle file decoder is
 		registered to lvgl.
 
+config LVX_USE_BIN_DECODER
+	bool "Custom binary file decoder that load full bin to RAM"
+	default n
+	---help---
+		Enalbe decoder to file .bin. Unlike the lvgl default bin decoder, this
+		one read all file data to buffer.
+
 endif
 
 endif
