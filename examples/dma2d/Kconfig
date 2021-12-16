@@ -1,0 +1,29 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_DMA2D_TEST
+	tristate "DMA2D Test example"
+	default n
+	---help---
+		Enable the \"Test based on DMA2D!\" example
+
+if EXAMPLES_DMA2D_TEST
+
+config EXAMPLES_DMA2D_TEST_PROGNAME
+	string "Program name"
+	default "dma2d"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config EXAMPLES_DMA2D_TEST_PRIORITY
+	int "DMA2D Test task priority"
+	default 100
+
+config EXAMPLES_DMA2D_TEST_STACKSIZE
+	int "DMA2D Test stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif
