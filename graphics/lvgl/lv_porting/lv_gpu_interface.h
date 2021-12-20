@@ -42,6 +42,69 @@
 #define LV_GPU_DEFAULT_MODE LV_GPU_MODE_PERFORMANCE
 #endif
 
+#define GPU_SIZE_LIMIT 240
+#define GPU_SPLIT_SIZE (480 * 100)
+
+/****************************************************************************
+ * Macros
+ ****************************************************************************/
+
+#define BPP_TO_VG_FMT(x) ((x) == 32 ? VG_LITE_BGRA8888 : (x) == 16 ? VG_LITE_BGR565  \
+        : (x) == 8                                                 ? VG_LITE_INDEX_8 \
+        : (x) == 4                                                 ? VG_LITE_INDEX_4 \
+        : (x) == 2                                                 ? VG_LITE_INDEX_2 \
+        : (x) == 1                                                 ? VG_LITE_INDEX_1 \
+                                                                   : -1)
+#define VG_FMT_TO_BPP(y) ((y) == VG_LITE_BGRA8888 ? 32 : (y) == VG_LITE_BGR565 ? 16 \
+        : (y) == VG_LITE_INDEX_8                                               ? 8  \
+        : (y) == VG_LITE_INDEX_4                                               ? 4  \
+        : (y) == VG_LITE_INDEX_2                                               ? 2  \
+        : (y) == VG_LITE_INDEX_1                                               ? 1  \
+                                                                               : 0)
+#define VGLITE_PX_FMT BPP_TO_VG_FMT(LV_COLOR_DEPTH)
+
+#ifndef ALIGN_UP
+#define ALIGN_UP(num, align) (((num) + ((align)-1)) & ~((align)-1))
+#endif
+
+#ifndef IS_ALIGNED
+#define IS_ALIGNED(num, align) (((uint32_t)(num) & ((align)-1)) == 0)
+#endif
+
+#ifndef IS_CACHED
+#define IS_CACHED(addr) (((uint32_t)addr & 0xFF000000) == 0x3C000000)
+#endif
+
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
+#ifdef LV_GPU_USE_LOG
+#define GPU_WARN LV_LOG_WARN
+#define GPU_ERROR LV_LOG_ERROR
+#else
+#define GPU_WARN(...)
+#define GPU_ERROR(...)
+#endif
+
+#ifdef LV_GPU_USE_PERF
+#define TC_INIT             \
+  volatile uint32_t time_s; \
+  volatile uint32_t time_e;
+#define TC_START time_s = lv_tick_get();
+#define TC_END time_e = lv_tick_get();
+#define _TSTR(s) #s
+#define TC_REP(s)                                  \
+  do {                                             \
+    printf(_TSTR(s) ":%ld ms\n", time_e - time_s); \
+  } while (0);
+#else
+#define TC_INIT
+#define TC_START
+#define TC_END
+#define TC_REP(s)
+#endif
+
 /****************************************************************************
  * Type Definitions
  ****************************************************************************/
@@ -58,8 +121,8 @@ enum {
 typedef uint8_t lv_gpu_mode_t;
 
 typedef struct {
-  void *dst;
-  const void *src;
+  void* dst;
+  const void* src;
   uint8_t dst_bpp;
   uint8_t src_bpp;
   lv_coord_t width;
@@ -147,7 +210,7 @@ lv_res_t lv_gpu_setmode(lv_gpu_mode_t mode);
  ****************************************************************************/
 
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const lv_area_t* clip_area,
-    const lv_color_t* map_buf, const lv_draw_img_dsc_t* draw_dsc, bool chroma_key, bool alpha_byte);
+    const uint8_t* map_buf, const lv_draw_img_dsc_t* draw_dsc, bool chroma_key, bool alpha_byte);
 
 /****************************************************************************
  * Name: lv_gpu_color_fmt_convert
@@ -156,7 +219,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
  *   Use GPU to convert color formats (16 to/from 32).
  *
  * Input Parameters:
- * @param[in] dsc descriptor of destination and source
+ * @param dsc descriptor of destination and source
  *   (see lv_gpu_color_fmt_convert_dsc_t)
  *
  * Returned Value:
@@ -164,7 +227,28 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
  *
  ****************************************************************************/
 
-lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_convert_dsc_t *dsc);
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_convert_dsc_t* dsc);
+
+/****************************************************************************
+ * Name: init_vg_buf
+ *
+ * Description:
+ *   Fills vg_lite_buffer_t structure according given parameters.
+ *
+ * Input Parameters:
+ * @param vdst Buffer structure to be filled
+ * @param width Width of buffer in pixels
+ * @param height Height of buffer in pixels
+ * @param stride Stride of the buffer in bytes
+ * @param ptr Pointer to the buffer (must be aligned according VG-Lite requirements)
+ *
+ * Returned Value:
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
+ *
+ ****************************************************************************/
+
+LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width, uint32_t height,
+    uint32_t stride, void* ptr, uint8_t format, bool source);
 
 #undef EXTERN
 #ifdef __cplusplus

@@ -91,6 +91,15 @@ config LV_USE_GPU_INTERFACE
 
 if LV_USE_GPU_INTERFACE
 
+config LV_GPU_USE_LOG
+	bool "Output GPU warnings and errors"
+	default n
+	depends on LV_USE_LOG
+
+config LV_GPU_USE_PERF
+	bool "Enable GPU performance measurement outputs"
+	default n
+
 config LV_GPU_USE_VGLITE
 	bool "Use vglite HW acceleration"
 	default y
