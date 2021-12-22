@@ -37,15 +37,15 @@ config LV_DEFAULT_LINE_BUFFER
 	int "Default buffer size (in line)"
 	default 10
 
-endif
+endif # LV_USE_FULL_SCREEN_BUFFER
 
 config LV_USE_DOUBLE_BUFFER
 	bool "Use double buffer"
 	default n
 
-endif
+endif # LV_USE_LCDDEV_INTERFACE
 
-config LV_USE_FBDEV_INTERFACE
+menuconfig LV_USE_FBDEV_INTERFACE
 	bool "Framebuffer device interface"
 	default n
 
@@ -55,9 +55,14 @@ config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
 	string "Framebuffer default device path"
 	default "/dev/fb0"
 
-config LV_FBDEV_USE_STATIC_BUFFER
-	bool "Use static buffer"
+config LV_FBDEV_USE_DOUBLE_BUFFER
+	bool "Use direct mode in double framebuffer"
 	default n
+
+config LV_FBDEV_USE_STATIC_BUFFER
+	bool "Use separate static draw buffer"
+	default n
+	depends on !LV_FBDEV_USE_DOUBLE_BUFFER
 
 if LV_FBDEV_USE_STATIC_BUFFER
 
@@ -79,11 +84,11 @@ config LV_FBDEV_SECTION_NAME
 	string "Section name"
 	default ""
 
-endif
+endif # LV_FBDEV_USE_CUSTOM_SECTION
 
-endif
+endif # LV_FBDEV_USE_STATIC_BUFFER
 
-endif
+endif # LV_USE_FBDEV_INTERFACE
 
 config LV_USE_GPU_INTERFACE
 	bool "Use GPU acceleration"
@@ -188,7 +193,7 @@ config LV_BUTTON_INTERFACE_BUTTON_5_MAP_Y
 	int "Button 5 mapping coordinate y"
 	default 0
 
-endif
+endif # LV_USE_BUTTON_INTERFACE
 
 menuconfig LV_USE_KEYPAD_INTERFACE
 	bool "Keypad input interface"
@@ -250,7 +255,7 @@ config LV_KEYPAD_INTERFACE_KEY_END_MAP_BIT
 	int "LV_KEY_END button bit map"
 	default -1
 
-endif
+endif # LV_USE_KEYPAD_INTERFACE
 
 config LV_USE_TOUCHPAD_INTERFACE
 	bool "Touchpad input interface"
@@ -262,7 +267,7 @@ config LV_TOUCHPAD_INTERFACE_DEFAULT_DEVICEPATH
 	string "Touchpad default device path"
 	default "/dev/input0"
 
-endif
+endif # LV_USE_TOUCHPAD_INTERFACE
 
 config LV_USE_ENCODER_INTERFACE
 	depends on INPUT_MOUSE_WHEEL
@@ -275,7 +280,7 @@ config LV_ENCODER_INTERFACE_DEFAULT_DEVICEPATH
 	string "Encoder default device path"
 	default "/dev/input0"
 
-endif
+endif # LV_USE_ENCODER_INTERFACE
 
 menu "LVGL extension"
 
