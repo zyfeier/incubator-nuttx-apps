@@ -6,14 +6,16 @@
 /*********************
  *      INCLUDES
  *********************/
+
 #include "lv_gpu_decoder.h"
 #include "../lvgl/src/draw/lv_draw_img.h"
 #include "../lvgl/src/draw/lv_img_decoder.h"
 #include "../lvgl/src/misc/lv_assert.h"
+#include "../lvgl/src/misc/lv_color.h"
 #include "../lvgl/src/misc/lv_gc.h"
-#include "../lvgl/src/misc/lv_ll.h"
 #include "gpu_port.h"
 #include "lv_gpu_interface.h"
+#include <stdlib.h>
 
 /*********************
  *      DEFINES
@@ -28,7 +30,7 @@
 typedef struct {
   uint32_t magic;
   lv_fs_file_t f;
-  lv_color_t* palette;
+  lv_color32_t* palette;
   lv_opa_t* opa;
   vg_lite_buffer_t vgbuf;
 } lv_gpu_decoder_data_t;
@@ -37,15 +39,23 @@ typedef struct {
  *  STATIC PROTOTYPES
  **********************/
 
+LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp, const lv_color32_t* sp);
 LV_ATTRIBUTE_FAST_MEM static void bgra5658_to_8888(const uint8_t* src, uint32_t* dst);
 LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
-LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_alpha(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
 
 /**********************
  *   STATIC FUNCTIONS
  **********************/
 
-LV_ATTRIBUTE_FAST_MEM static void bgra5658_to_8888(const uint8_t* src, uint32_t* dst)
+LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp, const lv_color32_t* sp)
+{
+  dp->ch.alpha = sp->ch.alpha;
+  dp->ch.red = LV_UDIV255(sp->ch.red * dp->ch.alpha);
+  dp->ch.green = LV_UDIV255(sp->ch.green * dp->ch.alpha);
+  dp->ch.blue = LV_UDIV255(sp->ch.blue * dp->ch.alpha);
+}
+
+LV_ATTRIBUTE_FAST_MEM POSSIBLY_UNUSED static void bgra5658_to_8888(const uint8_t* src, uint32_t* dst)
 {
   lv_color32_t* c32 = (lv_color32_t*)dst;
   const lv_color16_t* c16 = (const lv_color16_t*)src;
@@ -59,10 +69,9 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
 {
   uint8_t px_size = lv_img_cf_get_px_size(dsc->header.cf);
   uint32_t palette_size = 1 << px_size;
-
   /*Allocate the palette*/
   lv_gpu_decoder_data_t* user_data = dsc->user_data;
-  user_data->palette = lv_mem_alloc(palette_size * sizeof(lv_color_t));
+  user_data->palette = lv_mem_alloc(palette_size * sizeof(lv_color32_t));
   LV_ASSERT_MALLOC(user_data->palette);
   user_data->opa = lv_mem_alloc(palette_size * sizeof(lv_opa_t));
   LV_ASSERT_MALLOC(user_data->opa);
@@ -78,7 +87,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
     lv_color32_t cur_color;
     for (int_fast16_t i = 0; i < palette_size; i++) {
       lv_fs_read(&user_data->f, &cur_color, sizeof(lv_color32_t), NULL);
-      user_data->palette[i] = lv_color_make(cur_color.ch.red, cur_color.ch.green, cur_color.ch.blue);
+      pre_multiply(&user_data->palette[i], &cur_color);
       user_data->opa[i] = cur_color.ch.alpha;
     }
   } else {
@@ -86,7 +95,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
     lv_color32_t* palette_p = (lv_color32_t*)((lv_img_dsc_t*)dsc->src)->data;
 
     for (int_fast16_t i = 0; i < palette_size; i++) {
-      user_data->palette[i] = lv_color_make(palette_p[i].ch.red, palette_p[i].ch.green, palette_p[i].ch.blue);
+      pre_multiply(&user_data->palette[i], &palette_p[i]);
       user_data->opa[i] = palette_p[i].ch.alpha;
     }
   }
@@ -98,33 +107,56 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
   int32_t vgbuf_w = ALIGN_UP(img_w, 16);
   uint8_t vgbuf_format = BPP_TO_VG_FMT(px_size);
   int32_t vgbuf_stride = vgbuf_w * px_size >> 3;
+  int32_t map_stride_bits = img_w * px_size;
   int32_t map_stride = img_w * px_size >> 3;
-  GPU_ERROR("img_w:%d img_h:%d vgbuf_w:%d fmt:%d vg_stride:%d img_stride:%d", img_w, img_h, vgbuf_w, vgbuf_format, vgbuf_stride, map_stride);
-  void* mem = lv_mem_alloc(img_h * vgbuf_stride);
+
+  void* mem = memalign(8, img_h * vgbuf_stride);
   if (mem != NULL) {
-    init_vg_buf(&vgbuf, vgbuf_w, img_h, vgbuf_stride, mem, vgbuf_format, true);
+    LV_ASSERT(init_vg_buf(&vgbuf, vgbuf_w, img_h, vgbuf_stride, mem, vgbuf_format, true) == LV_RES_OK);
     uint8_t* px_buf = vgbuf.memory;
-    uint8_t* px_map = dsc->img_data;
-    for (int_fast16_t i = 0; i < img_h; i++) {
-      lv_memcpy(px_buf, px_map, map_stride);
-      lv_memset_00(px_buf + map_stride, vgbuf_stride - map_stride);
-      px_map += map_stride;
+    dsc->img_data = ((lv_img_dsc_t*)dsc->src)->data;
+    const uint8_t* px_map = dsc->img_data + palette_size * sizeof(lv_color32_t);
+    uint8_t res_bits = map_stride_bits & 7;
+    uint8_t top_mask = ~((1 << (8 - res_bits)) - 1);
+    if (!res_bits) {
+      for (int_fast16_t i = 0; i < img_h; i++) {
+        lv_memcpy(px_buf, px_map, map_stride);
+        px_map += map_stride;
+        px_buf += vgbuf_stride;
+      }
+    } else {
+      /* Fo un-byte-aligned strides, untested, can be accelerated by MVE */
+      uint8_t ls_bits = 0;
+      for (int_fast16_t i = 0; i < img_h; i++) {
+        if (ls_bits == 0) {
+          lv_memcpy(px_buf, px_map, map_stride);
+          px_buf[map_stride] = px_map[map_stride] & top_mask;
+          px_map += map_stride;
+          px_buf += vgbuf_stride;
+          /* the next line will be [ls_bits] left-shifted */
+        } else {
+          for (int_fast16_t j = 0; j < map_stride + 1; j++) {
+            *(px_buf + j) = *px_map++ << ls_bits;
+            *(px_buf + j) |= *px_map >> (8 - ls_bits);
+          }
+        }
+        ls_bits += res_bits;
+        if (ls_bits > 7) {
+          ls_bits -= 8;
+          px_map++;
+        }
+      }
       px_buf += vgbuf_stride;
     }
     /*Save vglite buffer info*/
     lv_memcpy_small(&user_data->vgbuf, &vgbuf, sizeof(vgbuf));
     if (IS_CACHED(vgbuf.memory)) {
-      cpu_cache_flush(vgbuf.memory, vgbuf.height * vgbuf.stride);
+      cpu_cache_flush((uint32_t)vgbuf.memory, vgbuf.height * vgbuf.stride);
     }
   } else {
     GPU_WARN("Insufficient memory for GPU 16px aligned image cache");
     return LV_RES_INV;
   }
-  return LV_RES_OK;
-}
-
-LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_alpha(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
-{
   return LV_RES_OK;
 }
 
@@ -139,7 +171,7 @@ void lv_gpu_decoder_init(void)
 {
   lv_img_decoder_t* decoder = lv_img_decoder_create();
   if (decoder == NULL) {
-    GPU_WARN("lv_gpu_decoder_init: out of memory");
+    GPU_ERROR("lv_gpu_decoder_init: out of memory");
     return;
   }
 
@@ -211,7 +243,7 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* ds
       /*In case of uncompressed formats the image stored in the ROM/RAM.
              *So simply give its pointer*/
       dsc->img_data = ((lv_img_dsc_t*)dsc->src)->data;
-      GPU_WARN("gpu_decoder open w:%d h:%d @%p", dsc->header.w, dsc->header.h, dsc->img_data);
+      GPU_INFO("gpu_decoder open w:%d h:%d @%p", dsc->header.w, dsc->header.h, dsc->img_data);
       lv_gpu_decoder_data_t* user_data = dsc->user_data;
       return lv_gpu_load_vgbuf(dsc->img_data, &dsc->header, &user_data->vgbuf);
     } else {
@@ -221,20 +253,14 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* ds
   }
   /*Process indexed images. Build a palette*/
   else if (cf == LV_IMG_CF_INDEXED_1BIT || cf == LV_IMG_CF_INDEXED_2BIT || cf == LV_IMG_CF_INDEXED_4BIT || cf == LV_IMG_CF_INDEXED_8BIT) {
-    // return decode_indexed(decoder, dsc);
-    return LV_RES_INV; /* TODO */
-  }
-  /*Alpha indexed images.*/
-  else if (cf == LV_IMG_CF_ALPHA_1BIT || cf == LV_IMG_CF_ALPHA_2BIT || cf == LV_IMG_CF_ALPHA_4BIT || cf == LV_IMG_CF_ALPHA_8BIT) {
-    // return decode_alpha(decoder, dsc);
-    return LV_RES_INV; /* TODO */
+    return decode_indexed(decoder, dsc);
   }
   /*Unknown format. Can't decode it.*/
   else {
     /*Free the potentially allocated memories*/
     lv_gpu_decoder_close(decoder, dsc);
 
-    GPU_WARN("Image decoder open: unknown color format");
+    GPU_WARN("GPU decoder open: unsupported color format");
     return LV_RES_INV;
   }
 }
@@ -254,7 +280,7 @@ void lv_gpu_decoder_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
       lv_fs_close(&user_data->f);
     }
     if (dsc->src_type == LV_IMG_SRC_VARIABLE) {
-      GPU_WARN("gpu_decoder close w:%d h:%d @%p", dsc->header.w, dsc->header.h, dsc->img_data);
+      GPU_INFO("gpu_decoder close w:%d h:%d @%p", dsc->header.w, dsc->header.h, dsc->img_data);
       lv_mem_free(user_data->vgbuf.memory);
       vg_lite_free(&user_data->vgbuf);
     }
@@ -282,7 +308,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
   vg_lite_buffer_t vgbuf;
 
   if (header->w * header->h < GPU_SIZE_LIMIT) {
-    GPU_WARN("Image too small for GPU");
+    GPU_WARN("Image (w:%d h:%d) too small for GPU", header->w, header->h);
     return LV_RES_INV;
   }
 
@@ -292,14 +318,16 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
   uint8_t vgbuf_format = VGLITE_PX_FMT;
   int32_t map_stride = header->w * sizeof(lv_color_t);
 #if LV_COLOR_DEPTH == 16
-  if (header->cf == LV_IMG_CF_TRUE_COLOR_ALPHA) {
+  if (header->cf == LV_IMG_CF_TRUE_COLOR_ALPHA || header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
     vgbuf_stride = vgbuf_w * sizeof(lv_color32_t);
     vgbuf_format = VG_LITE_BGRA8888;
     map_stride = header->w * LV_IMG_PX_SIZE_ALPHA_BYTE;
   }
 #endif
-  mem = lv_mem_alloc(header->h * vgbuf_stride);
+  uint32_t vgbuf_size = header->h * vgbuf_stride;
+  mem = memalign(8, vgbuf_size);
   if (mem != NULL) {
+    lv_memset_00(mem, vgbuf_size);
     LV_ASSERT(init_vg_buf(&vgbuf, vgbuf_w, header->h, vgbuf_stride, mem, vgbuf_format, true) == LV_RES_OK);
     uint8_t* px_buf = vgbuf.memory;
     const uint8_t* px_map = img_data;
@@ -444,15 +472,26 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
           c32->ch.red = (c16->ch.red * 263 + 7) * c32->ch.alpha >> 13;
           c32->ch.green = (c16->ch.green * 259 + 3) * c32->ch.alpha >> 14;
           c32->ch.blue = (c16->ch.blue * 263 + 7) * c32->ch.alpha >> 13;
-          // *((uint32_t*)px_buf + j) = c32.full;
           px_map += LV_IMG_PX_SIZE_ALPHA_BYTE;
         }
-        // lv_memset_00(px_buf + map_w * 4, vgbuf_stride - map_w * 4);
         px_buf += vgbuf_stride;
       }
 #endif
       TC_END
       TC_REP(bgra5658_convert_to_8888)
+    } else if (header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
+      for (int_fast16_t i = 0; i < header->h; i++) {
+        const lv_color_t* px_map16 = (const lv_color_t*)px_map;
+        uint32_t* px_buf32 = (uint32_t*)px_buf;
+        for (int_fast16_t j = 0; j < header->w; j++) {
+          px_buf32[j] = lv_color_to32((px_map16[j]);
+          if (px_buf32[j] == LV_COLOR_CHROMA_KEY.full) {
+            px_buf32[j] = 0;
+          }
+          px_map16++;
+        }
+        px_buf += vgbuf_stride;
+      }
     } else
 #endif
     {
@@ -462,17 +501,15 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
         lv_memcpy(px_buf, px_map, map_stride);
 #else
         int32_t blkCnt = header->w;
-        const uint16_t* phwSource = (const uint16_t*)px_map;
+        const lv_color32_t* phwSource = (const lv_color32_t*)px_map;
         uint32_t* pwTarget = (uint32_t*)px_buf;
+        uint32_t chroma32 = (header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) ? LV_COLOR_CHROMA_KEY.full : 0;
 #ifdef CONFIG_ARM_HAVE_MVE
         if (!IS_ALIGNED(phwSource, 4)) {
-          lv_color32_t* sp = (lv_color32_t*)phwSource;
-          lv_color32_t* dp = (lv_color32_t*)pwTarget;
-          dp->ch.alpha = px_map[3];
-          dp->ch.red = LV_UDIV255(sp->ch.red * dp->ch.alpha);
-          dp->ch.green = LV_UDIV255(sp->ch.green * dp->ch.alpha);
-          dp->ch.blue = LV_UDIV255(sp->ch.blue * dp->ch.alpha);
-          phwSource += 2;
+          if (phwSource->full != chroma32) {
+            pre_multiply((lv_color32_t*)pwTarget, phwSource);
+          }
+          phwSource++;
           pwTarget++;
           blkCnt--;
         }
@@ -486,24 +523,24 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
             "   vsri.32                 q1, q0, #24                         \n"
             "   vmulh.u8                q2, q0, q1                          \n"
             "   vsli.32                 q2, q1, #24                         \n"
-            "   vstrw.32                q2, [%[pTarget]], #16               \n"
+            "   vcmp.i32                ne, q0, %[chroma]                   \n"
+            "   vpst                                                        \n"
+            "   vstrwt.32               q2, [%[pTarget]], #16               \n"
             "   letp                    lr, 2b                              \n"
             "   1:                                                          \n"
             : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
-            : [loopCnt] "r"(blkCnt)
+            : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32)
             : "q0", "q1", "q2", "lr", "memory");
 #else
-        lv_color32_t* sp = (uint32_t*)phwSource;
-        lv_color32_t* dp = pwTarget;
+        const lv_color32_t* sp = (const lv_color32_t*)phwSource;
+        lv_color32_t* dp = (lv_color32_t*)pwTarget;
         for (; blkCnt--; sp++, dp++) {
-          dp->ch.alpha = px_map[3];
-          dp->ch.red = LV_UDIV255(sp->ch.red * dp->ch.alpha);
-          dp->ch.green = LV_UDIV255(sp->ch.green * dp->ch.alpha);
-          dp->ch.blue = LV_UDIV255(sp->ch.blue * dp->ch.alpha);
+          if (sp->full != chroma32) {
+            pre_multiply(dp, sp);
+          }
         }
 #endif /* CONFIG_ARM_HAVE_MVE */
 #endif /* LV_COLOR_DEPTH == 16 */
-        lv_memset_00(px_buf + map_stride, vgbuf_stride - map_stride);
         px_map += map_stride;
         px_buf += vgbuf_stride;
       }

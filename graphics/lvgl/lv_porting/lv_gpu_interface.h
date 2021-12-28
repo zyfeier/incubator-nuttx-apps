@@ -42,8 +42,20 @@
 #define LV_GPU_DEFAULT_MODE LV_GPU_MODE_PERFORMANCE
 #endif
 
+#ifdef CONFIG_LV_GPU_USE_LOG
+#define LV_GPU_USE_LOG
+#endif
+
+#ifdef CONFIG_LV_GPU_USE_PERF
+#define LV_GPU_USE_PERF
+#endif
+
 #define GPU_SIZE_LIMIT 240
 #define GPU_SPLIT_SIZE (480 * 100)
+
+#ifndef POSSIBLY_UNUSED
+#define POSSIBLY_UNUSED __attribute__((unused))
+#endif
 
 /****************************************************************************
  * Macros
@@ -80,9 +92,11 @@
 #endif
 
 #ifdef LV_GPU_USE_LOG
+#define GPU_INFO LV_LOG_INFO
 #define GPU_WARN LV_LOG_WARN
 #define GPU_ERROR LV_LOG_ERROR
 #else
+#define GPU_INFO(...)
 #define GPU_WARN(...)
 #define GPU_ERROR(...)
 #endif

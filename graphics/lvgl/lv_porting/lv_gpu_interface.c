@@ -39,19 +39,12 @@
 /****************************************************************************
  * Preprocessor Definitions
  ****************************************************************************/
-#ifdef CONFIG_LV_GPU_USE_LOG
-#define LV_GPU_USE_LOG
-#endif
-
-#ifdef CONFIG_LV_GPU_USE_PERF
-#define LV_GPU_USE_PERF
-#endif
 
 /****************************************************************************
  * Macros
  ****************************************************************************/
 #define __func__ __FUNCTION__
-__attribute__((unused)) static char* error_type[] = {
+POSSIBLY_UNUSED static char* error_type[] = {
   "VG_LITE_SUCCESS",
   "VG_LITE_INVALID_ARGUMENT",
   "VG_LITE_OUT_OF_MEMORY",
@@ -193,9 +186,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
   lv_opa_t recolor_opa = draw_dsc->recolor_opa;
   vg_lite_buffer_t src_vgbuf;
   bool transformed = (angle != 0) || (zoom != LV_IMG_ZOOM_NONE);
-  if (!transformed || chroma_key) {
-    return LV_RES_INV;
-  }
+
   lv_disp_t* disp = _lv_refr_get_disp_refreshing();
   lv_disp_draw_buf_t* draw_buf = lv_disp_get_draw_buf(disp);
   const lv_area_t* disp_area = &draw_buf->area;
@@ -207,7 +198,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
   vg_lite_buffer_t dst_vgbuf;
   vg_lite_buffer_t* vgbuf;
 
-  init_vg_buf(&dst_vgbuf, disp_w, disp_h, disp_w * sizeof(lv_color_t), disp_buf, VGLITE_PX_FMT, false);
+  LV_ASSERT(init_vg_buf(&dst_vgbuf, disp_w, disp_h, disp_w * sizeof(lv_color_t), disp_buf, VGLITE_PX_FMT, false) == LV_RES_OK);
   uint32_t rect[4] = { 0, 0 };
   lv_area_t map_tf, draw_area;
   lv_area_copy(&draw_area, clip_area);
@@ -215,35 +206,57 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
 
   _lv_img_buf_get_transformed_area(&map_tf, map_w, map_h, angle, zoom, &pivot);
   lv_area_move(&map_tf, map_area->x1, map_area->y1);
-  if (!_lv_area_is_in(&map_tf, disp_area, 0)) {
-    GPU_ERROR("Image out of bound, map_tf: (%d %d)[%d,%d]angle:%d zoom:%d\n", map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf), lv_area_get_height(&map_tf), angle / 10, zoom);
+  lv_area_move(&map_tf, -disp_area->x1, -disp_area->y1);
+  if (transformed && !_lv_area_is_in(&map_tf, disp_area, 0)) {
+    GPU_INFO("Image out of bound, map_tf: (%d %d)[%d,%d]angle:%d zoom:%d\n", map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf), lv_area_get_height(&map_tf), angle / 10, zoom);
     return LV_RES_INV;
   }
-  lv_area_move(&map_tf, -disp_area->x1, -disp_area->y1);
   if (_lv_area_intersect(&draw_area, &draw_area, &map_tf) == false) {
     return LV_RES_OK;
   }
   if (lv_area_get_size(&draw_area) < GPU_SIZE_LIMIT) {
-    GPU_WARN("Draw area too small for GPU");
+    GPU_INFO("Draw area too small for GPU");
     return LV_RES_INV;
   }
   int32_t draw_area_w = lv_area_get_width(&draw_area);
   int32_t draw_area_h = lv_area_get_height(&draw_area);
-
+  bool indexed = false;
   vgbuf = lv_gpu_get_vgbuf(map_buf);
-  if (vgbuf) {
-    LV_ASSERT(vgbuf->width == ALIGN_UP(map_w, 16) && vgbuf->height == map_h);
+  if (vgbuf && vgbuf->width == ALIGN_UP(map_w, 16) && vgbuf->height == map_h) {
     lv_memcpy_small(&src_vgbuf, vgbuf, sizeof(src_vgbuf));
+    indexed = (src_vgbuf.format >= VG_LITE_INDEX_1) && (src_vgbuf.format <= VG_LITE_INDEX_8);
+    if (!indexed && (!transformed)) {
+      return LV_RES_INV;
+    }
   } else {
-    GPU_WARN("allocating new vgbuf:(%ld,%ld)", map_w, map_h);
+    vgbuf = NULL;
+    if (!transformed) {
+      return LV_RES_INV;
+    }
+    GPU_INFO("allocating new vgbuf:(%ld,%ld)", map_w, map_h);
     lv_img_header_t header;
     header.w = map_w;
     header.h = map_h;
-    header.cf = alpha_byte ? LV_IMG_CF_TRUE_COLOR_ALPHA : LV_IMG_CF_TRUE_COLOR;
+    header.cf = alpha_byte ? LV_IMG_CF_TRUE_COLOR_ALPHA : chroma_key ? LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED
+                                                                     : LV_IMG_CF_TRUE_COLOR;
+    uint32_t remainder;
+#if LV_COLOR_DEPTH == 16
+    if (!alpha_byte && !chroma_key) {
+      remainder = (draw_area.x1 - map_tf.x1) * sizeof(lv_color_t);
+    } else
+#endif
+    {
+      remainder = (draw_area.x1 - map_tf.x1) * sizeof(lv_color32_t);
+    }
+    if (remainder & 7) {
+      /* src addr + offset will be unaligned to 8B */
+      return LV_RES_INV;
+    }
     if (lv_gpu_load_vgbuf(map_buf, &header, &src_vgbuf) != LV_RES_OK) {
       return LV_RES_INV;
     }
   }
+
   vg_lite_matrix_t matrix;
   vg_lite_identity(&matrix);
   if (!transformed && (draw_area_w < map_w || draw_area_h < map_h)) {
@@ -279,6 +292,12 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     color.full = (opa << 24) | (opa << 16) | (opa << 8) | opa;
     src_vgbuf.image_mode = VG_LITE_MULTIPLY_IMAGE_MODE;
   }
+
+  if (indexed) {
+    uint8_t px_size = VG_FMT_TO_BPP(src_vgbuf.format);
+    uint32_t palette_size = 1 << px_size;
+    vg_lite_set_CLUT(palette_size, (uint32_t*)map_buf);
+  }
   vg_lite_error_t error = VG_LITE_SUCCESS;
   vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR : VG_LITE_FILTER_POINT;
   CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend, color.full, filter));
@@ -306,8 +325,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
   TC_REP(vg_lite_finish)
 
   if (!vgbuf) {
-    GPU_WARN("freeing allocated vgbuf:(%ld,%ld)", src_vgbuf.width, src_vgbuf.height);
-    lv_mem_free(src_vgbuf.memory);
+    GPU_INFO("freeing allocated vgbuf:(%ld,%ld)@%p", src_vgbuf.width, src_vgbuf.height, src_vgbuf.memory);
+    free(src_vgbuf.memory);
   }
   if (error != VG_LITE_SUCCESS) {
     GPU_ERROR("GPU blit failed. Fallback to SW.\n");
@@ -419,7 +438,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_c
     TC_REP(src_cache_flush)
   }
   CHECK_ERROR(vg_lite_blit(&dst, &src, NULL, 0, 0, 0));
-  CHECK_ERROR(vg_lite_flush());
+  CHECK_ERROR(vg_lite_finish());
   if (error != VG_LITE_SUCCESS) {
     GPU_ERROR("GPU convert failed.");
     return LV_RES_INV;
