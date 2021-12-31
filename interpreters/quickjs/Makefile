@@ -59,7 +59,6 @@ endif
 
 ifeq ($(CONFIG_INTERPRETERS_QUICKJS_DEBUG),y)
 CSRCS  += quickjs-debugger.c
-CSRCS  += quickjs-debugger-transport.c
 endif
 
 VPATH += $(QUICKJS_UNPACK)
