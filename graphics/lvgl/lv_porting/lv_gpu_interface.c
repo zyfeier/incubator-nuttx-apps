@@ -203,14 +203,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
   lv_area_t map_tf, draw_area;
   lv_area_copy(&draw_area, clip_area);
   lv_area_move(&draw_area, -disp_area->x1, -disp_area->y1);
-
   _lv_img_buf_get_transformed_area(&map_tf, map_w, map_h, angle, zoom, &pivot);
   lv_area_move(&map_tf, map_area->x1, map_area->y1);
   lv_area_move(&map_tf, -disp_area->x1, -disp_area->y1);
-  if (transformed && !_lv_area_is_in(&map_tf, disp_area, 0)) {
-    GPU_INFO("Image out of bound, map_tf: (%d %d)[%d,%d]angle:%d zoom:%d\n", map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf), lv_area_get_height(&map_tf), angle / 10, zoom);
-    return LV_RES_INV;
-  }
   if (_lv_area_intersect(&draw_area, &draw_area, &map_tf) == false) {
     return LV_RES_OK;
   }
@@ -218,16 +213,18 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     GPU_INFO("Draw area too small for GPU");
     return LV_RES_INV;
   }
-  int32_t draw_area_w = lv_area_get_width(&draw_area);
-  int32_t draw_area_h = lv_area_get_height(&draw_area);
+  if (!_lv_area_is_in(&map_tf, &draw_area, 0) && opa < LV_OPA_MAX) {
+    GPU_WARN("Setting clipped image opacity is currently unsupported, map_tf: (%d %d)[%d,%d] draw_area:(%d %d)[%d,%d] opa:%d angle:%d zoom:%d\n", map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf), lv_area_get_height(&map_tf), draw_area.x1, draw_area.y1, lv_area_get_width(&draw_area), lv_area_get_height(&draw_area), opa, angle / 10, zoom);
+    return LV_RES_INV;
+  }
   bool indexed = false;
   vgbuf = lv_gpu_get_vgbuf(map_buf);
   if (vgbuf && vgbuf->width == ALIGN_UP(map_w, 16) && vgbuf->height == map_h) {
-    lv_memcpy_small(&src_vgbuf, vgbuf, sizeof(src_vgbuf));
-    indexed = (src_vgbuf.format >= VG_LITE_INDEX_1) && (src_vgbuf.format <= VG_LITE_INDEX_8);
+    indexed = (vgbuf->format >= VG_LITE_INDEX_1) && (vgbuf->format <= VG_LITE_INDEX_8);
     if (!indexed && (!transformed)) {
       return LV_RES_INV;
     }
+    lv_memcpy_small(&src_vgbuf, vgbuf, sizeof(src_vgbuf));
   } else {
     vgbuf = NULL;
     if (!transformed) {
@@ -256,18 +253,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
       return LV_RES_INV;
     }
   }
-
   vg_lite_matrix_t matrix;
   vg_lite_identity(&matrix);
-  if (!transformed && (draw_area_w < map_w || draw_area_h < map_h)) {
-    int32_t offset = src_vgbuf.stride * (draw_area.y1 - map_tf.y1) + (draw_area.x1 - map_tf.x1) * (VG_FMT_TO_BPP(src_vgbuf.format) >> 3);
-    src_vgbuf.address = (uint32_t)((uint8_t*)src_vgbuf.memory + offset);
-    vg_lite_translate(draw_area.x1, draw_area.y1, &matrix);
-    map_w = draw_area_w;
-    map_h = draw_area_h;
-  } else {
-    vg_lite_translate(map_area->x1 - disp_area->x1, map_area->y1 - disp_area->y1, &matrix);
-  }
+  vg_lite_translate(map_area->x1 - disp_area->x1, map_area->y1 - disp_area->y1, &matrix);
   rect[2] = map_w;
   rect[3] = map_h;
   if (transformed) {
@@ -300,8 +288,17 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
   }
   vg_lite_error_t error = VG_LITE_SUCCESS;
   vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR : VG_LITE_FILTER_POINT;
-  CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend, color.full, filter));
-
+  vg_lite_matrix_t matrix0;
+  vg_lite_identity(&matrix0);
+  fill_rect_path(&draw_area);
+  CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_S16, VG_LITE_LOW, sizeof(rect_path), rect_path,
+      0, 0, 479, 479));
+  if (!_lv_area_is_in(&map_tf, &draw_area, 0)) {
+    GPU_INFO("Image clipped, map_tf: (%d %d)[%d,%d] draw_area:(%d %d)[%d,%d] opa:%d angle:%d zoom:%d\n", map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf), lv_area_get_height(&map_tf), draw_area.x1, draw_area.y1, lv_area_get_width(&draw_area), lv_area_get_height(&draw_area), opa, angle / 10, zoom);
+    CHECK_ERROR(vg_lite_draw_pattern(&dst_vgbuf, &vpath, VG_LITE_FILL_EVEN_ODD, &matrix0, &src_vgbuf, &matrix, VG_LITE_BLEND_SRC_OVER, VG_LITE_PATTERN_COLOR, 0, VG_LITE_FILTER_BI_LINEAR));
+  } else {
+    CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend, color.full, filter));
+  }
   if (recolor_opa != LV_OPA_TRANSP) {
     lv_color32_t recolor32 = { .full = lv_color_to32(recolor) };
     lv_opa_t opa_res = opa * (255 - recolor_opa) + LV_COLOR_MIX_ROUND_OFS;
@@ -309,12 +306,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     LV_COLOR_SET_G32(recolor32, LV_UDIV255((uint16_t)LV_COLOR_GET_G32(recolor32) * recolor_opa + opa_res));
     LV_COLOR_SET_R32(recolor32, LV_UDIV255((uint16_t)LV_COLOR_GET_R32(recolor32) * recolor_opa + opa_res));
     LV_COLOR_SET_A32(recolor32, recolor_opa);
-    fill_rect_path(&draw_area);
     CHECK_ERROR(vg_lite_finish());
-    vg_lite_matrix_t matrix0;
-    vg_lite_identity(&matrix0);
-    CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_S16, VG_LITE_LOW, sizeof(rect_path), rect_path,
-        0, 0, 479, 479));
     CHECK_ERROR(vg_lite_draw(&dst_vgbuf, &vpath, VG_LITE_FILL_EVEN_ODD, &matrix0, VG_LITE_BLEND_SRC_OVER, recolor32.full));
   }
 
