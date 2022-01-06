@@ -67,13 +67,25 @@
         : (x) == 2                                                 ? VG_LITE_INDEX_2 \
         : (x) == 1                                                 ? VG_LITE_INDEX_1 \
                                                                    : -1)
+
+#define BPP_TO_LV_FMT(x) ((x) == 32 || (x) == 24 ? LV_IMG_CF_TRUE_COLOR_ALPHA : (x) == 16 ? LV_IMG_CF_TRUE_COLOR   \
+        : (x) == 8                                                                        ? LV_IMG_CF_INDEXED_8BIT \
+        : (x) == 4                                                                        ? LV_IMG_CF_INDEXED_4BIT \
+        : (x) == 2                                                                        ? LV_IMG_CF_INDEXED_2BIT \
+        : (x) == 1                                                                        ? LV_IMG_CF_INDEXED_1BIT \
+                                                                                          : -1)
+
 #define VG_FMT_TO_BPP(y) ((y) == VG_LITE_BGRA8888 ? 32 : (y) == VG_LITE_BGR565 ? 16 \
-        : (y) == VG_LITE_INDEX_8                                               ? 8  \
-        : (y) == VG_LITE_INDEX_4                                               ? 4  \
+        : ((y) == VG_LITE_INDEX_8) || ((y) == VG_LITE_A8)                      ? 8  \
+        : ((y) == VG_LITE_INDEX_4) || ((y) == VG_LITE_A4)                      ? 4  \
         : (y) == VG_LITE_INDEX_2                                               ? 2  \
         : (y) == VG_LITE_INDEX_1                                               ? 1  \
                                                                                : 0)
+
+#define VG_FMT_TO_LV_FMT(z) ((z) == VG_LITE_A4 || (z) == VG_LITE_A8 ? (z)-VG_LITE_A4 + LV_IMG_CF_ALPHA_4BIT : BPP_TO_LV_FMT(VG_FMT_TO_BPP(z)))
 #define VGLITE_PX_FMT BPP_TO_VG_FMT(LV_COLOR_DEPTH)
+
+#define BGRA_TO_RGBA(c) (((c) & 0xFF00FF00) | ((c) >> 16 & 0xFF) | ((c) << 16 & 0xFF0000))
 
 #ifndef ALIGN_UP
 #define ALIGN_UP(num, align) (((num) + ((align)-1)) & ~((align)-1))

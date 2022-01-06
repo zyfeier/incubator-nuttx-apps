@@ -25,6 +25,10 @@ extern "C" {
 /**********************
  *      TYPEDEFS
  **********************/
+typedef struct {
+  uint32_t magic;
+  vg_lite_buffer_t vgbuf;
+} gpu_data_header_t;
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -57,7 +61,7 @@ void lv_gpu_decoder_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
  * @param vgbuf_p address of the vg_lite_buffer_t structure to be initialized
  * @return LV_RES_OK: ok; LV_RES_INV: failed
  */
-lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img_header_t* header, vg_lite_buffer_t* vgbuf_p);
+lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img_header_t* header, vg_lite_buffer_t* vgbuf_p, uint8_t* buf_p);
 
 /**
  * Get the vgbuf cache corresponding to the image pointer (if available).
@@ -65,7 +69,7 @@ lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img_header_t* header, vg_
  * @param ptr pointer to the pixel buffer
  * @return pointer to the vg_lite_buffer_t structure in cache items, NULL if cache miss
  */
-vg_lite_buffer_t* lv_gpu_get_vgbuf(const void* ptr);
+vg_lite_buffer_t* lv_gpu_get_vgbuf(void* data);
 
 #ifdef __cplusplus
 } /*extern "C"*/
