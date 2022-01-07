@@ -253,7 +253,7 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* ds
   }
   /*Process indexed images. Build a palette*/
   else if (cf == LV_IMG_CF_INDEXED_1BIT || cf == LV_IMG_CF_INDEXED_2BIT || cf == LV_IMG_CF_INDEXED_4BIT || cf == LV_IMG_CF_INDEXED_8BIT) {
-    return decode_indexed(decoder, dsc);
+    return LV_RES_INV; /* decode_indexed(decoder, dsc); */
   }
   /*Unknown format. Can't decode it.*/
   else {
