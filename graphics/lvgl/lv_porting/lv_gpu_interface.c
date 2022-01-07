@@ -22,6 +22,7 @@
  * Included Files
  ****************************************************************************/
 #include "lv_gpu_interface.h"
+#include "lv_gpu_draw.h"
 #include "../lvgl/src/draw/sw/lv_draw_sw.h"
 #include "../lvgl/src/misc/lv_color.h"
 #include "gpu_port.h"
@@ -79,6 +80,112 @@ static vg_lite_path_t vpath;
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
+LV_ATTRIBUTE_FAST_MEM static lv_res_t lv_draw_arc_gpu(lv_coord_t center_x,
+                                                      lv_coord_t center_y,
+                                                      uint16_t radius,
+                                                      uint16_t start_angle,
+                                                      uint16_t end_angle,
+                                                      const lv_area_t * clip_area,
+                                                      const lv_draw_arc_dsc_t * dsc)
+{
+#if LV_DRAW_COMPLEX
+    if (dsc->opa <= LV_OPA_MIN) return LV_RES_INV;
+    if (dsc->width == 0) return LV_RES_INV;
+    if (start_angle == end_angle) return LV_RES_INV;
+
+    // Not support temporary.
+    if (dsc->img_src != NULL) return LV_RES_INV;
+    // Not support temporary.
+    if (lv_draw_mask_is_any(clip_area) == true) return LV_RES_INV;
+
+    lv_coord_t width = dsc->width;
+    if (width > radius) width = radius;
+
+    if (simple_check_intersect_or_inclue(center_x, center_y, width, radius,
+                                         clip_area)
+        == false) {
+        return LV_RES_OK;
+    }
+
+    vg_lite_path_t vg_lite_path;
+    memset(&vg_lite_path, 0, sizeof(vg_lite_path_t));
+
+    uint32_t color_argb888 = lv_color_to32(dsc->color);
+    vg_lite_color_t color = get_vg_lite_color(color_argb888, dsc->opa);
+
+    vg_lite_blend_t vg_lite_blend = get_vg_lite_blend(dsc->blend_mode);
+
+    lv_disp_t* disp = _lv_refr_get_disp_refreshing();
+    lv_disp_draw_buf_t* draw_buf = lv_disp_get_draw_buf(disp);
+    const lv_area_t* disp_area = &draw_buf->area;
+    lv_color_t* disp_buf = draw_buf->buf_act;
+    int32_t disp_w = lv_area_get_width(disp_area);
+    int32_t disp_h = lv_area_get_height(disp_area);
+    uint32_t stride = disp_w * sizeof(lv_color_t);
+
+    vg_lite_buffer_t dst_vgbuf;
+    lv_res_t ret = init_vg_buf(&dst_vgbuf, disp_w, disp_h, stride, disp_buf,
+                               VGLITE_PX_FMT, false);
+
+    LV_ASSERT(ret == LV_RES_OK);
+
+    /*Draw two semicircle*/
+    if (start_angle + 360 == end_angle || start_angle == end_angle + 360) {
+        draw_arc_path(&vg_lite_path, &dst_vgbuf, width, false, 0, 180, center_x,
+                      center_y, radius, vg_lite_blend, color, dsc->img_src,
+                      clip_area);
+
+        draw_arc_path(&vg_lite_path, &dst_vgbuf, width, false, 180, 360,
+                      center_x, center_y, radius, vg_lite_blend, color,
+                      dsc->img_src, clip_area);
+
+        vg_lite_finish();
+        if (IS_CACHED(disp_buf)) {
+            cpu_gpu_data_cache_invalid((uint32_t)disp_buf, disp_h * stride);
+        }
+        return LV_RES_OK;
+    }
+
+    while (start_angle >= 360) start_angle -= 360;
+    while (end_angle >= 360) end_angle -= 360;
+
+    draw_arc_path(&vg_lite_path, &dst_vgbuf, width, dsc->rounded, start_angle,
+                  end_angle, center_x, center_y, radius, vg_lite_blend, color,
+                  dsc->img_src, clip_area);
+
+    vg_lite_finish();
+    if (IS_CACHED(disp_buf)) {
+        cpu_gpu_data_cache_invalid((uint32_t)disp_buf, disp_h * stride);
+    }
+#else
+    LV_LOG_WARN("Can't draw arc with LV_DRAW_COMPLEX == 0");
+    LV_UNUSED(center_x);
+    LV_UNUSED(center_y);
+    LV_UNUSED(radius);
+    LV_UNUSED(start_angle);
+    LV_UNUSED(end_angle);
+    LV_UNUSED(clip_area);
+    LV_UNUSED(dsc);
+#endif /*LV_DRAW_COMPLEX*/
+    return LV_RES_OK;
+}
+
+LV_ATTRIBUTE_FAST_MEM static void lv_draw_hw_arc(lv_coord_t center_x,
+                                                 lv_coord_t center_y,
+                                                 uint16_t radius,
+                                                 uint16_t start_angle,
+                                                 uint16_t end_angle,
+                                                 const lv_area_t * clip_area,
+                                                 const lv_draw_arc_dsc_t * dsc)
+{
+    if (lv_draw_arc_gpu(center_x, center_y, radius, start_angle, end_angle,
+                        clip_area, dsc) != LV_RES_OK) {
+        lv_draw_sw_arc(center_x, center_y, radius, start_angle, end_angle,
+                       clip_area, dsc);
+    }
+}
+
 LV_ATTRIBUTE_FAST_MEM static void lv_draw_hw_img(const lv_area_t* map_area, const lv_area_t* clip_area,
     const uint8_t* map_p, const lv_draw_img_dsc_t* draw_dsc, bool chroma_key, bool alpha_byte)
 {
@@ -100,7 +207,7 @@ static void lv_gpu_backend_init(void)
   static lv_draw_backend_t backend;
   lv_draw_backend_init(&backend);
 
-  backend.draw_arc = lv_draw_sw_arc;
+  backend.draw_arc = lv_draw_hw_arc;
   backend.draw_rect = lv_draw_sw_rect;
   backend.draw_letter = lv_draw_sw_letter;
   backend.draw_img = lv_draw_hw_img;
