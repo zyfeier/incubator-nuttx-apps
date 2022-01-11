@@ -20,16 +20,6 @@
 
 include $(APPDIR)/Make.defs
 
-# LittleVGL demo built-in application info
-
-CONFIG_LV_EXAMPLES_URL ?= https://github.com/lvgl/lv_demos/archive
-
-LVGL_EXAMPLES_VERSION = $(patsubst "%",%,$(strip $(CONFIG_LVGL_VERSION)))
-LVGL_EXAMPLES_TARBALL = v$(LVGL_EXAMPLES_VERSION).zip
-
-LVGL_EXAMPLES_UNPACKNAME = lv_demos
-UNPACK ?= unzip -o
-
 PROGNAME = lvgldemo
 PRIORITY = $(CONFIG_EXAMPLES_LVGLDEMO_PRIORITY)
 STACKSIZE = $(CONFIG_EXAMPLES_LVGLDEMO_STACKSIZE)
@@ -37,35 +27,6 @@ MODULE = $(CONFIG_EXAMPLES_LVGLDEMO)
 
 # LittleVGL demo Example
 
-# static common assets used in mutiple example
-
-CSRCS += $(shell find -L ./lv_demos -name "*.c")
-
-VPATH += lv_demos/src/lv_demo_benchmark
-VPATH += lv_demos/src/lv_demo_keypad_encoder
-VPATH += lv_demos/src/lv_demo_music
-VPATH += lv_demos/src/lv_demo_stress
-VPATH += lv_demos/src/lv_demo_widgets
-
 MAINSRC = lvgldemo.c
-
-CFLAGS += ${shell $(DEFINE) "$(CC)" LV_LVGL_H_INCLUDE_SIMPLE} -Wno-format
-CXXFLAGS += ${shell $(DEFINE) "$(CC)" LV_LVGL_H_INCLUDE_SIMPLE} -Wno-format
-
-$(LVGL_EXAMPLES_TARBALL):
-	$(Q) echo "Downloading: $(LVGL_EXAMPLES_TARBALL)"
-	$(Q) curl -O -L $(CONFIG_LV_EXAMPLES_URL)/$(LVGL_EXAMPLES_TARBALL)
-
-$(LVGL_EXAMPLES_UNPACKNAME): $(LVGL_EXAMPLES_TARBALL)
-	$(Q) echo "Unpacking: $(LVGL_EXAMPLES_TARBALL) -> $(LVGL_EXAMPLES_UNPACKNAME)"
-	$(Q) $(UNPACK) $(LVGL_EXAMPLES_TARBALL)
-	$(Q) mv	lv_demos-$(LVGL_EXAMPLES_VERSION) $(LVGL_EXAMPLES_UNPACKNAME)
-	$(Q) touch $(LVGL_EXAMPLES_UNPACKNAME)
-
-context::# $(LVGL_EXAMPLES_UNPACKNAME)
-
-distclean::
-#	$(call DELDIR, $(LVGL_EXAMPLES_UNPACKNAME))
-#	$(call DELFILE, $(LVGL_EXAMPLES_TARBALL))
 
 include $(APPDIR)/Application.mk

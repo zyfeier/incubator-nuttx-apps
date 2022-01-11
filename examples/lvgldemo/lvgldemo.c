@@ -34,7 +34,7 @@
 
 #include <lvgl/lvgl.h>
 #include <lv_porting/lv_porting.h>
-#include "lv_demos/lv_demo.h"
+#include <lvgl/demos/lv_demos.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -75,11 +75,29 @@ struct func_key_pair_s
 
 static const struct func_key_pair_s func_key_pair[] =
 {
-  { "benchmark",      lv_demo_benchmark      },
+
+#ifdef CONFIG_LV_USE_DEMO_WIDGETS
+  { "widgets",        lv_demo_widgets        },
+#endif
+
+#ifdef CONFIG_LV_USE_DEMO_KEYPAD_AND_ENCODER
   { "keypad_encoder", lv_demo_keypad_encoder },
-  { "music",          lv_demo_music          },
+#endif
+
+#ifdef CONFIG_LV_USE_DEMO_BENCHMARK
+  { "benchmark",      lv_demo_benchmark      },
+#endif
+
+#ifdef CONFIG_LV_USE_DEMO_STRESS
   { "stress",         lv_demo_stress         },
-  { "widgets",        lv_demo_widgets        }
+#endif
+
+#ifdef CONFIG_LV_USE_DEMO_MUSIC
+  { "music",          lv_demo_music          },
+#endif
+
+  { "", NULL }
+
 };
 
 /****************************************************************************
@@ -92,13 +110,25 @@ static const struct func_key_pair_s func_key_pair[] =
 
 static void show_usage(void)
 {
+  int i;
+  const int len = sizeof(func_key_pair)
+                  / sizeof(struct func_key_pair_s) - 1;
+
+  if (len == 0)
+    {
+      printf("lvgldemo: no demo available!\n");
+      exit(EXIT_FAILURE);
+      return;
+    }
+
   printf("\nUsage: lvgldemo demo_name\n");
   printf("\ndemo_name:\n");
-  printf("  benchmark\n");
-  printf("  keypad_encoder\n");
-  printf("  music\n");
-  printf("  stress\n");
-  printf("  widgets\n");
+
+  for (i = 0; i < len; i++)
+    {
+      printf("  %s\n", func_key_pair[i].name);
+    }
+
   exit(EXIT_FAILURE);
 }
 
@@ -110,7 +140,7 @@ static demo_create_func_t find_demo_create_func(FAR const char *name)
 {
   int i;
   const int len = sizeof(func_key_pair)
-                  / sizeof(struct func_key_pair_s);
+                  / sizeof(struct func_key_pair_s) - 1;
 
   for (i = 0; i < len; i++)
     {
@@ -120,7 +150,7 @@ static demo_create_func_t find_demo_create_func(FAR const char *name)
         }
     }
 
-  printf("lvgldemo: %s not found.\n", name);
+  printf("lvgldemo: '%s' not found.\n", name);
   return NULL;
 }
 
