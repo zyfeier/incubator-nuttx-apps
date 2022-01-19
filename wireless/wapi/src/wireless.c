@@ -330,6 +330,7 @@ static int wapi_scan_event(FAR struct iw_event *event,
         /* Reset it. */
 
         bzero(temp, sizeof(struct wapi_scan_info_s));
+        temp->encode = 0xffff;
 
         /* Save cell identifier. */
 
@@ -443,8 +444,7 @@ static int wapi_scan_event(FAR struct iw_event *event,
     case SIOCGIWENCODE:
       {
         info->has_encode = 1;
-        if (!(event->u.data.flags & IW_ENCODE_DISABLED))
-            info->encode |= IEEE80211_CAP_PRIVACY;
+        info->encode = event->u.data.flags;
         break;
       }
     }
