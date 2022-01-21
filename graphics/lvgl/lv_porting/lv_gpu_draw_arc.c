@@ -78,8 +78,7 @@ static void draw_arc_float_path(vg_lite_path_t* vg_lite_path,
                                 const void* img_src, const lv_area_t* clip_area)
 {
     vg_lite_init_arc_path(vg_lite_path, VG_LITE_FP32, VG_LITE_HIGH, data_size,
-                          vg_lite_path->path, 0, 0, CONFIG_LV_FBDEV_HOR_RES,
-                          CONFIG_LV_FBDEV_VER_RES);
+                          vg_lite_path->path, 0, 0, LV_HOR_RES, LV_VER_RES);
 
     vg_lite_path->bounding_box[0] = clip_area->x1;
     vg_lite_path->bounding_box[1] = clip_area->y1;
