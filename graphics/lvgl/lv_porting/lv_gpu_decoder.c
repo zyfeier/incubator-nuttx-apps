@@ -88,8 +88,15 @@ static void bit_rev(uint8_t px_size, uint8_t* buf, uint32_t stride)
 {
   switch (px_size) {
   case 1:
-    for (int_fast16_t i = 0; i < stride / 4; i++) {
+    for (int_fast16_t i = 0; i < stride >> 2; i++) {
       ((uint32_t*)buf)[i] = bit_rev8(((uint32_t*)buf)[i]);
+    }
+    uint8_t tail = stride & 3;
+    if (tail) {
+      uint32_t r = bit_rev8(((uint32_t*)buf)[stride >> 2]);
+      for (uint8_t i = 0; i < tail; i++) {
+        buf[stride - tail + i] = r >> (i << 3) & 0xFF;
+      }
     }
     break;
   case 2:
@@ -156,6 +163,10 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder, lv_i
   uint8_t* gpu_data = aligned_alloc(8, gpu_data_size);
   if (gpu_data == NULL) {
     GPU_ERROR("out of memory");
+    if (dsc->src_type == LV_IMG_SRC_FILE) {
+      lv_mem_free(fs_buf);
+      lv_fs_close(&f);
+    }
     return LV_RES_INV;
   }
   gpu_data_header_t* header = (gpu_data_header_t*)gpu_data;
@@ -222,8 +233,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
   uint8_t vgbuf_format = indexed ? BPP_TO_VG_FMT(px_size) : (px_size == 4) ? VG_LITE_A4
                                                                            : VG_LITE_A8;
   int32_t vgbuf_stride = vgbuf_w * px_size >> 3;
-  int32_t map_stride_bits = img_w * px_size;
-  int32_t map_stride = img_w * px_size >> 3;
+  int32_t map_stride = (img_w * px_size + 7) >> 3;
   uint32_t vgbuf_data_size = vgbuf_stride * img_h;
   uint32_t palette_size = 1 << px_size;
   uint32_t* palette = (uint32_t*)(gpu_data + sizeof(gpu_data_header_t) + vgbuf_data_size);
@@ -254,62 +264,18 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
   if (indexed) {
     px_map += palette_size * sizeof(lv_color32_t);
   }
-  uint8_t res_bits = map_stride_bits & 7;
-  if (!res_bits) {
-    for (int_fast16_t i = 0; i < img_h; i++) {
-      if (dsc->src_type == LV_IMG_SRC_FILE) {
-        lv_fs_read(&f, px_buf, map_stride, NULL);
-      } else {
-        lv_memcpy(px_buf, px_map, map_stride);
-      }
-      bit_rev(px_size, px_buf, map_stride);
-      px_map += map_stride;
-      px_buf += vgbuf_stride;
-    }
-  } else {
-    /* For un-byte-aligned strides, untested, can be accelerated by MVE */
-    GPU_WARN("index%d [%ld,%ld] unaligned!", px_size, img_w, img_h);
-    uint8_t* fs_buf = NULL;
+  for (int_fast16_t i = 0; i < img_h; i++) {
     if (dsc->src_type == LV_IMG_SRC_FILE) {
-      uint32_t data_size = dsc->header.w * dsc->header.h * lv_img_cf_get_px_size(cf) >> 3;
-      fs_buf = lv_mem_alloc(data_size);
-      if (fs_buf == NULL) {
-        GPU_ERROR("out of memory");
-        lv_fs_close(&f);
-        return LV_RES_INV;
-      }
-      if (lv_fs_read(&f, fs_buf, data_size, NULL) != LV_FS_RES_OK) {
-        lv_mem_free(fs_buf);
-        lv_fs_close(&f);
-        GPU_ERROR("file read failed");
-        return LV_RES_INV;
-      }
-      px_map = fs_buf;
+      lv_fs_read(&f, px_buf, map_stride, NULL);
+    } else {
+      lv_memcpy(px_buf, px_map, map_stride);
     }
-    uint8_t ls_bits = 0;
-    for (int_fast16_t i = 0; i < img_h; i++) {
-      if (ls_bits == 0) {
-        lv_memcpy(px_buf, px_map, map_stride + 1);
-        px_map += map_stride;
-        /* the next line will be [ls_bits] left-shifted */
-      } else {
-        for (int_fast16_t j = 0; j < map_stride + 1; j++) {
-          px_buf[j] = px_map[j] << ls_bits | px_map[j + 1] >> (8 - ls_bits);
-        }
-      }
-      bit_rev(px_size, px_buf, map_stride + 1);
-      px_map += map_stride;
-      px_buf += vgbuf_stride;
-      ls_bits += res_bits;
-      if (ls_bits > 7) {
-        ls_bits -= 8;
-        px_map++;
-      }
-    }
-    if (dsc->src_type == LV_IMG_SRC_FILE) {
-      lv_mem_free(fs_buf);
-      lv_fs_close(&f);
-    }
+    bit_rev(px_size, px_buf, map_stride);
+    px_map += map_stride;
+    px_buf += vgbuf_stride;
+  }
+  if (dsc->src_type == LV_IMG_SRC_FILE) {
+    lv_fs_close(&f);
   }
   return LV_RES_OK;
 }
