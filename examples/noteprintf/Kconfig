@@ -6,6 +6,7 @@
 config EXAMPLES_NOTEPRINTF
 	tristate "\"Note printf!\" example"
 	default n
+	depends on SCHED_INSTRUMENTATION_DUMP
 	---help---
 		Enable the \"Note printf!\" example
 

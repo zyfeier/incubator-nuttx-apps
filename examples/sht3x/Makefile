@@ -1,5 +1,5 @@
 ############################################################################
-# apps/examples/timer_gpout/Make.defs
+# apps/examples/sht3x/Make.defs
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -18,6 +18,17 @@
 #
 ############################################################################
 
-ifeq ($(CONFIG_EXAMPLES_TIMER_GPOUT),y)
-CONFIGURED_APPS += $(APPDIR)/examples/timer_gpout
-endif
+include $(APPDIR)/Make.defs
+
+# Hello, World! built-in application info
+
+PROGNAME  = $(CONFIG_EXAMPLES_SHT3X_PROGNAME)
+PRIORITY  = $(CONFIG_EXAMPLES_SHT3X_PRIORITY)
+STACKSIZE = $(CONFIG_EXAMPLES_SHT3X_STACKSIZE)
+MODULE    = $(CONFIG_EXAMPLES_SHT3X)
+
+# SHT3X Example
+
+MAINSRC = sht3x_main.c
+
+include $(APPDIR)/Application.mk

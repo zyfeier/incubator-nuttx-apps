@@ -1,5 +1,5 @@
 ############################################################################
-# apps/examples/timer_gpout/Makefile
+# apps/examples/timer_gpio/Makefile
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -22,13 +22,13 @@ include $(APPDIR)/Make.defs
 
 # Timer built-in application info
 
-PROGNAME  = $(CONFIG_EXAMPLES_TIMER_GPOUT_PROGNAME)
-PRIORITY  = $(CONFIG_EXAMPLES_TIMER_GPOUT_PRIORITY)
-STACKSIZE = $(CONFIG_EXAMPLES_TIMER_GPOUT_STACKSIZE)
-MODULE    = $(CONFIG_EXAMPLES_TIMER_GPOUT)
+PROGNAME  = $(CONFIG_EXAMPLES_TIMER_GPIO_PROGNAME)
+PRIORITY  = $(CONFIG_EXAMPLES_TIMER_GPIO_PRIORITY)
+STACKSIZE = $(CONFIG_EXAMPLES_TIMER_GPIO_STACKSIZE)
+MODULE    = $(CONFIG_EXAMPLES_TIMER_GPIO)
 
 # Timer example
 
-MAINSRC = timer_gpout_main.c
+MAINSRC = timer_gpio_main.c
 
 include $(APPDIR)/Application.mk

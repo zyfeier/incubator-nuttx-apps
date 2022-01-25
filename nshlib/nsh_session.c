@@ -143,12 +143,15 @@ int nsh_session(FAR struct console_stdio_s *pstate,
           break;
         }
 
-      /* Ignore all unknown option */
+      /* Unknown option */
+
+      nsh_error(vtbl, g_fmtsyntax, argv[0]);
+      return EXIT_FAILURE;
     }
 
   if (i < argc)
     {
-#if defined(CONFIG_FILE_STREAM) && !defined(CONFIG_NSH_DISABLESCRIPT)
+#ifndef CONFIG_NSH_DISABLESCRIPT
       /* Execute the shell script */
 
       return nsh_script(vtbl, argv[0], argv[i]);

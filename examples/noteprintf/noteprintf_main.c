@@ -34,21 +34,27 @@
 #define MAIN_MODULE NOTE_MODULE('m', 'a', 'i', 'n')
 
 /****************************************************************************
- * note_printf_main
+ * Public Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * noteprintf_main
  ****************************************************************************/
 
 int main(int argc, FAR char *argv[])
 {
-  struct binary {
-    uint8_t val1;
-    uint8_t val2;
-  } binary = {
-    .val1        = 0x01,
-    .val2        = 0x02
-  };
+  struct binary
+    {
+      uint8_t val1;
+      uint8_t val2;
+    } binary =
+      {
+        .val1        = 0x01,
+        .val2        = 0x02
+      };
 
   char *str      = "shced note test";
-  int  count     = 0;
+  int count      = 0;
   char c         = 1;
   short s        = 2;
   int i          = 3;
@@ -69,30 +75,33 @@ int main(int argc, FAR char *argv[])
   long double ld = 0.3;
 #endif
 
-  while (1) {
-    sched_note_printf("shced note test count = %d.", count++);
-    sched_note_string(str);
-    sched_note_dump(MAIN_MODULE, 1, &binary, sizeof(struct binary));
-    sched_note_bprintf(MAIN_MODULE, 2, "%hhd", c);
-    sched_note_bprintf(MAIN_MODULE, 3, "%hd", s);
-    sched_note_bprintf(MAIN_MODULE, 4, "%d", i);
-    sched_note_bprintf(MAIN_MODULE, 5, "%ld", l);
-    sched_note_bprintf(MAIN_MODULE, 6, "%lld", ll);
-    sched_note_bprintf(MAIN_MODULE, 7, "%jd", im);
-    sched_note_bprintf(MAIN_MODULE, 8, "%zd", sz);
-    sched_note_bprintf(MAIN_MODULE, 9, "%td", ptr);
+  while (1)
+    {
+      sched_note_printf("shced note test count = %d.", count++);
+      sched_note_string(str);
+      sched_note_dump(MAIN_MODULE, 1, &binary, sizeof(struct binary));
+      sched_note_bprintf(MAIN_MODULE, 2, "%hhd", c);
+      sched_note_bprintf(MAIN_MODULE, 3, "%hd", s);
+      sched_note_bprintf(MAIN_MODULE, 4, "%d", i);
+      sched_note_bprintf(MAIN_MODULE, 5, "%ld", l);
+      sched_note_bprintf(MAIN_MODULE, 6, "%lld", ll);
+      sched_note_bprintf(MAIN_MODULE, 7, "%jd", im);
+      sched_note_bprintf(MAIN_MODULE, 8, "%zd", sz);
+      sched_note_bprintf(MAIN_MODULE, 9, "%td", ptr);
 #ifdef CONFIG_HAVE_FLOAT
-    sched_note_bprintf(MAIN_MODULE, 10, "%e", f);
+      sched_note_bprintf(MAIN_MODULE, 10, "%e", f);
 #endif
 #ifdef CONFIG_HAVE_DOUBLE
-    sched_note_bprintf(MAIN_MODULE, 11, "%le", d);
+      sched_note_bprintf(MAIN_MODULE, 11, "%le", d);
 #endif
 #ifdef CONFIG_HAVE_LONG_DOUBLE
-    sched_note_bprintf(MAIN_MODULE, 12, "%Le", ld);
+      sched_note_bprintf(MAIN_MODULE, 12, "%Le", ld);
 #endif
-    sched_note_bprintf(MAIN_MODULE, 13,
-                        "%hhd  %hd  %d  %ld  %lld  %jd  %zd  %td",
-                         c,    s,   i,  l,    ll,  im,  sz,  ptr);
-    usleep(10);
-  }
+      sched_note_bprintf(MAIN_MODULE, 13,
+                         "%hhd  %hd  %d  %ld  %lld  %jd  %zd  %td",
+                          c,    s,   i,  l,    ll,  im,  sz,  ptr);
+      usleep(10);
+    }
+
+  return 0;
 }
