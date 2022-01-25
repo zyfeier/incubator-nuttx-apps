@@ -200,7 +200,7 @@ LV_ATTRIBUTE_FAST_MEM static void lv_draw_hw_img(const lv_area_t* map_area, cons
     const uint8_t* map_p, const lv_draw_img_dsc_t* draw_dsc, bool chroma_key, bool alpha_byte)
 {
   if (lv_draw_map_gpu(map_area, clip_area, map_p, draw_dsc, chroma_key, alpha_byte) != LV_RES_OK) {
-    lv_draw_sw_img(map_area, clip_area, map_p, draw_dsc, chroma_key, alpha_byte);
+    lv_draw_sw_img(map_area, clip_area, map_p + sizeof(gpu_data_header_t), draw_dsc, chroma_key, alpha_byte);
   }
 }
 
@@ -215,10 +215,11 @@ LV_ATTRIBUTE_FAST_MEM static void recolor_palette(uint32_t* dst, const uint32_t*
       if (src[i] >> 24 == 0) {
         dst[i] = 0;
       } else {
+        uint8_t src_coeff = (mix << 8) / (src[i] >> 24);
         dst[i] = 0xFF000000 | /* A */
-            (recolor_premult[0] + (src[i] >> 16 & 0xFF) * mix + LV_COLOR_MIX_ROUND_OFS) / (src[i] >> 24) << 16 | /* R */
-            (recolor_premult[1] + (src[i] >> 8 & 0xFF) * mix + LV_COLOR_MIX_ROUND_OFS) / (src[i] >> 24) << 8 | /* G */
-            (recolor_premult[2] + (src[i] & 0xFF) * mix + LV_COLOR_MIX_ROUND_OFS) / (src[i] >> 24); /* B */
+            (((recolor_premult[0] << 8) + ((src[i] & 0xFF0000) * src_coeff >> 8)) & 0xFF0000) | /* R */
+            ((recolor_premult[1] + ((src[i] & 0xFF00) * src_coeff >> 8)) & 0xFF00) | /* G */
+            (recolor_premult[2] + (src[i] & 0xFF) * src_coeff) >> 8; /* B */
       }
     } else {
       /* fill alpha palette */
@@ -354,7 +355,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     return LV_RES_OK;
   }
 
-  GPU_INFO("map_tf: (%d %d)[%d,%d] draw_area:(%d %d)[%d,%d] zoom:%d\n", map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf), lv_area_get_height(&map_tf), draw_area.x1, draw_area.y1, lv_area_get_width(&draw_area), lv_area_get_height(&draw_area), zoom);
+  GPU_INFO("map_tf: (%d %d)[%d,%d] draw_area:(%d %d)[%d,%d] zoom:%d\n", map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf),
+      lv_area_get_height(&map_tf), draw_area.x1, draw_area.y1, lv_area_get_width(&draw_area), lv_area_get_height(&draw_area), zoom);
   bool indexed = false, alpha = false;
   bool allocated_src = false;
   vgbuf = lv_gpu_get_vgbuf((void*)map_buf);
@@ -431,6 +433,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const 
     } else {
       vg_lite_set_CLUT(palette_size, (uint32_t*)palette);
     }
+  } else if (recolor_opa != LV_OPA_TRANSP) {
+    /* ARGB recolor, unsupported by GPU */
+    return LV_RES_INV;
   }
   if (_lv_area_is_in(&map_tf, &draw_area, 0)) {
     /* No clipping, simply blit */
@@ -562,7 +567,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_c
   lv_coord_t h = dsc->height;
   vg_lite_error_t vgerr;
 
-  if (init_vg_buf(&src, w, h, w * dsc->src_bpp >> 3, (void*)dsc->src, BPP_TO_VG_FMT(dsc->src_bpp), 1) != LV_RES_OK || init_vg_buf(&dst, w, h, w * dsc->dst_bpp >> 3, dsc->dst, BPP_TO_VG_FMT(dsc->dst_bpp), 0) != LV_RES_OK) {
+  if (init_vg_buf(&src, w, h, w * dsc->src_bpp >> 3, (void*)dsc->src, BPP_TO_VG_FMT(dsc->src_bpp), 1) != LV_RES_OK
+      || init_vg_buf(&dst, w, h, w * dsc->dst_bpp >> 3, dsc->dst, BPP_TO_VG_FMT(dsc->dst_bpp), 0) != LV_RES_OK) {
     return LV_RES_INV;
   }
   CHECK_ERROR(vg_lite_blit(&dst, &src, NULL, 0, 0, 0));
