@@ -36,12 +36,16 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-vg_lite_color_t get_vg_lite_color(uint32_t color_argb888, lv_opa_t opa);
+vg_lite_color_t get_vg_lite_color_lvgl_mix(uint32_t color_argb888,
+                                           lv_opa_t opa);
 
 vg_lite_blend_t get_vg_lite_blend(lv_blend_mode_t blend_mode);
 
 int32_t malloc_float_path_data(vg_lite_path_t* vg_lite_path, uint8_t* path_cmds,
                                size_t cmds_size);
+
+void fill_path_clip_area(vg_lite_path_t* vg_lite_path,
+                         const lv_area_t* clip_area);
 
 bool simple_check_intersect_or_inclue(float center_x, float center_y,
                                       float width, float radius,
@@ -52,10 +56,19 @@ void draw_circular_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
                         vg_lite_blend_t blend, vg_lite_color_t color,
                         const void* img_src, const lv_area_t* clip_area);
 
+size_t init_vg_lite_buffer_use_lv_buffer(vg_lite_buffer_t* vgbuf);
+
 void draw_arc_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
                    float width, bool rounded, float start_angle,
                    float end_angle, float center_x, float center_y,
                    float radius, vg_lite_blend_t blend, vg_lite_color_t color,
                    const void* img_src, const lv_area_t* clip_area);
+
+vg_lite_error_t vg_lite_update_grad_as_lvgl(vg_lite_linear_gradient_t* grad,
+                                            uint8_t global_alpha);
+
+bool draw_rect_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
+                    const lv_area_t* coords, const lv_area_t* clip,
+                    const lv_draw_rect_dsc_t* dsc);
 
 #endif //__LV_GPU_DRAW_H__

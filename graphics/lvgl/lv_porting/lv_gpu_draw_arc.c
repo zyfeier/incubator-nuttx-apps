@@ -78,12 +78,9 @@ static void draw_arc_float_path(vg_lite_path_t* vg_lite_path,
                                 const void* img_src, const lv_area_t* clip_area)
 {
     vg_lite_init_arc_path(vg_lite_path, VG_LITE_FP32, VG_LITE_HIGH, data_size,
-                          vg_lite_path->path, 0, 0, LV_HOR_RES, LV_VER_RES);
+                          vg_lite_path->path, 0, 0, 0, 0);
 
-    vg_lite_path->bounding_box[0] = clip_area->x1;
-    vg_lite_path->bounding_box[1] = clip_area->y1;
-    vg_lite_path->bounding_box[2] = clip_area->x2 + 1;
-    vg_lite_path->bounding_box[3] = clip_area->y2 + 1;
+    fill_path_clip_area(vg_lite_path, clip_area);
 
     vg_lite_matrix_t path_matrix;
     vg_lite_identity(&path_matrix);
@@ -95,7 +92,7 @@ static void draw_arc_float_path(vg_lite_path_t* vg_lite_path,
         //             VG_LITE_BGRA8888, 1);
         vg_lite_matrix_t img_matrix;
         vg_lite_identity(&img_matrix);
-        vg_lite_draw_pattern(vg_buf, vg_lite_path, VG_LITE_FILL_EVEN_ODD,
+        vg_lite_draw_pattern(vg_buf, vg_lite_path, VG_LITE_FILL_NON_ZERO,
                              &path_matrix, &img_buf, &img_matrix, blend,
                              VG_LITE_PATTERN_COLOR, color,
                              VG_LITE_FILTER_BI_LINEAR);
@@ -340,8 +337,8 @@ void draw_arc_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
     fill_arc_path_by_angle(vg_lite_path, arc_path_cmds, width, rounded,
                            start_angle, end_angle, center_x, center_y, radius);
 
-    draw_arc_float_path(vg_lite_path, vg_buf, data_size, VG_LITE_BLEND_SRC_OVER,
-                        color, img_src, clip_area);
+    draw_arc_float_path(vg_lite_path, vg_buf, data_size, blend, color, img_src,
+                        clip_area);
 
     free(vg_lite_path->path);
 }
