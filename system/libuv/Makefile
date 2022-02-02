@@ -86,7 +86,7 @@ CSRCS += pipe.c
 CSRCS += fs.c
 CSRCS += fs-poll.c
 CSRCS += timer.c
-CSRCS += process.c
+CSRCS += process-spawn.c
 CSRCS += sysinfo-loadavg.c
 CSRCS += sysinfo-memory.c
 
