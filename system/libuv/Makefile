@@ -88,6 +88,8 @@ CSRCS += fs.c
 CSRCS += fs-poll.c
 CSRCS += timer.c
 CSRCS += process.c
+CSRCS += sysinfo-loadavg.c
+CSRCS += sysinfo-memory.c
 
 ifneq ($(CONFIG_NET),)
 CSRCS += getaddrinfo.c
