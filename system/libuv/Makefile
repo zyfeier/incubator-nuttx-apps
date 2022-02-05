@@ -65,7 +65,6 @@ CSRCS += core.c
 CSRCS += poll.c
 CSRCS += loop.c
 CSRCS += thread.c
-CSRCS += no-proctitle.c
 CSRCS += posix-hrtime.c
 CSRCS += posix-poll.c
 CSRCS += uv-data-getter-setters.c
