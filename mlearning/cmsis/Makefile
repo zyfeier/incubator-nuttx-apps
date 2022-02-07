@@ -25,10 +25,10 @@ cmsis.zip:
 	$(Q) unzip -o cmsis.zip
 	$(Q) mv CMSIS_5-$(CONFIG_CMSIS_VER) CMSIS_5
 
-context:: cmsis.zip
+#context:: cmsis.zip
 
 distclean::
-	$(call DELDIR, CMSIS_5)
-	$(call DELFILE, cmsis.zip)
+#	$(call DELDIR, CMSIS_5)
+#	$(call DELFILE, cmsis.zip)
 
 include $(APPDIR)/Application.mk
