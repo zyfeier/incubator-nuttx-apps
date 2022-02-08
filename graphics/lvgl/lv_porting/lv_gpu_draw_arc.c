@@ -337,8 +337,13 @@ void draw_arc_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
     fill_arc_path_by_angle(vg_lite_path, arc_path_cmds, width, rounded,
                            start_angle, end_angle, center_x, center_y, radius);
 
+    lv_area_t draw_clip;
+    lv_area_copy(&draw_clip, clip_area);
+    draw_clip.x2 += 1;
+    draw_clip.y2 += 1;
+
     draw_arc_float_path(vg_lite_path, vg_buf, data_size, blend, color, img_src,
-                        clip_area);
+                        &draw_clip);
 
     free(vg_lite_path->path);
 }
