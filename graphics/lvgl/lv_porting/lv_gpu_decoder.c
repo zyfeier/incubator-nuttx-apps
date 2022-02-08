@@ -240,10 +240,9 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
   if (indexed) {
     if (dsc->src_type == LV_IMG_SRC_FILE) {
       /*Read the palette from file*/
-      lv_color32_t cur_color;
+      LV_ASSERT(lv_fs_read(&f, palette, sizeof(lv_color32_t) * palette_size, NULL) == LV_FS_RES_OK);
       for (int_fast16_t i = 0; i < palette_size; i++) {
-        LV_ASSERT(lv_fs_read(&f, &cur_color, sizeof(lv_color32_t), NULL) == LV_FS_RES_OK);
-        pre_multiply((lv_color32_t*)&palette[i], &cur_color);
+        pre_multiply((lv_color32_t*)&palette[i], (lv_color32_t*)&palette[i]);
       }
     } else {
       /*The palette begins in the beginning of the image data. Just point to it.*/
@@ -264,16 +263,33 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
   if (indexed) {
     px_map += palette_size * sizeof(lv_color32_t);
   }
-  for (int_fast16_t i = 0; i < img_h; i++) {
+
+  if (map_stride == vgbuf_stride) {
     if (dsc->src_type == LV_IMG_SRC_FILE) {
-      lv_fs_read(&f, px_buf, map_stride, NULL);
-    } else {
-      lv_memcpy(px_buf, px_map, map_stride);
+      lv_fs_read(&f, px_buf, map_stride * img_h, NULL);
     }
-    bit_rev(px_size, px_buf, map_stride);
-    px_map += map_stride;
-    px_buf += vgbuf_stride;
+    else {
+      lv_memcpy(px_buf, px_map, map_stride * img_h);
+    }
+
+    bit_rev(px_size, px_buf, map_stride * img_h);
+
+    px_map += map_stride * img_h;
+    px_buf += vgbuf_stride * img_h;
   }
+  else {
+    for (int_fast16_t i = 0; i < img_h; i++) {
+      if (dsc->src_type == LV_IMG_SRC_FILE) {
+        lv_fs_read(&f, px_buf, map_stride, NULL);
+      } else {
+        lv_memcpy(px_buf, px_map, map_stride);
+      }
+      bit_rev(px_size, px_buf, map_stride);
+      px_map += map_stride;
+      px_buf += vgbuf_stride;
+    }
+  }
+
   if (dsc->src_type == LV_IMG_SRC_FILE) {
     lv_fs_close(&f);
   }
@@ -324,10 +340,13 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* ds
   dsc->user_data = (void*)GPU_DATA_MAGIC;
   /*Process true color formats*/
   if (cf == LV_IMG_CF_TRUE_COLOR || cf == LV_IMG_CF_TRUE_COLOR_ALPHA || cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
-    return decode_rgb(decoder, dsc);
+    lv_res_t ret = decode_rgb(decoder, dsc);
+    return ret;
   } else if ((cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT) || cf == LV_IMG_CF_ALPHA_8BIT || cf == LV_IMG_CF_ALPHA_4BIT) {
-    return decode_indexed(decoder, dsc);
+    lv_res_t ret = decode_indexed(decoder, dsc);
+    return ret;
   }
+
   /*Unknown format. Can't decode it.*/
   else {
     GPU_WARN("GPU decoder open: unsupported color format %d", cf);
