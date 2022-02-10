@@ -203,19 +203,6 @@ static void fbdev_flush_direct(FAR lv_disp_drv_t *disp_drv,
       ioctl(fbdev_obj->fd, FBIOPAN_DISPLAY,
             (unsigned long)((uintptr_t)&(fbdev_obj->pinfo)));
 
-      FAR lv_disp_draw_buf_t *draw_buf = lv_disp_get_draw_buf(disp_refr);
-
-      if (draw_buf->buf_act == draw_buf->buf1)
-        {
-          draw_buf->buf_act = draw_buf->buf2;
-        }
-      else
-        {
-          draw_buf->buf_act = draw_buf->buf1;
-        }
-
-      LV_LOG_TRACE("Next draw buffer = %p", draw_buf->buf_act);
-
 #else
       FAR void *target = fbdev_obj->fbmem;
       const size_t frame_size = fbdev_obj->vinfo.xres
