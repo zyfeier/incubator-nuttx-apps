@@ -23,6 +23,12 @@
 
 #include "lv_gpu_interface.h"
 
+#define USE_GLOBAL_PATH_DATA_BUFFER 1
+
+#if (USE_GLOBAL_PATH_DATA_BUFFER == 1)
+uint8_t g_path_data_buffer[196];
+#endif
+
 #define R(color) ((color) & 0x00ff0000) >> 16
 #define G(color) ((color) & 0x0000ff00) >> 8
 #define B(color) ((color) & 0xff)
@@ -72,19 +78,33 @@ vg_lite_blend_t get_vg_lite_blend(lv_blend_mode_t blend_mode)
     return VG_LITE_BLEND_NONE;
 }
 
-int32_t malloc_float_path_data(vg_lite_path_t* vg_lite_path,
-                               uint8_t* path_cmds, size_t cmds_size)
+void malloc_float_path_data(vg_lite_path_t* vg_lite_path,
+                            lv_gpu_path_data_t* path_data, uint8_t* path_cmds,
+                            size_t cmds_size)
 {
-    int32_t data_size = vg_lite_path_calc_length(path_cmds, cmds_size,
-                                                 VG_LITE_FP32);
+    int32_t data_size
+        = vg_lite_path_calc_length(path_cmds, cmds_size, VG_LITE_FP32);
 
     vg_lite_init_path(vg_lite_path, VG_LITE_FP32, VG_LITE_HIGH, data_size, NULL,
                       0, 0, 0, 0);
 
-    vg_lite_path->path = malloc(data_size);
-    memset(vg_lite_path->path, 0, data_size);
+    path_data->data_size = data_size;
 
-    return data_size;
+#if (USE_GLOBAL_PATH_DATA_BUFFER == 1)
+    path_data->data = g_path_data_buffer;
+#else
+    path_data->data = malloc(data_size);
+    memset(path_data->data, 0, data_size);
+#endif
+
+    vg_lite_path->path = path_data->data;
+}
+
+void free_float_path_data(lv_gpu_path_data_t* path_data)
+{
+#if (USE_GLOBAL_PATH_DATA_BUFFER == 0)
+    free(path_data->data);
+#endif
 }
 
 void fill_path_clip_area(vg_lite_path_t* vg_lite_path,

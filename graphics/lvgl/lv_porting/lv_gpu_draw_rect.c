@@ -31,16 +31,16 @@ typedef enum {
     RECT_TYPE_DEFAULT,
 } rect_type;
 
-uint8_t rounded_rect_path_cmds[] = {
+static uint8_t rounded_rect_path_cmds[] = {
     VLC_OP_MOVE,
     VLC_OP_LINE,
-    VLC_OP_SCCWARC,
+    VLC_OP_SCWARC,
     VLC_OP_LINE,
-    VLC_OP_SCCWARC,
+    VLC_OP_SCWARC,
     VLC_OP_LINE,
-    VLC_OP_SCCWARC,
+    VLC_OP_SCWARC,
     VLC_OP_LINE,
-    VLC_OP_SCCWARC,
+    VLC_OP_SCWARC,
     VLC_OP_END
 };
 
@@ -106,10 +106,11 @@ static void draw_gradient_path(vg_lite_buffer_t* vg_lite_buffer,
 }
 
 static void fill_rect_border_half(vg_lite_path_t* vg_lite_path,
-                             int8_t x_vector, float center_x, float center_y,
-                             float half_rect_width, float half_rect_height,
-                             float small_half_rect_width,
-                             float small_half_rect_height)
+                                  lv_gpu_path_data_t* path_data,
+                                  int8_t x_vector, float center_x, float center_y,
+                                  float half_rect_width, float half_rect_height,
+                                  float small_half_rect_width,
+                                  float small_half_rect_height)
 {
     const uint8_t path_cmds[] = {
         VLC_OP_MOVE,
@@ -134,12 +135,13 @@ static void fill_rect_border_half(vg_lite_path_t* vg_lite_path,
         center_x, center_y - small_half_rect_height,
     };
 
-    malloc_float_path_data(vg_lite_path, path_cmds, sizeof(path_cmds));
+    malloc_float_path_data(vg_lite_path, path_data, path_cmds, sizeof(path_cmds));
 
     vg_lite_path_append(vg_lite_path, path_cmds, path_data_float, sizeof(path_cmds));
 }
 
 static void fill_rounded_rect_border_half(vg_lite_path_t* vg_lite_path,
+                             lv_gpu_path_data_t* path_data,
                              int8_t x_vector, float center_x, float center_y,
                              float radius, float small_radius,
                              float half_rect_width, float half_rect_height,
@@ -149,122 +151,59 @@ static void fill_rounded_rect_border_half(vg_lite_path_t* vg_lite_path,
     uint8_t path_cmds[] = {
         VLC_OP_MOVE,
         VLC_OP_LINE,
-        VLC_OP_SCCWARC,
-        VLC_OP_LINE,
-        VLC_OP_SCCWARC,
-        VLC_OP_LINE,
-        VLC_OP_LINE,
-        VLC_OP_LINE,
         VLC_OP_SCWARC,
         VLC_OP_LINE,
         VLC_OP_SCWARC,
+        VLC_OP_LINE,
+        VLC_OP_LINE,
+        VLC_OP_LINE,
+        VLC_OP_SCCWARC,
+        VLC_OP_LINE,
+        VLC_OP_SCCWARC,
         VLC_OP_LINE,
         VLC_OP_END
     };
 
     if (x_vector < 0) {
-        path_cmds[2] = VLC_OP_SCWARC;
-        path_cmds[4] = VLC_OP_SCWARC;
-        path_cmds[8] = VLC_OP_SCCWARC;
-        path_cmds[10] = VLC_OP_SCCWARC;
+        path_cmds[2] = VLC_OP_SCCWARC;
+        path_cmds[4] = VLC_OP_SCCWARC;
+        path_cmds[8] = VLC_OP_SCWARC;
+        path_cmds[10] = VLC_OP_SCWARC;
     }
 
-    int32_t data_size = malloc_float_path_data(vg_lite_path, path_cmds,
-                                               sizeof(path_cmds));
+    malloc_float_path_data(vg_lite_path, path_data, path_cmds, sizeof(path_cmds));
 
-    char    *pchar;
-    float   *pfloat;
+    float tmp_path_data[] = {
+        center_x, center_y - half_rect_height,
 
-    pchar = (char*)vg_lite_path->path;
-    pfloat = (float*)vg_lite_path->path;
-    *pchar = path_cmds[0];
-    pfloat++;
-    *pfloat++ = center_x;
-    *pfloat++ = center_y - half_rect_height;
+        center_x + (half_rect_width - radius) * x_vector, center_y - half_rect_height,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[1];
-    pfloat++;
-    *pfloat++ = center_x + (half_rect_width - radius) * x_vector;
-    *pfloat++ = center_y - half_rect_height;
+        radius, radius, 0,
+        center_x + half_rect_width * x_vector, center_y - half_rect_height + radius,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[2];
-    pfloat++;
-    *pfloat++ = radius;
-    *pfloat++ = radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x + half_rect_width * x_vector;
-    *pfloat++ = center_y - half_rect_height + radius;
+        center_x + half_rect_width * x_vector, center_y + half_rect_height - radius,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[3];
-    pfloat++;
-    *pfloat++ = center_x + half_rect_width * x_vector;
-    *pfloat++ = center_y + half_rect_height - radius;
+        radius, radius, 0,
+        center_x + (half_rect_width - radius) * x_vector, center_y + half_rect_height,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[4];
-    pfloat++;
-    *pfloat++ = radius;
-    *pfloat++ = radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x + (half_rect_width - radius) * x_vector;
-    *pfloat++ = center_y + half_rect_height;
+        center_x, center_y + half_rect_height,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[5];
-    pfloat++;
-    *pfloat++ = center_x;
-    *pfloat++ = center_y + half_rect_height;
+        center_x, center_y + small_half_rect_height,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[6];
-    pfloat++;
-    *pfloat++ = center_x;
-    *pfloat++ = center_y + small_half_rect_height;
+        center_x + (small_half_rect_width - small_radius) * x_vector, center_y + small_half_rect_height,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[7];
-    pfloat++;
-    *pfloat++ = center_x + (small_half_rect_width - small_radius) * x_vector;
-    *pfloat++ = center_y + small_half_rect_height;
+        small_radius, small_radius, 0,
+        center_x + small_half_rect_width * x_vector, center_y + small_half_rect_height - small_radius,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[8];
-    pfloat++;
-    *pfloat++ = small_radius;
-    *pfloat++ = small_radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x + small_half_rect_width * x_vector;
-    *pfloat++ = center_y + small_half_rect_height - small_radius;
+        center_x + small_half_rect_width * x_vector, center_y - small_half_rect_height + small_radius,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[9];
-    pfloat++;
-    *pfloat++ = center_x + small_half_rect_width * x_vector;
-    *pfloat++ = center_y - small_half_rect_height + small_radius;
+        small_radius, small_radius, 0,
+        center_x + (small_half_rect_width - small_radius) * x_vector, center_y - small_half_rect_height,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[10];
-    pfloat++;
-    *pfloat++ = radius;
-    *pfloat++ = radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x + (small_half_rect_width - small_radius) * x_vector;
-    *pfloat++ = center_y - small_half_rect_height;
+        center_x, center_y - small_half_rect_height
+    };
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[9];
-    pfloat++;
-    *pfloat++ = center_x;
-    *pfloat++ = center_y - small_half_rect_height;
-
-    pchar = (char*)pfloat;
-    *pchar = 0;
-
-    vg_lite_init_arc_path(vg_lite_path, VG_LITE_FP32, VG_LITE_HIGH,
-                          data_size, vg_lite_path->path, 0, 0, 0, 0);
+    vg_lite_path_append(vg_lite_path, path_cmds, tmp_path_data, sizeof(path_cmds));
 }
 
 static void draw_full_border_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
@@ -294,21 +233,28 @@ static void draw_full_border_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_l
             x_vector = 1;
         }
 
+        lv_gpu_path_data_t path_data;
+
         if (draw_rect_type == RECT_TYPE_DEFAULT) {
-            fill_rect_border_half(vg_lite_path, x_vector, center_x, center_y,
-                                  half_rect_width, half_rect_height,
-                                  small_half_rect_width, small_half_rect_height);
+            fill_rect_border_half(vg_lite_path, &path_data, x_vector, center_x,
+                                  center_y, half_rect_width, half_rect_height,
+                                  small_half_rect_width,
+                                  small_half_rect_height);
         } else {
-            fill_rounded_rect_border_half(vg_lite_path, x_vector, center_x, center_y,
-                                          radius, small_radius, half_rect_width,
-                                          half_rect_height, small_half_rect_width,
-                                          small_half_rect_height);
+            fill_rounded_rect_border_half(
+                vg_lite_path, &path_data, x_vector, center_x, center_y, radius,
+                small_radius, half_rect_width, half_rect_height,
+                small_half_rect_width, small_half_rect_height);
         }
 
         fill_path_clip_area(vg_lite_path, clip_area);
-        vg_lite_draw(vg_buf, vg_lite_path, VG_LITE_FILL_NON_ZERO,
-                &path_matrix, blend, color);
-        free(vg_lite_path->path);
+
+        vg_lite_draw(vg_buf, vg_lite_path, VG_LITE_FILL_NON_ZERO, &path_matrix,
+                     blend, color);
+
+        vg_lite_clear_path(vg_lite_path);
+
+        free_float_path_data(&path_data);
     }
 }
 
@@ -350,85 +296,39 @@ static bool draw_outline_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_
 }
 
 static void fill_rounded_rect_path_data(vg_lite_path_t* vg_lite_path,
-                                        uint8_t* path_cmds, float radius,
+                                        uint8_t* path_cmds,
+                                        uint8_t path_cmds_size, float radius,
                                         float rect_width, float rect_height,
                                         float center_x, float center_y)
 {
     float half_rect_width = rect_width / 2;
     float half_rect_height = rect_height / 2;
 
-    char* pchar;
-    float* pfloat;
+    float tmp_path_data[] = {
+        center_x - half_rect_width + radius, center_y - half_rect_height,
 
-    pchar = (char*)vg_lite_path->path;
-    pfloat = (float*)vg_lite_path->path;
-    *pchar = path_cmds[0];
-    pfloat++;
-    *pfloat++ = center_x - half_rect_width + radius;
-    *pfloat++ = center_y - half_rect_height;
+        center_x + half_rect_width - radius, center_y - half_rect_height,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[1];
-    pfloat++;
-    *pfloat++ = center_x + half_rect_width - radius;
-    *pfloat++ = center_y - half_rect_height;
+        radius, radius, 0,
+        center_x + half_rect_width, center_y - half_rect_height + radius,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[2];
-    pfloat++;
-    *pfloat++ = radius;
-    *pfloat++ = radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x + half_rect_width;
-    *pfloat++ = center_y - half_rect_height + radius;
+        center_x + half_rect_width, center_y + half_rect_height - radius,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[3];
-    pfloat++;
-    *pfloat++ = center_x + half_rect_width;
-    *pfloat++ = center_y + half_rect_height - radius;
+        radius, radius, 0,
+        center_x + half_rect_width - radius, center_y + half_rect_height,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[4];
-    pfloat++;
-    *pfloat++ = radius;
-    *pfloat++ = radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x + half_rect_width - radius;
-    *pfloat++ = center_y + half_rect_height;
+        center_x - half_rect_width + radius, center_y + half_rect_height,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[5];
-    pfloat++;
-    *pfloat++ = center_x - half_rect_width + radius;
-    *pfloat++ = center_y + half_rect_height;
+        radius, radius, 0,
+        center_x - half_rect_width, center_y + half_rect_height - radius,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[6];
-    pfloat++;
-    *pfloat++ = radius;
-    *pfloat++ = radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x - half_rect_width;
-    *pfloat++ = center_y + half_rect_height - radius;
+        center_x - half_rect_width, center_y - half_rect_height + radius,
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[7];
-    pfloat++;
-    *pfloat++ = center_x - half_rect_width;
-    *pfloat++ = center_y - half_rect_height + radius;
+        radius, radius, 0,
+        center_x - half_rect_width + radius, center_y - half_rect_height
+    };
 
-    pchar = (char*)pfloat;
-    *pchar = path_cmds[8];
-    pfloat++;
-    *pfloat++ = radius;
-    *pfloat++ = radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x - half_rect_width + radius;
-    *pfloat++ = center_y - half_rect_height;
-
-    pchar = (char*)pfloat;
-    *pchar = 0;
+    vg_lite_path_append(vg_lite_path, path_cmds, tmp_path_data, path_cmds_size);
 }
 
 static void draw_bg_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
@@ -456,8 +356,10 @@ static void draw_bg_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
     vg_lite_color_t bg_color = get_vg_lite_color_lvgl_mix(bg_color_argb8888,
                                                           opa);
 
+    lv_gpu_path_data_t path_data;
+
     if (draw_rect_type == RECT_TYPE_DEFAULT) {
-        malloc_float_path_data(vg_lite_path, default_rect_path_cmds,
+        malloc_float_path_data(vg_lite_path, &path_data, default_rect_path_cmds,
                                sizeof(default_rect_path_cmds));
 
         float path_data_float[] = {
@@ -475,16 +377,13 @@ static void draw_bg_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
         float center_x = draw_coords.x1 + rect_width / 2;
         float center_y = draw_coords.y1 + rect_height / 2;
 
-        int32_t data_size
-            = malloc_float_path_data(vg_lite_path, rounded_rect_path_cmds,
+        malloc_float_path_data(vg_lite_path, &path_data, rounded_rect_path_cmds,
                                      sizeof(rounded_rect_path_cmds));
 
         fill_rounded_rect_path_data(vg_lite_path, rounded_rect_path_cmds,
-                                    draw_radius, rect_width, rect_height,
-                                    center_x, center_y);
-
-        vg_lite_init_arc_path(vg_lite_path, VG_LITE_FP32, VG_LITE_HIGH,
-                              data_size, vg_lite_path->path, 0, 0, 0, 0);
+                                    sizeof(rounded_rect_path_cmds), draw_radius,
+                                    rect_width, rect_height, center_x,
+                                    center_y);
     }
 
     fill_path_clip_area(vg_lite_path, clip_area);
@@ -501,7 +400,9 @@ static void draw_bg_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
         }
     }
 
-    free(vg_lite_path->path);
+    vg_lite_clear_path(vg_lite_path);
+
+    free_float_path_data(&path_data);
 }
 
 bool draw_rect_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,

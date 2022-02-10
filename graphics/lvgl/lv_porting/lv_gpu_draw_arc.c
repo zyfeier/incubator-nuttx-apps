@@ -73,13 +73,10 @@ bool simple_check_intersect_or_inclue(float center_x, float center_y,
 }
 
 static void draw_arc_float_path(vg_lite_path_t* vg_lite_path,
-                                vg_lite_buffer_t* vg_buf, int32_t data_size,
-                                vg_lite_blend_t blend, vg_lite_color_t color,
-                                const void* img_src, const lv_area_t* clip_area)
+                                vg_lite_buffer_t* vg_buf, vg_lite_blend_t blend,
+                                vg_lite_color_t color, const void* img_src,
+                                const lv_area_t* clip_area)
 {
-    vg_lite_init_arc_path(vg_lite_path, VG_LITE_FP32, VG_LITE_HIGH, data_size,
-                          vg_lite_path->path, 0, 0, 0, 0);
-
     fill_path_clip_area(vg_lite_path, clip_area);
 
     vg_lite_matrix_t path_matrix;
@@ -107,51 +104,36 @@ void draw_circular_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
                         vg_lite_blend_t blend, vg_lite_color_t color,
                         const void* img_src, const lv_area_t* clip_area)
 {
-    static uint8_t circular_path_cmds[] = {
+    const uint8_t circular_path_cmds[] = {
         VLC_OP_MOVE,
-        VLC_OP_LCCWARC,
-        VLC_OP_LCCWARC,
+        VLC_OP_LCWARC,
+        VLC_OP_LCWARC,
         VLC_OP_END
     };
 
-    int32_t data_size = malloc_float_path_data(vg_lite_path, circular_path_cmds,
-                                               sizeof(circular_path_cmds));
+    lv_gpu_path_data_t path_data;
+    malloc_float_path_data(vg_lite_path, &path_data, circular_path_cmds,
+                           sizeof(circular_path_cmds));
 
-    char* pchar;
-    float* pfloat;
+    float tmp_path_data[] = {
+        center_x, center_y - radius,
+        radius, radius, 0, center_x, center_y + radius,
+        radius, radius, 0, center_x, center_y - radius
+    };
 
-    pchar = (char*)vg_lite_path->path;
-    pfloat = (float*)vg_lite_path->path;
-    *pchar = circular_path_cmds[0];
-    pfloat++;
-    *pfloat++ = center_x;
-    *pfloat++ = center_y - radius;
+    lv_area_t draw_clip;
+    lv_area_copy(&draw_clip, clip_area);
+    draw_clip.x2 += 1;
+    draw_clip.y2 += 1;
 
-    pchar = (char*)pfloat;
-    *pchar = circular_path_cmds[1];
-    pfloat++;
-    *pfloat++ = radius;
-    *pfloat++ = radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x;
-    *pfloat++ = center_y + radius;
+    vg_lite_path_append(vg_lite_path, circular_path_cmds, tmp_path_data,
+                        sizeof(circular_path_cmds));
 
-    pchar = (char*)pfloat;
-    *pchar = circular_path_cmds[2];
-    pfloat++;
-    *pfloat++ = radius;
-    *pfloat++ = radius;
-    *pfloat++ = 0;
-    *pfloat++ = center_x;
-    *pfloat++ = center_y - radius;
+    draw_arc_float_path(vg_lite_path, vg_buf, blend, color, img_src, clip_area);
 
-    pchar = (char*)pfloat;
-    *pchar = 0;
+    vg_lite_clear_path(vg_lite_path);
 
-    draw_arc_float_path(vg_lite_path, vg_buf, data_size, blend, color, img_src,
-                        clip_area);
-
-    free(vg_lite_path->path);
+    free_float_path_data(&path_data);
 }
 
 static void compute_x_y_by_angle(float* x, float* y, float angle,
@@ -193,7 +175,8 @@ static void compute_x_y_by_angle(float* x, float* y, float angle,
 }
 
 static void fill_arc_path_by_angle(vg_lite_path_t* vg_lite_path,
-                                   uint8_t* arc_path_cmds, float width,
+                                   uint8_t* arc_path_cmds,
+                                   uint8_t path_cmds_size, float width,
                                    bool rounded, float start_angle,
                                    float end_angle, float center_x,
                                    float center_y, float radius)
@@ -205,98 +188,65 @@ static void fill_arc_path_by_angle(vg_lite_path_t* vg_lite_path,
         rounded_radius = width / 2;
     }
 
-    float px = 0, py = 0, radius_h = 0, radius_v = 0;
+    float px = 0, py = 0;
 
     compute_x_y_by_angle(&px, &py, start_angle, center_x, center_y, radius);
 
     float start_px = px;
     float start_py = py;
 
-    char* pchar;
-    float* pfloat;
+    float tmp_path_data[24];
 
-    pchar = (char*)vg_lite_path->path;
-    pfloat = (float*)vg_lite_path->path;
-    *pchar = arc_path_cmds[0];
-    pfloat++;
-    *pfloat++ = px;
-    *pfloat++ = py;
+    uint8_t index = 0;
+    tmp_path_data[index] = px;
+    tmp_path_data[++index] = py;
 
     compute_x_y_by_angle(&px, &py, end_angle, center_x, center_y, radius);
 
-    radius_h = radius;
-    radius_v = radius;
-
-    pchar = (char*)pfloat;
-    *pchar = arc_path_cmds[1];
-    pfloat++;
-    *pfloat++ = radius_h;
-    *pfloat++ = radius_v;
-    *pfloat++ = 0;
-    *pfloat++ = px;
-    *pfloat++ = py;
+    tmp_path_data[++index] = radius;
+    tmp_path_data[++index] = radius;
+    tmp_path_data[++index] = 0;
+    tmp_path_data[++index] = px;
+    tmp_path_data[++index] = py;
 
     compute_x_y_by_angle(&px, &py, end_angle, center_x, center_y, inner_radius);
 
-    radius_h = rounded_radius;
-    radius_v = rounded_radius;
-
     if (rounded == true) {
-        pchar = (char*)pfloat;
-        *pchar = arc_path_cmds[2];
-        pfloat++;
-        *pfloat++ = radius_h;
-        *pfloat++ = radius_v;
-        *pfloat++ = 0;
-        *pfloat++ = px;
-        *pfloat++ = py;
+        tmp_path_data[++index] = rounded_radius;
+        tmp_path_data[++index] = rounded_radius;
+        tmp_path_data[++index] = 0;
+        tmp_path_data[++index] = px;
+        tmp_path_data[++index] = py;
     } else {
-        pchar = (char*)pfloat;
-        *pchar = arc_path_cmds[2];
-        pfloat++;
-        *pfloat++ = px;
-        *pfloat++ = py;
+        tmp_path_data[++index] = px;
+        tmp_path_data[++index] = py;
     }
 
     compute_x_y_by_angle(&px, &py, start_angle, center_x, center_y,
                          inner_radius);
 
-    radius_h = inner_radius;
-    radius_v = inner_radius;
-
-    pchar = (char*)pfloat;
-    *pchar = arc_path_cmds[3];
-    pfloat++;
-    *pfloat++ = radius_h;
-    *pfloat++ = radius_v;
-    *pfloat++ = 0;
-    *pfloat++ = px;
-    *pfloat++ = py;
+    tmp_path_data[++index] = inner_radius;
+    tmp_path_data[++index] = inner_radius;
+    tmp_path_data[++index] = 0;
+    tmp_path_data[++index] = px;
+    tmp_path_data[++index] = py;
 
     px = start_px;
     py = start_py;
-    radius_h = rounded_radius;
-    radius_v = rounded_radius;
 
     if (rounded == true) {
-        pchar = (char*)pfloat;
-        *pchar = arc_path_cmds[4];
-        pfloat++;
-        *pfloat++ = radius_h;
-        *pfloat++ = radius_v;
-        *pfloat++ = 0;
-        *pfloat++ = px;
-        *pfloat++ = py;
+        tmp_path_data[++index] = rounded_radius;
+        tmp_path_data[++index] = rounded_radius;
+        tmp_path_data[++index] = 0;
+        tmp_path_data[++index] = px;
+        tmp_path_data[++index] = py;
     } else {
-        pchar = (char*)pfloat;
-        *pchar = arc_path_cmds[4];
-        pfloat++;
-        *pfloat++ = px;
-        *pfloat++ = py;
+        tmp_path_data[++index] = px;
+        tmp_path_data[++index] = py;
     }
 
-    pchar = (char*)pfloat;
-    *pchar = 0;
+    vg_lite_path_append(vg_lite_path, arc_path_cmds, tmp_path_data,
+                        path_cmds_size);
 }
 
 void draw_arc_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
@@ -307,10 +257,10 @@ void draw_arc_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
 {
     uint8_t arc_path_cmds[] = {
         VLC_OP_MOVE,
-        VLC_OP_SCCWARC,
-        VLC_OP_LCCWARC,
         VLC_OP_SCWARC,
-        VLC_OP_LCCWARC,
+        VLC_OP_LCWARC,
+        VLC_OP_SCCWARC,
+        VLC_OP_LCWARC,
         VLC_OP_END
     };
 
@@ -321,29 +271,33 @@ void draw_arc_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
 
     if (start_angle > end_angle) {
         if (360 - start_angle + end_angle >= 180) {
-            arc_path_cmds[1] = VLC_OP_LCCWARC;
-            arc_path_cmds[3] = VLC_OP_LCWARC;
+            arc_path_cmds[1] = VLC_OP_LCWARC;
+            arc_path_cmds[3] = VLC_OP_LCCWARC;
         }
     } else {
         if (end_angle - start_angle >= 180) {
-            arc_path_cmds[1] = VLC_OP_LCCWARC;
-            arc_path_cmds[3] = VLC_OP_LCWARC;
+            arc_path_cmds[1] = VLC_OP_LCWARC;
+            arc_path_cmds[3] = VLC_OP_LCCWARC;
         }
     }
 
-    int32_t data_size = malloc_float_path_data(vg_lite_path, arc_path_cmds,
-                                               sizeof(arc_path_cmds));
+    lv_gpu_path_data_t path_data;
+    malloc_float_path_data(vg_lite_path, &path_data, arc_path_cmds,
+                           sizeof(arc_path_cmds));
 
-    fill_arc_path_by_angle(vg_lite_path, arc_path_cmds, width, rounded,
-                           start_angle, end_angle, center_x, center_y, radius);
+    fill_arc_path_by_angle(vg_lite_path, arc_path_cmds, sizeof(arc_path_cmds),
+                           width, rounded, start_angle, end_angle, center_x,
+                           center_y, radius);
 
     lv_area_t draw_clip;
     lv_area_copy(&draw_clip, clip_area);
     draw_clip.x2 += 1;
     draw_clip.y2 += 1;
 
-    draw_arc_float_path(vg_lite_path, vg_buf, data_size, blend, color, img_src,
+    draw_arc_float_path(vg_lite_path, vg_buf, blend, color, img_src,
                         &draw_clip);
 
-    free(vg_lite_path->path);
+    vg_lite_clear_path(vg_lite_path);
+
+    free_float_path_data(&path_data);
 }
