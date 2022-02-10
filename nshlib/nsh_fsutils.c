@@ -507,12 +507,13 @@ FAR char *nsh_trimspaces(FAR char *str)
  *
  ****************************************************************************/
 
+#ifdef NSH_HAVE_IOBUFFER
 FAR char *nsh_getdirpath(FAR struct nsh_vtbl_s *vtbl,
                          FAR const char *dirpath, FAR const char *path)
 {
   /* Handle the case where all that is left is '/' */
 
-  if (strcmp(path, "/") == 0)
+  if (strcmp(dirpath, "/") == 0)
     {
       snprintf(vtbl->iobuffer, IOBUFFERSIZE, "/%s", path);
     }
@@ -524,3 +525,4 @@ FAR char *nsh_getdirpath(FAR struct nsh_vtbl_s *vtbl,
   vtbl->iobuffer[PATH_MAX] = '\0';
   return strdup(vtbl->iobuffer);
 }
+#endif

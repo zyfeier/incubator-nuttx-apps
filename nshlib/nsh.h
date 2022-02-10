@@ -490,7 +490,8 @@
  */
 
 #if defined(CONFIG_NSH_DISABLE_LS) && defined(CONFIG_NSH_DISABLE_CP) && \
-    defined(CONFIG_NSH_DISABLE_PS) && !defined(CONFIG_NSH_PLATFORM_MOTD)
+    defined(CONFIG_NSH_DISABLE_PS) && !defined(CONFIG_NSH_PLATFORM_MOTD) && \
+    defined(CONFIG_DISABLE_ENVIRON)
 #  undef NSH_HAVE_IOBUFFER
 #endif
 
