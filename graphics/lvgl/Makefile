@@ -63,9 +63,9 @@ CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../vendor/bes/framewo
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu}
 CSRCS += lv_porting/lv_gpu_interface.c
 CSRCS += lv_porting/lv_gpu_decoder.c
-CSRCS += lv_porting/lv_gpu_draw.c
-CSRCS += lv_porting/lv_gpu_draw_arc.c
-CSRCS += lv_porting/lv_gpu_draw_rect.c
+# CSRCS += lv_porting/lv_gpu_draw.c
+# CSRCS += lv_porting/lv_gpu_draw_arc.c
+# CSRCS += lv_porting/lv_gpu_draw_rect.c
 endif
 
 ifneq ($(CONFIG_LV_USE_FFMPEG),)

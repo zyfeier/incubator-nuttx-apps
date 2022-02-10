@@ -267,8 +267,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
   if (map_stride == vgbuf_stride) {
     if (dsc->src_type == LV_IMG_SRC_FILE) {
       lv_fs_read(&f, px_buf, map_stride * img_h, NULL);
-    }
-    else {
+    } else {
       lv_memcpy(px_buf, px_map, map_stride * img_h);
     }
 
@@ -276,8 +275,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
 
     px_map += map_stride * img_h;
     px_buf += vgbuf_stride * img_h;
-  }
-  else {
+  } else {
     for (int_fast16_t i = 0; i < img_h; i++) {
       if (dsc->src_type == LV_IMG_SRC_FILE) {
         lv_fs_read(&f, px_buf, map_stride, NULL);

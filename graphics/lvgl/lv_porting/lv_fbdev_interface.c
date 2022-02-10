@@ -480,6 +480,11 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
 #error LV_USE_USER_DATA must be enabled
 #endif
 
+#if defined(CONFIG_LV_USE_GPU_INTERFACE)
+  fbdev_obj->disp_drv.draw_ctx_init = lv_gpu_draw_ctx_init;
+  fbdev_obj->disp_drv.draw_ctx_size = sizeof(gpu_draw_ctx_t);
+#endif /* CONFIG_LV_USE_GPU_INTERFACE */
+
   fbdev_obj->disp = lv_disp_drv_register(&(fbdev_obj->disp_drv));
 
 #if defined(CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER)

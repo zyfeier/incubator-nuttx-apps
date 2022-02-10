@@ -85,7 +85,7 @@
 #define VG_FMT_TO_LV_FMT(z) ((z) == VG_LITE_A4 || (z) == VG_LITE_A8 ? (z)-VG_LITE_A4 + LV_IMG_CF_ALPHA_4BIT : BPP_TO_LV_FMT(VG_FMT_TO_BPP(z)))
 #define VGLITE_PX_FMT BPP_TO_VG_FMT(LV_COLOR_DEPTH)
 
-#define BGRA_TO_RGBA(c) (((c) & 0xFF00FF00) | ((c) >> 16 & 0xFF) | ((c) << 16 & 0xFF0000))
+#define BGRA_TO_RGBA(c) (((c)&0xFF00FF00) | ((c) >> 16 & 0xFF) | ((c) << 16 & 0xFF0000))
 
 #ifndef ALIGN_UP
 #define ALIGN_UP(num, align) (((num) + ((align)-1)) & ~((align)-1))
@@ -154,6 +154,8 @@ typedef struct {
   lv_coord_t width;
   lv_coord_t height;
 } lv_gpu_color_fmt_convert_dsc_t;
+
+typedef lv_draw_ctx_t gpu_draw_ctx_t;
 
 /****************************************************************************
  * Public Data
@@ -235,8 +237,8 @@ lv_res_t lv_gpu_setmode(lv_gpu_mode_t mode);
  *
  ****************************************************************************/
 
-LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(const lv_area_t* map_area, const lv_area_t* clip_area,
-    const uint8_t* map_buf, const lv_draw_img_dsc_t* draw_dsc, bool chroma_key, bool alpha_byte);
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(struct _lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
+    const lv_area_t* coords, const uint8_t* map_p, lv_img_cf_t color_format);
 
 /****************************************************************************
  * Name: lv_gpu_color_fmt_convert
@@ -275,6 +277,23 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_c
 
 LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width, uint32_t height,
     uint32_t stride, void* ptr, uint8_t format, bool source);
+
+/****************************************************************************
+ * Name: lv_gpu_draw_ctx_init
+ *
+ * Description:
+ *   GPU draw context init callback. (Do not call directly)
+ *
+ * Input Parameters:
+ * @param drv lvgl display driver
+ * @param draw_ctx lvgl draw context struct
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx);
 
 #undef EXTERN
 #ifdef __cplusplus
