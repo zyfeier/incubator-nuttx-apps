@@ -64,7 +64,8 @@ void draw_circular_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
                         vg_lite_blend_t blend, vg_lite_color_t color,
                         const void* img_src, const lv_area_t* clip_area);
 
-size_t init_vg_lite_buffer_use_lv_buffer(vg_lite_buffer_t* vgbuf);
+size_t init_vg_lite_buffer_use_lv_buffer(struct _lv_draw_ctx_t* draw_ctx,
+                                         vg_lite_buffer_t* vg_buf);
 
 void draw_arc_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
                    float width, bool rounded, float start_angle,

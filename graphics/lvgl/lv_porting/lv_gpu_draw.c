@@ -116,17 +116,16 @@ void fill_path_clip_area(vg_lite_path_t* vg_lite_path,
     vg_lite_path->bounding_box[3] = clip_area->y2;
 }
 
-size_t init_vg_lite_buffer_use_lv_buffer(vg_lite_buffer_t* vgbuf)
+size_t init_vg_lite_buffer_use_lv_buffer(struct _lv_draw_ctx_t* draw_ctx,
+                                         vg_lite_buffer_t* vg_buf)
 {
-    lv_disp_t* disp = _lv_refr_get_disp_refreshing();
-    lv_disp_draw_buf_t* draw_buf = lv_disp_get_draw_buf(disp);
-    const lv_area_t* disp_area = &draw_buf->area;
-    lv_color_t* disp_buf = draw_buf->buf_act;
+    const lv_area_t* disp_area = draw_ctx->buf_area;
+    lv_color_t* disp_buf = draw_ctx->buf;
     int32_t disp_w = lv_area_get_width(disp_area);
     int32_t disp_h = lv_area_get_height(disp_area);
     uint32_t stride = disp_w * sizeof(lv_color_t);
 
-    lv_res_t ret = init_vg_buf(vgbuf, disp_w, disp_h, stride, disp_buf,
+    lv_res_t ret = init_vg_buf(vg_buf, disp_w, disp_h, stride, disp_buf,
                                VGLITE_PX_FMT, false);
     LV_ASSERT(ret == LV_RES_OK);
 

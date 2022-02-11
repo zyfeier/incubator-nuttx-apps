@@ -79,13 +79,21 @@ static void draw_gradient_path(vg_lite_buffer_t* vg_lite_buffer,
         return;
     }
 
-    uint32_t start_color = lv_color_to32(dsc->bg_color);
-    uint32_t end_color = lv_color_to32(dsc->bg_grad_color);
+    uint8_t stops_count = dsc->bg_grad.stops_count;
+    lv_gradient_stop_t* bg_stops = dsc->bg_grad.stops;
 
-    uint32_t ramps[] = { start_color, start_color, end_color};
-    uint32_t stops[] = { 0, dsc->bg_main_color_stop, dsc->bg_grad_color_stop};
+    uint32_t ramps[LV_GRADIENT_MAX_STOPS + 1];
+    uint32_t stops[LV_GRADIENT_MAX_STOPS + 1];
 
-    vg_lite_set_grad(&grad, 3, ramps, stops);
+    ramps[0] = lv_color_to32(bg_stops[0].color);
+    stops[0] = 0;
+
+    for (uint8_t i = 0; i < stops_count; i++) {
+        ramps[i + 1] = lv_color_to32(bg_stops[i].color);
+        stops[i + 1] = bg_stops[i].frac;
+    }
+
+    vg_lite_set_grad(&grad, stops_count + 1, ramps, stops);
     vg_lite_update_grad_as_lvgl(&grad, new_opa);
 
     vg_lite_matrix_t* mat_grad = vg_lite_get_grad_matrix(&grad);
@@ -346,13 +354,14 @@ static void draw_bg_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
     lv_coord_t rect_height = draw_coords.y2 - draw_coords.y1 + 1;
 
     lv_opa_t opa = dsc->bg_opa >= LV_OPA_MAX ? LV_OPA_COVER : dsc->bg_opa;
-    lv_grad_dir_t grad_dir = dsc->bg_grad_dir;
-    if(dsc->bg_color.full == dsc->bg_grad_color.full) grad_dir = LV_GRAD_DIR_NONE;
+    lv_grad_dir_t grad_dir = dsc->bg_grad.dir;
+    lv_color_t lv_bg_color = grad_dir == LV_GRAD_DIR_NONE ? dsc->bg_color : dsc->bg_grad.stops[0].color;
+    if(lv_bg_color.full == dsc->bg_grad.stops[1].color.full) grad_dir = LV_GRAD_DIR_NONE;
 
     vg_lite_matrix_t path_matrix;
     vg_lite_identity(&path_matrix);
 
-    uint32_t bg_color_argb8888 = lv_color_to32(dsc->bg_color);
+    uint32_t bg_color_argb8888 = lv_color_to32(lv_bg_color);
     vg_lite_color_t bg_color = get_vg_lite_color_lvgl_mix(bg_color_argb8888,
                                                           opa);
 

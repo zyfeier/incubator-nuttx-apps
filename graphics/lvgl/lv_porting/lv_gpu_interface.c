@@ -82,13 +82,14 @@ static int16_t rect_path[13] = {
  * Private Functions
  ****************************************************************************/
 
-LV_ATTRIBUTE_FAST_MEM static lv_res_t lv_draw_arc_gpu(lv_coord_t center_x,
-    lv_coord_t center_y,
+#define ATTR_FAST_MEM LV_ATTRIBUTE_FAST_MEM
+
+ATTR_FAST_MEM static lv_res_t lv_draw_arc_gpu(struct _lv_draw_ctx_t* draw_ctx,
+    const lv_draw_arc_dsc_t* dsc,
+    const lv_point_t* center,
     uint16_t radius,
     uint16_t start_angle,
-    uint16_t end_angle,
-    const lv_area_t* clip_area,
-    const lv_draw_arc_dsc_t* dsc)
+    uint16_t end_angle)
 {
 #if LV_DRAW_COMPLEX
   if (dsc->opa <= LV_OPA_MIN)
@@ -102,15 +103,15 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t lv_draw_arc_gpu(lv_coord_t center_x,
   if (dsc->img_src != NULL)
     return LV_RES_INV;
   // Not support temporary.
-  if (lv_draw_mask_is_any(clip_area) == true)
+  if (lv_draw_mask_is_any(draw_ctx->clip_area) == true)
     return LV_RES_INV;
 
   lv_coord_t width = dsc->width;
   if (width > radius)
     width = radius;
 
-  if (simple_check_intersect_or_inclue(center_x, center_y, width, radius,
-          clip_area)
+  if (simple_check_intersect_or_inclue(center->x, center->y, width, radius,
+          draw_ctx->clip_area)
       == false) {
     return LV_RES_OK;
   }
@@ -124,21 +125,21 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t lv_draw_arc_gpu(lv_coord_t center_x,
   vg_lite_blend_t vg_lite_blend = get_vg_lite_blend(dsc->blend_mode);
 
   vg_lite_buffer_t dst_vgbuf;
-  size_t buffer_size = init_vg_lite_buffer_use_lv_buffer(&dst_vgbuf);
+  size_t buf_size = init_vg_lite_buffer_use_lv_buffer(draw_ctx, &dst_vgbuf);
 
   /*Draw two semicircle*/
   if (start_angle + 360 == end_angle || start_angle == end_angle + 360) {
-    draw_arc_path(&vg_lite_path, &dst_vgbuf, width, false, 0, 180, center_x,
-        center_y, radius, vg_lite_blend, color, dsc->img_src,
-        clip_area);
+    draw_arc_path(&vg_lite_path, &dst_vgbuf, width, false, 0, 180,
+        center->x, center->y, radius, vg_lite_blend, color,
+        dsc->img_src, draw_ctx->clip_area);
 
     draw_arc_path(&vg_lite_path, &dst_vgbuf, width, false, 180, 360,
-        center_x, center_y, radius, vg_lite_blend, color,
-        dsc->img_src, clip_area);
+        center->x, center->y, radius, vg_lite_blend, color,
+        dsc->img_src, draw_ctx->clip_area);
 
     vg_lite_finish();
     if (IS_CACHED(dst_vgbuf.memory)) {
-      cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buffer_size);
+      cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
     }
     return LV_RES_OK;
   }
@@ -149,12 +150,12 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t lv_draw_arc_gpu(lv_coord_t center_x,
     end_angle -= 360;
 
   draw_arc_path(&vg_lite_path, &dst_vgbuf, width, dsc->rounded, start_angle,
-      end_angle, center_x, center_y, radius, vg_lite_blend, color,
-      dsc->img_src, clip_area);
+      end_angle, center->x, center->y, radius, vg_lite_blend, color,
+      dsc->img_src, draw_ctx->clip_area);
 
   vg_lite_finish();
   if (IS_CACHED(dst_vgbuf.memory)) {
-    cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buffer_size);
+    cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
   }
 #else
   LV_LOG_WARN("Can't draw arc with LV_DRAW_COMPLEX == 0");
@@ -169,88 +170,88 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t lv_draw_arc_gpu(lv_coord_t center_x,
   return LV_RES_OK;
 }
 
-// LV_ATTRIBUTE_FAST_MEM static void gpu_draw_arc(lv_coord_t center_x,
-//     lv_coord_t center_y,
-//     uint16_t radius,
-//     uint16_t start_angle,
-//     uint16_t end_angle,
-//     const lv_area_t* clip_area,
-//     const lv_draw_arc_dsc_t* dsc)
-// {
-//   if (lv_draw_arc_gpu(center_x, center_y, radius, start_angle, end_angle,
-//           clip_area, dsc)
-//       != LV_RES_OK) {
-//     lv_draw_sw_arc(center_x, center_y, radius, start_angle, end_angle,
-//         clip_area, dsc);
-//   }
-// }
+ATTR_FAST_MEM static void gpu_draw_arc(struct _lv_draw_ctx_t* draw_ctx,
+    const lv_draw_arc_dsc_t* dsc,
+    const lv_point_t* center,
+    uint16_t radius,
+    uint16_t start_angle,
+    uint16_t end_angle)
+{
+  if (lv_draw_arc_gpu(draw_ctx, dsc, center, radius, start_angle, end_angle)
+      != LV_RES_OK) {
+    lv_draw_sw_arc(draw_ctx, dsc, center, radius, start_angle, end_angle);
+  }
+}
 
-// LV_ATTRIBUTE_FAST_MEM static lv_res_t lv_draw_rect_gpu(const lv_area_t* coords,
-//     const lv_area_t* clip,
-//     const lv_draw_rect_dsc_t* dsc)
-// {
-//   if (lv_area_get_height(coords) < 1 || lv_area_get_width(coords) < 1) {
-//     return LV_RES_OK;
-//   }
+ATTR_FAST_MEM static lv_res_t lv_draw_rect_gpu(struct _lv_draw_ctx_t* draw_ctx,
+    const lv_draw_rect_dsc_t* dsc,
+    const lv_area_t* coords)
+{
+  if (lv_area_get_height(coords) < 1 || lv_area_get_width(coords) < 1) {
+    return LV_RES_OK;
+  }
 
-//   // Not support temporary.
-//   if (lv_draw_mask_is_any(clip) == true)
-//     return LV_RES_INV;
+  // Not support temporary.
+  if (lv_draw_mask_is_any(draw_ctx->clip_area) == true)
+    return LV_RES_INV;
 
-//   bool draw_shadow = true;
-//   if (dsc->shadow_width == 0)
-//     draw_shadow = false;
-//   if (dsc->shadow_opa <= LV_OPA_MIN)
-//     draw_shadow = false;
+  bool draw_shadow = true;
+  if (dsc->shadow_width == 0)
+    draw_shadow = false;
+  if (dsc->shadow_opa <= LV_OPA_MIN)
+    draw_shadow = false;
 
-//   if (dsc->shadow_width == 1 && dsc->shadow_spread <= 0 && dsc->shadow_ofs_x == 0 && dsc->shadow_ofs_y == 0) {
-//     draw_shadow = false;
-//   }
-//   // Not support temporary.
-//   if (draw_shadow == true)
-//     return LV_RES_INV;
+  if (dsc->shadow_width == 1 && dsc->shadow_spread <= 0
+      && dsc->shadow_ofs_x == 0 && dsc->shadow_ofs_y == 0) {
+    draw_shadow = false;
+  }
+  // Not support temporary.
+  if (draw_shadow == true)
+    return LV_RES_INV;
 
-//   // Not support temporary.
-//   if (dsc->bg_img_src != NULL && dsc->bg_img_opa > LV_OPA_MIN)
-//     return LV_RES_INV;
+  // Not support temporary.
+  if (dsc->bg_img_src != NULL && dsc->bg_img_opa > LV_OPA_MIN)
+    return LV_RES_INV;
 
-//   if (dsc->border_side != LV_BORDER_SIDE_NONE) {
-//     // Not support temporary.
-//     if (!(dsc->border_side & LV_BORDER_SIDE_LEFT)
-//         || !(dsc->border_side & LV_BORDER_SIDE_TOP)
-//         || !(dsc->border_side & LV_BORDER_SIDE_RIGHT)
-//         || !(dsc->border_side & LV_BORDER_SIDE_BOTTOM)) {
-//       return LV_RES_INV;
-//     }
-//   }
+  if (dsc->border_side != LV_BORDER_SIDE_NONE) {
+    // Not support temporary.
+    if (!(dsc->border_side & LV_BORDER_SIDE_LEFT)
+        || !(dsc->border_side & LV_BORDER_SIDE_TOP)
+        || !(dsc->border_side & LV_BORDER_SIDE_RIGHT)
+        || !(dsc->border_side & LV_BORDER_SIDE_BOTTOM)) {
+      return LV_RES_INV;
+    }
+  }
 
-//   vg_lite_buffer_t dst_vgbuf;
-//   size_t buffer_size = init_vg_lite_buffer_use_lv_buffer(&dst_vgbuf);
+  vg_lite_buffer_t dst_vgbuf;
+  size_t buf_size = init_vg_lite_buffer_use_lv_buffer(draw_ctx, &dst_vgbuf);
 
-//   vg_lite_path_t vg_lite_path;
-//   memset(&vg_lite_path, 0, sizeof(vg_lite_path_t));
+  vg_lite_path_t vg_lite_path;
+  memset(&vg_lite_path, 0, sizeof(vg_lite_path_t));
 
-//   if (draw_rect_path(&dst_vgbuf, &vg_lite_path, coords, clip, dsc) == false) {
-//     return LV_RES_OK;
-//   }
+  if (draw_rect_path(&dst_vgbuf, &vg_lite_path, coords, draw_ctx->clip_area,
+          dsc)
+      == false) {
+    return LV_RES_OK;
+  }
 
-//   vg_lite_finish();
-//   if (IS_CACHED(dst_vgbuf.memory)) {
-//     cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buffer_size);
-//   }
+  vg_lite_finish();
+  if (IS_CACHED(dst_vgbuf.memory)) {
+    cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
+  }
 
-//   LV_ASSERT_MEM_INTEGRITY();
-//   return LV_RES_OK;
-// }
+  LV_ASSERT_MEM_INTEGRITY();
+  return LV_RES_OK;
+}
 
-// LV_ATTRIBUTE_FAST_MEM static void gpu_draw_rect(const lv_area_t* coords,
-//     const lv_area_t* clip,
-//     const lv_draw_rect_dsc_t* dsc)
-// {
-//   if (lv_draw_rect_gpu(coords, clip, dsc) != LV_RES_OK) {
-//     lv_draw_sw_rect(coords, clip, dsc);
-//   }
-// }
+ATTR_FAST_MEM static void gpu_draw_rect(struct _lv_draw_ctx_t* draw_ctx,
+    const lv_draw_rect_dsc_t* dsc,
+    const lv_area_t* coords)
+{
+  if (lv_draw_rect_gpu(draw_ctx, dsc, coords) != LV_RES_OK) {
+    lv_draw_sw_rect(draw_ctx, dsc, coords);
+  }
+}
 
 LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(struct _lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
     const lv_area_t* coords, const uint8_t* map_p, lv_img_cf_t color_format)
@@ -361,10 +362,10 @@ void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx)
   /*Change some callbacks*/
   gpu_draw_ctx_t* gpu_draw_ctx = (gpu_draw_ctx_t*)draw_ctx;
 
+  gpu_draw_ctx->draw_rect = gpu_draw_rect;
+  gpu_draw_ctx->draw_arc = gpu_draw_arc;
   gpu_draw_ctx->draw_img_decoded = gpu_draw_img_decoded;
   gpu_draw_ctx->wait_for_finish = gpu_wait;
-  // gpu_draw_ctx->draw_arc = gpu_draw_arc;
-  // gpu_draw_ctx->draw_rect = gpu_draw_rect;
 }
 
 /****************************************************************************
