@@ -17,20 +17,29 @@ config LIBUV_THREADPOOL_SIZE
 	int "libuv default thread pool size"
 	default 1
 
-config LIBUV_TEST
-	tristate "Enable uv_run_tests"
-	default n
+choice
+	prompt "libuv utils"
 
-if LIBUV_TEST
+config LIBUV_UTILS_NONE
+	tristate "none"
 
-config LIBUV_TEST_PRIORITY
-	int "uv_run_tests priority"
+config LIBUV_UTILS_TEST
+	tristate "uv_run_tests"
+
+config LIBUV_UTILS_BENCHMARK
+	tristate "uv_run_benchmarks"
+
+endchoice
+
+if !LIBUV_UTILS_NONE
+
+config LIBUV_UTILS_PRIORITY
+	int "libuv utils priority"
 	default 100
 
-config LIBUV_TEST_STACKSIZE
-	int "uv_run_tests stack size"
+config LIBUV_UTILS_STACKSIZE
+	int "libuv utils stack size"
 	default 8192
-
 endif
 
 menu "libuv extension"

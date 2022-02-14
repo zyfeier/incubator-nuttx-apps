@@ -108,14 +108,14 @@ ifneq ($(CONFIG_NET_UDP),)
 CSRCS += udp.c
 endif
 
-ifneq ($(CONFIG_LIBUV_TEST),)
+PRIORITY  = $(CONFIG_LIBUV_UTILS_PRIORITY)
+STACKSIZE = $(CONFIG_LIBUV_UTILS_STACKSIZE)
 
-PROGNAME  = uv_run_tests
-PRIORITY  = $(CONFIG_LIBUV_TEST_PRIORITY)
-STACKSIZE = $(CONFIG_LIBUV_TEST_STACKSIZE)
-MODULE    = $(CONFIG_LIBUV_TEST)
+ifneq ($(CONFIG_LIBUV_UTILS_TEST),)
 
-MAINSRC = run-tests.c
+PROGNAME = uv_run_tests
+MODULE   = $(CONFIG_LIBUV_UTILS_TEST)
+MAINSRC  = run-tests.c
 
 CSRCS += runner.c
 CSRCS += runner-unix.c
@@ -283,6 +283,38 @@ CSRCS += test-udp-try-send.c
 CSRCS += test-uname.c
 CSRCS += test-walk-handles.c
 CSRCS += test-watcher-cross-stop.c
+endif
+
+ifneq ($(CONFIG_LIBUV_UTILS_BENCHMARK),)
+
+PROGNAME = uv_run_benchmarks
+MODULE   = $(CONFIG_LIBUV_UTILS_BENCHMARK)
+MAINSRC  = run-benchmarks.c
+
+CSRCS += runner.c
+CSRCS += runner-unix.c
+
+CSRCS += benchmark-async-pummel.c
+CSRCS += benchmark-async.c
+CSRCS += benchmark-fs-stat.c
+CSRCS += benchmark-getaddrinfo.c
+CSRCS += benchmark-loop-count.c
+CSRCS += benchmark-million-async.c
+CSRCS += benchmark-million-timers.c
+CSRCS += benchmark-multi-accept.c
+CSRCS += benchmark-ping-pongs.c
+CSRCS += benchmark-ping-udp.c
+CSRCS += benchmark-pound.c
+CSRCS += benchmark-pump.c
+CSRCS += benchmark-sizes.c
+CSRCS += benchmark-spawn.c
+CSRCS += benchmark-tcp-write-batch.c
+CSRCS += benchmark-thread.c
+CSRCS += benchmark-udp-pummel.c
+
+CSRCS += blackhole-server.c
+CSRCS += echo-server.c
+
 endif
 
 context::# $(LIBUV_UNPACK)/.patch
