@@ -37,16 +37,18 @@
  * Public Types
  ****************************************************************************/
 
-struct dhcp6c_result_s
+struct dhcp6c_state
 {
   struct in6_addr addr;
-  struct in6_addr pd;
+  struct in6_addr pd;       /* prefix address */
   struct in6_addr dns;
+  struct in6_addr netmask;
+  uint8_t pl;               /* prefix len */
   uint32_t t1;
   uint32_t t2;
 };
 
-typedef void (*dhcp6c_callback_t)(FAR struct dhcp6c_result_s *presult);
+typedef void (*dhcp6c_callback_t)(FAR struct dhcp6c_state *presult);
 
 /****************************************************************************
  * Public Function Prototypes
@@ -61,7 +63,7 @@ extern "C"
 #endif
 
 FAR void *dhcp6c_open(FAR const char *interface);
-int dhcp6c_request(FAR void *handle, FAR struct dhcp6c_result_s *presult);
+int dhcp6c_request(FAR void *handle, FAR struct dhcp6c_state *presult);
 int dhcp6c_request_async(FAR void *handle, dhcp6c_callback_t callback);
 void dhcp6c_cancel(FAR void *handle);
 void dhcp6c_close(FAR void *handle);

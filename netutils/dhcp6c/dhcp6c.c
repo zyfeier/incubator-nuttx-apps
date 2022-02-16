@@ -396,7 +396,7 @@ static FAR void *dhcp6c_get_state(FAR void *handle,
 }
 
 static void dhcp6c_get_result(FAR void *handle,
-                              FAR struct dhcp6c_result_s *presult)
+                              FAR struct dhcp6c_state *presult)
 {
   FAR struct dhcp6c_state_s *pdhcp6c = (FAR struct dhcp6c_state_s *)handle;
   size_t s_len;
@@ -428,8 +428,12 @@ static void dhcp6c_get_result(FAR void *handle,
     {
       pd = (FAR void *)&odata[-4];
       memcpy(&presult->pd, &pd->addr, sizeof(presult->pd));
+      presult->pl = pd->prefix;
+      netlib_prefix2ipv6netmask(presult->pl, &presult->netmask);
       inet_ntop(AF_INET6, &presult->pd, addr_str, sizeof(addr_str));
       ninfo("IA_PD %s for iface %i\n", addr_str, pdhcp6c->ifindex);
+      inet_ntop(AF_INET6, &presult->netmask, addr_str, sizeof(addr_str));
+      ninfo("netmask %s for iface %i\n", addr_str, pdhcp6c->ifindex);
     }
 
   dns = dhcp6c_get_state(handle, STATE_DNS, &s_len);
@@ -446,7 +450,7 @@ static void dhcp6c_get_result(FAR void *handle,
 static void dhcp6c_switch_process(FAR void *handle, FAR const char *name)
 {
   FAR struct dhcp6c_state_s *pdhcp6c = (FAR struct dhcp6c_state_s *)handle;
-  struct dhcp6c_result_s result;
+  struct dhcp6c_state result;
 
   ninfo("Process switch to %s\n", name);
 
@@ -1834,7 +1838,7 @@ FAR void *dhcp6c_open(FAR const char *interface)
   return dhcp6c_precise_open(interface, IA_MODE_TRY, true, NULL, 0);
 }
 
-int dhcp6c_request(FAR void *handle, FAR struct dhcp6c_result_s *presult)
+int dhcp6c_request(FAR void *handle, FAR struct dhcp6c_state *presult)
 {
   int ret;
 
