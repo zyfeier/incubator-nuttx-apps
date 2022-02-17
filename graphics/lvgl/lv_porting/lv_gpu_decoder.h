@@ -28,7 +28,7 @@ extern "C" {
 typedef struct {
   uint32_t magic;
   vg_lite_buffer_t vgbuf;
-} gpu_data_header_t;
+} __attribute__((aligned(8))) gpu_data_header_t;
 
 /**********************
  * GLOBAL PROTOTYPES
