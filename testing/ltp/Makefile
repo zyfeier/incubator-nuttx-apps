@@ -44,7 +44,11 @@ BLACKWORDS  += "getpgrp"
 BLACKWORDS  += "lfind"
 BLACKWORDS += "killpg"
 BLACKWORDS  += "setpwent"
-
+ifeq ($(CONFIG_PTHREAD_SPINLOCKS),)
+BLACKWORDS += "pthread_spin_init"
+BLACKWORDS += "pthread_spin_destroy"
+BLACKWORDS += "pthread_spin_trylock"
+endif
 
 BLACKWORDS  += "affinity.h"
 BLACKWORDS  += "langinfo.h"
@@ -101,6 +105,9 @@ BLACKSRCS += 25-1-buildonly.c
 BLACKSRCS += 27-1-buildonly.c
 BLACKSRCS += 35-1-buildonly.c
 BLACKSRCS += 35-2-buildonly.c
+ifeq ($(CONFIG_PTHREAD_SPINLOCKS),)
+BLACKSRCS += 3-12-buildonly.c
+endif
 
 MAINWORDS    += "main("
 
