@@ -187,13 +187,19 @@ ATTR_FAST_MEM static lv_res_t lv_draw_rect_gpu(struct _lv_draw_ctx_t* draw_ctx,
     const lv_draw_rect_dsc_t* dsc,
     const lv_area_t* coords)
 {
-  if (lv_area_get_height(coords) < 1 || lv_area_get_width(coords) < 1) {
+  if (dsc->radius <= 0) {
+    return LV_RES_INV;
+  }
+
+  lv_coord_t area_height = lv_area_get_height(coords);
+  lv_coord_t area_width = lv_area_get_width(coords);
+  if (area_height < 1 || area_width < 1) {
     return LV_RES_OK;
   }
 
-  // Not support temporary.
-  if (lv_draw_mask_is_any(draw_ctx->clip_area) == true)
+  if (area_height + area_width < 240) {
     return LV_RES_INV;
+  }
 
   bool draw_shadow = true;
   if (dsc->shadow_width == 0)
@@ -222,6 +228,10 @@ ATTR_FAST_MEM static lv_res_t lv_draw_rect_gpu(struct _lv_draw_ctx_t* draw_ctx,
       return LV_RES_INV;
     }
   }
+
+  // Not support temporary.
+  if (lv_draw_mask_is_any(draw_ctx->clip_area) == true)
+    return LV_RES_INV;
 
   vg_lite_buffer_t dst_vgbuf;
   size_t buf_size = init_vg_lite_buffer_use_lv_buffer(draw_ctx, &dst_vgbuf);
