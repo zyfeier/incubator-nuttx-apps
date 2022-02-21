@@ -487,3 +487,75 @@ bool draw_rect_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
     }
     return draw_something > 0;
 }
+
+
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(struct _lv_draw_ctx_t* draw_ctx,
+    const lv_draw_rect_dsc_t* dsc,
+    const lv_area_t* coords)
+{
+  if (dsc->radius <= 0) {
+    return LV_RES_INV;
+  }
+
+  lv_coord_t area_height = lv_area_get_height(coords);
+  lv_coord_t area_width = lv_area_get_width(coords);
+  if (area_height < 1 || area_width < 1) {
+    return LV_RES_OK;
+  }
+
+  if (area_height + area_width < 240) {
+    return LV_RES_INV;
+  }
+
+  bool draw_shadow = true;
+  if (dsc->shadow_width == 0)
+    draw_shadow = false;
+  if (dsc->shadow_opa <= LV_OPA_MIN)
+    draw_shadow = false;
+
+  if (dsc->shadow_width == 1 && dsc->shadow_spread <= 0
+      && dsc->shadow_ofs_x == 0 && dsc->shadow_ofs_y == 0) {
+    draw_shadow = false;
+  }
+  // Not support temporary.
+  if (draw_shadow == true)
+    return LV_RES_INV;
+
+  // Not support temporary.
+  if (dsc->bg_img_src != NULL && dsc->bg_img_opa > LV_OPA_MIN)
+    return LV_RES_INV;
+
+  if (dsc->border_side != LV_BORDER_SIDE_NONE) {
+    // Not support temporary.
+    if (!(dsc->border_side & LV_BORDER_SIDE_LEFT)
+        || !(dsc->border_side & LV_BORDER_SIDE_TOP)
+        || !(dsc->border_side & LV_BORDER_SIDE_RIGHT)
+        || !(dsc->border_side & LV_BORDER_SIDE_BOTTOM)) {
+      return LV_RES_INV;
+    }
+  }
+
+  // Not support temporary.
+  if (lv_draw_mask_is_any(draw_ctx->clip_area) == true)
+    return LV_RES_INV;
+
+  vg_lite_buffer_t dst_vgbuf;
+  size_t buf_size = init_vg_lite_buffer_use_lv_buffer(draw_ctx, &dst_vgbuf);
+
+  vg_lite_path_t vg_lite_path;
+  memset(&vg_lite_path, 0, sizeof(vg_lite_path_t));
+
+  if (draw_rect_path(&dst_vgbuf, &vg_lite_path, coords, draw_ctx->clip_area,
+          dsc)
+      == false) {
+    return LV_RES_OK;
+  }
+
+  vg_lite_finish();
+  if (IS_CACHED(dst_vgbuf.memory)) {
+    cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
+  }
+
+  LV_ASSERT_MEM_INTEGRITY();
+  return LV_RES_OK;
+}

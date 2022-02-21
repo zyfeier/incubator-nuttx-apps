@@ -62,10 +62,25 @@ ifneq ($(CONFIG_LV_USE_GPU_INTERFACE),)
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu/drv/vglite/inc}
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu}
 CSRCS += lv_porting/lv_gpu_interface.c
-CSRCS += lv_porting/lv_gpu_decoder.c
-CSRCS += lv_porting/lv_gpu_draw.c
+ifneq ($(CONFIG_LV_GPU_DRAW_LINE),)
+CSRCS += lv_porting/lv_gpu_draw_line.c
+endif
+ifneq ($(CONFIG_LV_GPU_DRAW_ARC),)
 CSRCS += lv_porting/lv_gpu_draw_arc.c
+CSRCS += lv_porting/lv_gpu_draw.c
+endif
+ifneq ($(CONFIG_LV_GPU_DRAW_POLYGON),)
+CSRCS += lv_porting/lv_gpu_draw_polygon.c
+endif
+ifneq ($(CONFIG_LV_GPU_DRAW_RECT),)
 CSRCS += lv_porting/lv_gpu_draw_rect.c
+CSRCS += lv_porting/lv_gpu_draw.c
+endif
+ifneq ($(CONFIG_LV_GPU_DRAW_IMG),)
+CSRCS += lv_porting/lv_gpu_decoder.c
+CSRCS += lv_porting/lv_gpu_draw_img.c
+endif
+
 endif
 
 ifneq ($(CONFIG_LV_USE_FFMPEG),)

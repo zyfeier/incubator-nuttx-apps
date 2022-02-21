@@ -23,6 +23,7 @@
 #include <stdlib.h>
 
 #include "lv_gpu_draw.h"
+#include "lv_gpu_interface.h"
 
 bool simple_check_intersect_or_inclue(float center_x, float center_y,
                                       float width, float radius,
@@ -300,4 +301,90 @@ void draw_arc_path(vg_lite_path_t* vg_lite_path, vg_lite_buffer_t* vg_buf,
     vg_lite_clear_path(vg_lite_path);
 
     free_float_path_data(&path_data);
+}
+
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(struct _lv_draw_ctx_t* draw_ctx,
+    const lv_draw_arc_dsc_t* dsc,
+    const lv_point_t* center,
+    uint16_t radius,
+    uint16_t start_angle,
+    uint16_t end_angle)
+{
+#if LV_DRAW_COMPLEX
+  if (dsc->opa <= LV_OPA_MIN)
+    return LV_RES_INV;
+  if (dsc->width == 0)
+    return LV_RES_INV;
+  if (start_angle == end_angle)
+    return LV_RES_INV;
+
+  // Not support temporary.
+  if (dsc->img_src != NULL)
+    return LV_RES_INV;
+  // Not support temporary.
+  if (lv_draw_mask_is_any(draw_ctx->clip_area) == true)
+    return LV_RES_INV;
+
+  lv_coord_t width = dsc->width;
+  if (width > radius)
+    width = radius;
+
+  if (simple_check_intersect_or_inclue(center->x, center->y, width, radius,
+          draw_ctx->clip_area)
+      == false) {
+    return LV_RES_OK;
+  }
+
+  vg_lite_path_t vg_lite_path;
+  memset(&vg_lite_path, 0, sizeof(vg_lite_path_t));
+
+  uint32_t color_argb888 = lv_color_to32(dsc->color);
+  vg_lite_color_t color = get_vg_lite_color_lvgl_mix(color_argb888, dsc->opa);
+
+  vg_lite_blend_t vg_lite_blend = get_vg_lite_blend(dsc->blend_mode);
+
+  vg_lite_buffer_t dst_vgbuf;
+  size_t buf_size = init_vg_lite_buffer_use_lv_buffer(draw_ctx, &dst_vgbuf);
+
+  /*Draw two semicircle*/
+  if (start_angle + 360 == end_angle || start_angle == end_angle + 360) {
+    draw_arc_path(&vg_lite_path, &dst_vgbuf, width, false, 0, 180,
+        center->x, center->y, radius, vg_lite_blend, color,
+        dsc->img_src, draw_ctx->clip_area);
+
+    draw_arc_path(&vg_lite_path, &dst_vgbuf, width, false, 180, 360,
+        center->x, center->y, radius, vg_lite_blend, color,
+        dsc->img_src, draw_ctx->clip_area);
+
+    vg_lite_finish();
+    if (IS_CACHED(dst_vgbuf.memory)) {
+      cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
+    }
+    return LV_RES_OK;
+  }
+
+  while (start_angle >= 360)
+    start_angle -= 360;
+  while (end_angle >= 360)
+    end_angle -= 360;
+
+  draw_arc_path(&vg_lite_path, &dst_vgbuf, width, dsc->rounded, start_angle,
+      end_angle, center->x, center->y, radius, vg_lite_blend, color,
+      dsc->img_src, draw_ctx->clip_area);
+
+  vg_lite_finish();
+  if (IS_CACHED(dst_vgbuf.memory)) {
+    cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
+  }
+#else
+  LV_LOG_WARN("Can't draw arc with LV_DRAW_COMPLEX == 0");
+  LV_UNUSED(center_x);
+  LV_UNUSED(center_y);
+  LV_UNUSED(radius);
+  LV_UNUSED(start_angle);
+  LV_UNUSED(end_angle);
+  LV_UNUSED(clip_area);
+  LV_UNUSED(dsc);
+#endif /*LV_DRAW_COMPLEX*/
+  return LV_RES_OK;
 }

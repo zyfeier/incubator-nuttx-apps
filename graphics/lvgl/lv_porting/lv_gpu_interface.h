@@ -57,6 +57,9 @@
 #define POSSIBLY_UNUSED __attribute__((unused))
 #endif
 
+extern const char* error_type[];
+extern const uint8_t bmode[];
+
 /****************************************************************************
  * Macros
  ****************************************************************************/
@@ -84,6 +87,8 @@
 
 #define VG_FMT_TO_LV_FMT(z) ((z) == VG_LITE_A4 || (z) == VG_LITE_A8 ? (z)-VG_LITE_A4 + LV_IMG_CF_ALPHA_4BIT : BPP_TO_LV_FMT(VG_FMT_TO_BPP(z)))
 #define VGLITE_PX_FMT BPP_TO_VG_FMT(LV_COLOR_DEPTH)
+
+#define LV_BLEND_MODE_TO_VG(x) ((x) >= 0 && (x) <= LV_BLEND_MODE_MULTIPLY ? bmode[(x)] : VG_LITE_BLEND_NONE)
 
 #define BGRA_TO_RGBA(c) (((c)&0xFF00FF00) | ((c) >> 16 & 0xFF) | ((c) << 16 & 0xFF0000))
 
@@ -130,6 +135,16 @@
 #define TC_END
 #define TC_REP(s)
 #endif
+
+#ifndef __func__
+#define __func__ __FUNCTION__
+#endif
+#define IS_ERROR(status) (status > 0)
+#define CHECK_ERROR(Function)                                                               \
+  vgerr = Function;                                                                         \
+  if (IS_ERROR(vgerr)) {                                                                    \
+    GPU_ERROR("[%s: %d] failed.error type is %s\n", __func__, __LINE__, error_type[vgerr]); \
+  }
 
 /****************************************************************************
  * Type Definitions

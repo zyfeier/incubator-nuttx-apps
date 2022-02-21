@@ -28,7 +28,6 @@
 #include "lv_gpu_decoder.h"
 #include "lv_gpu_draw.h"
 #include "vg_lite.h"
-#include <debug.h>
 #include <lvgl/src/lv_conf_internal.h>
 #include <nuttx/cache.h>
 #include <stdio.h>
@@ -37,16 +36,27 @@
 #ifdef CONFIG_ARM_HAVE_MVE
 #include "arm_mve.h"
 #endif
+#ifdef CONFIG_LV_GPU_DRAW_LINE
+#include "lv_gpu_draw_line.h"
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_ARC
+#include "lv_gpu_draw_arc.h"
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_POLYGON
+#include "lv_gpu_draw_polygon.h"
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_RECT
+#include "lv_gpu_draw_rect.h"
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_IMG
+#include "lv_gpu_draw_img.h"
+#endif
 
 /****************************************************************************
  * Preprocessor Definitions
  ****************************************************************************/
 
-/****************************************************************************
- * Macros
- ****************************************************************************/
-#define __func__ __FUNCTION__
-POSSIBLY_UNUSED static char* error_type[] = {
+POSSIBLY_UNUSED const char* error_type[] = {
   "VG_LITE_SUCCESS",
   "VG_LITE_INVALID_ARGUMENT",
   "VG_LITE_OUT_OF_MEMORY",
@@ -56,121 +66,43 @@ POSSIBLY_UNUSED static char* error_type[] = {
   "VG_LITE_GENERIC_IO",
   "VG_LITE_NOT_SUPPORT",
 };
+const uint8_t bmode[] = {
+  VG_LITE_BLEND_SRC_OVER,
+  VG_LITE_BLEND_ADDITIVE,
+  VG_LITE_BLEND_SUBTRACT,
+  VG_LITE_BLEND_MULTIPLY
+};
 
-#define IS_ERROR(status) (status > 0)
-#define CHECK_ERROR(Function)                                                               \
-  vgerr = Function;                                                                         \
-  if (IS_ERROR(vgerr)) {                                                                    \
-    GPU_ERROR("[%s: %d] failed.error type is %s\n", __func__, __LINE__, error_type[vgerr]); \
-  }
+/****************************************************************************
+ * Macros
+ ****************************************************************************/
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
 
 static lv_gpu_mode_t power_mode;
-static vg_lite_path_t vpath;
-static int16_t rect_path[13] = {
-  VLC_OP_MOVE, 0, 0,
-  VLC_OP_LINE, 0, 0,
-  VLC_OP_LINE, 0, 0,
-  VLC_OP_LINE, 0, 0,
-  VLC_OP_END
-};
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
 
-#define ATTR_FAST_MEM LV_ATTRIBUTE_FAST_MEM
-
-ATTR_FAST_MEM static lv_res_t lv_draw_arc_gpu(struct _lv_draw_ctx_t* draw_ctx,
-    const lv_draw_arc_dsc_t* dsc,
-    const lv_point_t* center,
-    uint16_t radius,
-    uint16_t start_angle,
-    uint16_t end_angle)
+#ifdef CONFIG_LV_GPU_DRAW_LINE
+LV_ATTRIBUTE_FAST_MEM static void gpu_draw_line(
+    struct _lv_draw_ctx_t* draw_ctx,
+    const lv_draw_line_dsc_t* dsc,
+    const lv_point_t* point1,
+    const lv_point_t* point2)
 {
-#if LV_DRAW_COMPLEX
-  if (dsc->opa <= LV_OPA_MIN)
-    return LV_RES_INV;
-  if (dsc->width == 0)
-    return LV_RES_INV;
-  if (start_angle == end_angle)
-    return LV_RES_INV;
-
-  // Not support temporary.
-  if (dsc->img_src != NULL)
-    return LV_RES_INV;
-  // Not support temporary.
-  if (lv_draw_mask_is_any(draw_ctx->clip_area) == true)
-    return LV_RES_INV;
-
-  lv_coord_t width = dsc->width;
-  if (width > radius)
-    width = radius;
-
-  if (simple_check_intersect_or_inclue(center->x, center->y, width, radius,
-          draw_ctx->clip_area)
-      == false) {
-    return LV_RES_OK;
+  if (lv_draw_line_gpu(draw_ctx, dsc, point1, point2) != LV_RES_OK) {
+    lv_draw_sw_line(draw_ctx, dsc, point1, point2);
   }
-
-  vg_lite_path_t vg_lite_path;
-  memset(&vg_lite_path, 0, sizeof(vg_lite_path_t));
-
-  uint32_t color_argb888 = lv_color_to32(dsc->color);
-  vg_lite_color_t color = get_vg_lite_color_lvgl_mix(color_argb888, dsc->opa);
-
-  vg_lite_blend_t vg_lite_blend = get_vg_lite_blend(dsc->blend_mode);
-
-  vg_lite_buffer_t dst_vgbuf;
-  size_t buf_size = init_vg_lite_buffer_use_lv_buffer(draw_ctx, &dst_vgbuf);
-
-  /*Draw two semicircle*/
-  if (start_angle + 360 == end_angle || start_angle == end_angle + 360) {
-    draw_arc_path(&vg_lite_path, &dst_vgbuf, width, false, 0, 180,
-        center->x, center->y, radius, vg_lite_blend, color,
-        dsc->img_src, draw_ctx->clip_area);
-
-    draw_arc_path(&vg_lite_path, &dst_vgbuf, width, false, 180, 360,
-        center->x, center->y, radius, vg_lite_blend, color,
-        dsc->img_src, draw_ctx->clip_area);
-
-    vg_lite_finish();
-    if (IS_CACHED(dst_vgbuf.memory)) {
-      cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
-    }
-    return LV_RES_OK;
-  }
-
-  while (start_angle >= 360)
-    start_angle -= 360;
-  while (end_angle >= 360)
-    end_angle -= 360;
-
-  draw_arc_path(&vg_lite_path, &dst_vgbuf, width, dsc->rounded, start_angle,
-      end_angle, center->x, center->y, radius, vg_lite_blend, color,
-      dsc->img_src, draw_ctx->clip_area);
-
-  vg_lite_finish();
-  if (IS_CACHED(dst_vgbuf.memory)) {
-    cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
-  }
-#else
-  LV_LOG_WARN("Can't draw arc with LV_DRAW_COMPLEX == 0");
-  LV_UNUSED(center_x);
-  LV_UNUSED(center_y);
-  LV_UNUSED(radius);
-  LV_UNUSED(start_angle);
-  LV_UNUSED(end_angle);
-  LV_UNUSED(clip_area);
-  LV_UNUSED(dsc);
-#endif /*LV_DRAW_COMPLEX*/
-  return LV_RES_OK;
 }
+#endif
 
-ATTR_FAST_MEM static void gpu_draw_arc(struct _lv_draw_ctx_t* draw_ctx,
+#ifdef CONFIG_LV_GPU_DRAW_ARC
+LV_ATTRIBUTE_FAST_MEM static void gpu_draw_arc(
+    struct _lv_draw_ctx_t* draw_ctx,
     const lv_draw_arc_dsc_t* dsc,
     const lv_point_t* center,
     uint16_t radius,
@@ -182,79 +114,26 @@ ATTR_FAST_MEM static void gpu_draw_arc(struct _lv_draw_ctx_t* draw_ctx,
     lv_draw_sw_arc(draw_ctx, dsc, center, radius, start_angle, end_angle);
   }
 }
+#endif
 
-ATTR_FAST_MEM static lv_res_t lv_draw_rect_gpu(struct _lv_draw_ctx_t* draw_ctx,
+#ifdef CONFIG_LV_GPU_DRAW_POLYGON
+LV_ATTRIBUTE_FAST_MEM static void gpu_draw_polygon(
+    struct _lv_draw_ctx_t* draw_ctx,
     const lv_draw_rect_dsc_t* dsc,
-    const lv_area_t* coords)
+    const lv_point_t* points,
+    uint16_t point_cnt)
 {
-  if (dsc->radius <= 0) {
-    return LV_RES_INV;
+  if (lv_draw_polygon_gpu(draw_ctx, dsc, points,
+          point_cnt)
+      != LV_RES_OK) {
+    lv_draw_sw_polygon(draw_ctx, dsc, points, point_cnt);
   }
-
-  lv_coord_t area_height = lv_area_get_height(coords);
-  lv_coord_t area_width = lv_area_get_width(coords);
-  if (area_height < 1 || area_width < 1) {
-    return LV_RES_OK;
-  }
-
-  if (area_height + area_width < 240) {
-    return LV_RES_INV;
-  }
-
-  bool draw_shadow = true;
-  if (dsc->shadow_width == 0)
-    draw_shadow = false;
-  if (dsc->shadow_opa <= LV_OPA_MIN)
-    draw_shadow = false;
-
-  if (dsc->shadow_width == 1 && dsc->shadow_spread <= 0
-      && dsc->shadow_ofs_x == 0 && dsc->shadow_ofs_y == 0) {
-    draw_shadow = false;
-  }
-  // Not support temporary.
-  if (draw_shadow == true)
-    return LV_RES_INV;
-
-  // Not support temporary.
-  if (dsc->bg_img_src != NULL && dsc->bg_img_opa > LV_OPA_MIN)
-    return LV_RES_INV;
-
-  if (dsc->border_side != LV_BORDER_SIDE_NONE) {
-    // Not support temporary.
-    if (!(dsc->border_side & LV_BORDER_SIDE_LEFT)
-        || !(dsc->border_side & LV_BORDER_SIDE_TOP)
-        || !(dsc->border_side & LV_BORDER_SIDE_RIGHT)
-        || !(dsc->border_side & LV_BORDER_SIDE_BOTTOM)) {
-      return LV_RES_INV;
-    }
-  }
-
-  // Not support temporary.
-  if (lv_draw_mask_is_any(draw_ctx->clip_area) == true)
-    return LV_RES_INV;
-
-  vg_lite_buffer_t dst_vgbuf;
-  size_t buf_size = init_vg_lite_buffer_use_lv_buffer(draw_ctx, &dst_vgbuf);
-
-  vg_lite_path_t vg_lite_path;
-  memset(&vg_lite_path, 0, sizeof(vg_lite_path_t));
-
-  if (draw_rect_path(&dst_vgbuf, &vg_lite_path, coords, draw_ctx->clip_area,
-          dsc)
-      == false) {
-    return LV_RES_OK;
-  }
-
-  vg_lite_finish();
-  if (IS_CACHED(dst_vgbuf.memory)) {
-    cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
-  }
-
-  LV_ASSERT_MEM_INTEGRITY();
-  return LV_RES_OK;
 }
+#endif
 
-ATTR_FAST_MEM static void gpu_draw_rect(struct _lv_draw_ctx_t* draw_ctx,
+#ifdef CONFIG_LV_GPU_DRAW_RECT
+LV_ATTRIBUTE_FAST_MEM static void gpu_draw_rect(
+    struct _lv_draw_ctx_t* draw_ctx,
     const lv_draw_rect_dsc_t* dsc,
     const lv_area_t* coords)
 {
@@ -262,50 +141,24 @@ ATTR_FAST_MEM static void gpu_draw_rect(struct _lv_draw_ctx_t* draw_ctx,
     lv_draw_sw_rect(draw_ctx, dsc, coords);
   }
 }
+#endif
 
-LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(struct _lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
-    const lv_area_t* coords, const uint8_t* map_p, lv_img_cf_t color_format)
+#ifdef CONFIG_LV_GPU_DRAW_IMG
+LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(
+    struct _lv_draw_ctx_t* draw_ctx,
+    const lv_draw_img_dsc_t* dsc,
+    const lv_area_t* coords,
+    const uint8_t* map_p,
+    lv_img_cf_t color_format)
 {
-  if (lv_draw_map_gpu(draw_ctx, dsc, coords, map_p, color_format) != LV_RES_OK) {
-    lv_draw_sw_img_decoded(draw_ctx, dsc, coords, map_p + sizeof(gpu_data_header_t), color_format);
+  if (lv_draw_img_decoded_gpu(draw_ctx, dsc, coords, map_p,
+          color_format)
+      != LV_RES_OK) {
+    lv_draw_sw_img_decoded(draw_ctx, dsc, coords,
+        map_p + sizeof(gpu_data_header_t), color_format);
   }
 }
-
-LV_ATTRIBUTE_FAST_MEM static void recolor_palette(uint32_t* dst, const uint32_t* src, uint16_t size, uint32_t recolor, lv_opa_t opa)
-{
-  /* TODO: MVE acceleration */
-  uint16_t recolor_premult[3] = { (recolor >> 16 & 0xFF) * opa, (recolor >> 8 & 0xFF) * opa, (recolor & 0xFF) * opa };
-  lv_opa_t mix = 255 - opa;
-  for (int_fast16_t i = 0; i < size; i++) {
-    if (src != NULL) {
-      /* index recolor */
-      if (src[i] >> 24 == 0) {
-        dst[i] = 0;
-      } else {
-        uint8_t src_coeff = (mix << 8) / (src[i] >> 24);
-        dst[i] = 0xFF000000 | /* A */
-            (((recolor_premult[0] << 8) + ((src[i] & 0xFF0000) * src_coeff >> 8)) & 0xFF0000) | /* R */
-            ((recolor_premult[1] + ((src[i] & 0xFF00) * src_coeff >> 8)) & 0xFF00) | /* G */
-            (recolor_premult[2] + (src[i] & 0xFF) * src_coeff) >> 8; /* B */
-      }
-    } else {
-      /* fill alpha palette */
-      uint32_t opa_i = (size == 256) ? i : i * 0x11;
-      dst[i] = opa_i << 24 | /* A */
-          ((uint32_t)recolor_premult[0] * opa_i & 0xFF0000) | /* R */
-          ((uint32_t)recolor_premult[1] * opa_i & 0xFF0000) >> 8 | /* G */
-          ((uint32_t)recolor_premult[2] * opa_i & 0xFF0000) >> 16; /* B */
-    }
-  }
-}
-
-LV_ATTRIBUTE_FAST_MEM static void fill_rect_path(lv_area_t* area)
-{
-  rect_path[1] = rect_path[4] = area->x1;
-  rect_path[7] = rect_path[10] = area->x2 + 1;
-  rect_path[2] = rect_path[11] = area->y1;
-  rect_path[5] = rect_path[8] = area->y2 + 1;
-}
+#endif
 
 LV_ATTRIBUTE_FAST_MEM static void gpu_wait(struct _lv_draw_ctx_t* draw)
 {
@@ -321,9 +174,11 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_wait(struct _lv_draw_ctx_t* draw)
  * @param[in] width Width of buffer in pixels
  * @param[in] height Height of buffer in pixels
  * @param[in] stride Stride of the buffer in bytes
- * @param[in] ptr Pointer to the buffer (must be aligned according VG-Lite requirements)
+ * @param[in] ptr Pointer to the buffer (must be aligned according to VGLite
+ *                requirements)
  */
-LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width, uint32_t height, uint32_t stride, void* ptr, uint8_t format, bool source)
+LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width,
+    uint32_t height, uint32_t stride, void* ptr, uint8_t format, bool source)
 {
   vg_lite_buffer_t* dst = vdst;
   if (source && (width & 0xF)) { /*Test for stride alignment*/
@@ -371,196 +226,22 @@ void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx)
 
   /*Change some callbacks*/
   gpu_draw_ctx_t* gpu_draw_ctx = (gpu_draw_ctx_t*)draw_ctx;
-
-  gpu_draw_ctx->draw_rect = gpu_draw_rect;
+#ifdef CONFIG_LV_GPU_DRAW_LINE
+  gpu_draw_ctx->draw_line = gpu_draw_line;
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_ARC
   gpu_draw_ctx->draw_arc = gpu_draw_arc;
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_POLYGON
+  gpu_draw_ctx->draw_polygon = gpu_draw_polygon;
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_RECT
+  gpu_draw_ctx->draw_rect = gpu_draw_rect;
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_IMG
   gpu_draw_ctx->draw_img_decoded = gpu_draw_img_decoded;
+#endif
   gpu_draw_ctx->wait_for_finish = gpu_wait;
-}
-
-/****************************************************************************
- * Name: lv_draw_map_gpu
- *
- * Description:
- *   Copy a transformed map (image) to a display buffer.
- *
- * Input Parameters:
- * @param coords area of the image  (absolute coordinates)
- * @param clip_area clip the map to this area (absolute coordinates)
- * @param map_buf a pixels of the map (image)
- * @param opa overall opacity in 0x00..0xff range
- * @param chroma chroma key color
- * @param angle rotation angle (= degree*10)
- * @param zoom image scale in 0..65535 range, where 256 is 1.0x scale
- * @param mode blend mode from `lv_blend_mode_t`
- *
- * Returned Value:
- *   None
- *
- ****************************************************************************/
-
-LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(struct _lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
-    const lv_area_t* coords, const uint8_t* map_p, lv_img_cf_t color_format)
-{
-  lv_opa_t opa = dsc->opa;
-  if (opa < LV_OPA_MIN) {
-    return LV_RES_OK;
-  }
-
-  uint16_t angle = dsc->angle;
-  uint16_t zoom = dsc->zoom;
-  lv_point_t pivot = dsc->pivot;
-  lv_blend_mode_t blend_mode = dsc->blend_mode;
-  lv_color_t recolor = dsc->recolor;
-  lv_opa_t recolor_opa = dsc->recolor_opa;
-  vg_lite_buffer_t src_vgbuf;
-  bool transformed = (angle != 0) || (zoom != LV_IMG_ZOOM_NONE);
-  const lv_area_t* disp_area = draw_ctx->buf_area;
-  lv_color_t* disp_buf = draw_ctx->buf;
-  int32_t disp_w = lv_area_get_width(disp_area);
-  int32_t disp_h = lv_area_get_height(disp_area);
-  int32_t map_w = lv_area_get_width(coords);
-  int32_t map_h = lv_area_get_height(coords);
-  vg_lite_buffer_t dst_vgbuf;
-  vg_lite_buffer_t* vgbuf;
-  vg_lite_error_t vgerr = VG_LITE_SUCCESS;
-
-  LV_ASSERT(init_vg_buf(&dst_vgbuf, disp_w, disp_h, disp_w * sizeof(lv_color_t), disp_buf, VGLITE_PX_FMT, false) == LV_RES_OK);
-  uint32_t rect[4] = { 0, 0 };
-  lv_area_t map_tf, draw_area;
-  lv_area_copy(&draw_area, draw_ctx->clip_area);
-  lv_area_move(&draw_area, -disp_area->x1, -disp_area->y1);
-  _lv_img_buf_get_transformed_area(&map_tf, map_w, map_h, angle, zoom, &pivot);
-  lv_area_move(&map_tf, coords->x1, coords->y1);
-  lv_area_move(&map_tf, -disp_area->x1, -disp_area->y1);
-  if (_lv_area_intersect(&draw_area, &draw_area, &map_tf) == false) {
-    return LV_RES_OK;
-  }
-
-  GPU_INFO("fmt:%d map_tf: (%d %d)[%d,%d] draw_area:(%d %d)[%d,%d] zoom:%d\n", color_format, map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf),
-      lv_area_get_height(&map_tf), draw_area.x1, draw_area.y1, lv_area_get_width(&draw_area), lv_area_get_height(&draw_area), zoom);
-  bool indexed = false, alpha = false;
-  bool allocated_src = false;
-  vgbuf = lv_gpu_get_vgbuf((void*)map_p);
-  if (vgbuf) {
-    indexed = (vgbuf->format >= VG_LITE_INDEX_1) && (vgbuf->format <= VG_LITE_INDEX_8);
-    alpha = (vgbuf->format == VG_LITE_A4) || (vgbuf->format == VG_LITE_A8);
-    lv_memcpy_small(&src_vgbuf, vgbuf, sizeof(src_vgbuf));
-  } else {
-    vgbuf = NULL;
-    GPU_WARN("allocating new vgbuf:(%ld,%ld)", map_w, map_h);
-    lv_img_header_t header;
-    header.w = map_w;
-    header.h = map_h;
-    header.cf = color_format;
-    if (lv_gpu_load_vgbuf(map_p, &header, &src_vgbuf, NULL) != LV_RES_OK) {
-      GPU_ERROR("load failed");
-      goto Fallback;
-    }
-    allocated_src = true;
-  }
-
-  const uint32_t* palette = (const uint32_t*)(map_p + sizeof(gpu_data_header_t) + src_vgbuf.stride * src_vgbuf.height);
-
-  vg_lite_matrix_t matrix;
-  vg_lite_identity(&matrix);
-  vg_lite_translate(coords->x1 - disp_area->x1, coords->y1 - disp_area->y1, &matrix);
-  rect[2] = map_w;
-  rect[3] = map_h;
-  if (transformed) {
-    vg_lite_translate(pivot.x, pivot.y, &matrix);
-    vg_lite_float_t scale = zoom * 1.0f / LV_IMG_ZOOM_NONE;
-    if (zoom != LV_IMG_ZOOM_NONE) {
-      vg_lite_scale(scale, scale, &matrix);
-    }
-    if (angle != 0) {
-      vg_lite_rotate(angle / 10.0f, &matrix);
-    }
-    vg_lite_translate(-pivot.x, -pivot.y, &matrix);
-  }
-  lv_color32_t color;
-  vg_lite_blend_t blend = (blend_mode == LV_BLEND_MODE_NORMAL) ? VG_LITE_BLEND_SRC_OVER : (blend_mode == LV_BLEND_MODE_ADDITIVE) ? VG_LITE_BLEND_ADDITIVE
-      : (blend_mode == LV_BLEND_MODE_SUBTRACTIVE)                                                                                ? VG_LITE_BLEND_SUBTRACT
-                                                                                                                                 : VG_LITE_BLEND_NONE;
-  if (opa >= LV_OPA_MAX) {
-    color.full = 0x0;
-    src_vgbuf.image_mode = VG_LITE_NORMAL_IMAGE_MODE;
-  } else {
-    color.full = (opa << 24) | (opa << 16) | (opa << 8) | opa;
-    src_vgbuf.image_mode = VG_LITE_MULTIPLY_IMAGE_MODE;
-  }
-
-  vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR : VG_LITE_FILTER_POINT;
-  vg_lite_matrix_t matrix0;
-  vg_lite_identity(&matrix0);
-
-  fill_rect_path(&draw_area);
-
-  CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_S16, VG_LITE_LOW, sizeof(rect_path), rect_path,
-      0, 0, 479, 479));
-  if (indexed || alpha) {
-    uint8_t px_size = VG_FMT_TO_BPP(src_vgbuf.format);
-    uint16_t palette_size = 1 << px_size;
-    src_vgbuf.format = BPP_TO_VG_FMT(px_size);
-    if (alpha || recolor_opa != LV_OPA_TRANSP) {
-      uint32_t* palette_r = lv_mem_alloc(palette_size * sizeof(lv_color32_t));
-      if (palette_r == NULL) {
-        goto Error_handler;
-      }
-      recolor_palette(palette_r, alpha ? NULL : palette, palette_size,
-          recolor_opa != LV_OPA_TRANSP ? lv_color_to32(recolor) : *palette, recolor_opa);
-      vg_lite_set_CLUT(palette_size, palette_r);
-      lv_mem_free(palette_r);
-    } else {
-      vg_lite_set_CLUT(palette_size, (uint32_t*)palette);
-    }
-  } else if (recolor_opa != LV_OPA_TRANSP) {
-    /* ARGB recolor, unsupported by GPU */
-    GPU_ERROR("ARGB recolor!");
-    return LV_RES_INV;
-  }
-  if (_lv_area_is_in(&map_tf, &draw_area, 0)) {
-    /* No clipping, simply blit */
-    CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend, color.full, filter));
-  } else if (!transformed && map_tf.x1 == draw_area.x1 && map_tf.y1 == draw_area.y1) {
-    /* Clipped from left top, use good old blit_rect */
-    rect[2] = lv_area_get_width(&draw_area);
-    rect[3] = lv_area_get_height(&draw_area);
-
-    CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend, color.full, filter));
-  } else {
-    /* arbitrarily clipped, have to use draw_pattern */
-    CHECK_ERROR(vg_lite_set_multiply_color(color.full));
-    CHECK_ERROR(vg_lite_draw_pattern(&dst_vgbuf, &vpath, VG_LITE_FILL_NON_ZERO, &matrix0, &src_vgbuf, &matrix, blend, VG_LITE_PATTERN_COLOR, 0, filter));
-  }
-
-  TC_INIT
-  TC_START
-  if (IS_CACHED(dst_vgbuf.memory)) {
-    CHECK_ERROR(vg_lite_finish());
-    up_invalidate_dcache((uintptr_t)dst_vgbuf.memory, (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
-  } else {
-    CHECK_ERROR(vg_lite_flush());
-  }
-  TC_END
-  TC_REP(vg_lite_submit)
-
-Error_handler:
-  if (allocated_src) {
-    GPU_WARN("freeing allocated vgbuf:(%ld,%ld)@%p", src_vgbuf.width, src_vgbuf.height, src_vgbuf.memory);
-    free(src_vgbuf.memory);
-  }
-  if (vgerr != VG_LITE_SUCCESS) {
-    goto Fallback;
-  }
-  return LV_RES_OK;
-Fallback:
-  if (IS_ERROR(vgerr)) {
-    GPU_ERROR("[%s: %d] failed.error type is %s\n", __func__, __LINE__, error_type[vgerr]);
-  }
-  /*Fall back to SW render in case of error*/
-  GPU_ERROR("GPU blit failed. Fallback to SW.\n");
-  return LV_RES_INV;
 }
 
 /****************************************************************************
@@ -580,7 +261,9 @@ Fallback:
 lv_res_t lv_gpu_interface_init(void)
 {
   gpu_init();
+#ifdef CONFIG_LV_GPU_DRAW_IMG
   lv_gpu_decoder_init();
+#endif
   return lv_gpu_setmode(LV_GPU_DEFAULT_MODE);
 }
 
@@ -639,7 +322,8 @@ lv_res_t lv_gpu_setmode(lv_gpu_mode_t mode)
  *
  ****************************************************************************/
 
-LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_convert_dsc_t* dsc)
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(
+    const lv_gpu_color_fmt_convert_dsc_t* dsc)
 {
   vg_lite_buffer_t src;
   vg_lite_buffer_t dst;
@@ -647,8 +331,12 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_c
   lv_coord_t h = dsc->height;
   vg_lite_error_t vgerr;
 
-  if (init_vg_buf(&src, w, h, w * dsc->src_bpp >> 3, (void*)dsc->src, BPP_TO_VG_FMT(dsc->src_bpp), 1) != LV_RES_OK
-      || init_vg_buf(&dst, w, h, w * dsc->dst_bpp >> 3, dsc->dst, BPP_TO_VG_FMT(dsc->dst_bpp), 0) != LV_RES_OK) {
+  if (init_vg_buf(&src, w, h, w * dsc->src_bpp >> 3, (void*)dsc->src,
+          BPP_TO_VG_FMT(dsc->src_bpp), 1)
+          != LV_RES_OK
+      || init_vg_buf(&dst, w, h, w * dsc->dst_bpp >> 3, dsc->dst,
+             BPP_TO_VG_FMT(dsc->dst_bpp), 0)
+          != LV_RES_OK) {
     return LV_RES_INV;
   }
   CHECK_ERROR(vg_lite_blit(&dst, &src, NULL, 0, 0, 0));
@@ -660,7 +348,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_c
   TC_INIT
   if (IS_CACHED(dst.memory)) {
     TC_START
-    up_invalidate_dcache((uintptr_t)dst.memory, (uintptr_t)dst.memory + h * dst.stride);
+    up_invalidate_dcache((uintptr_t)dst.memory,
+        (uintptr_t)dst.memory + h * dst.stride);
     TC_END
     TC_REP(dst_cache_invalid)
   }
