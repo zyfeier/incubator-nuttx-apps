@@ -474,6 +474,7 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
   fbdev_obj->disp_drv.draw_buf = &(fbdev_obj->disp_draw_buf);
   fbdev_obj->disp_drv.hor_res = hor_res;
   fbdev_obj->disp_drv.ver_res = ver_res;
+  fbdev_obj->disp_drv.screen_transp = false;
 #if ( LV_USE_USER_DATA != 0 )
   fbdev_obj->disp_drv.user_data = fbdev_obj;
 #else
