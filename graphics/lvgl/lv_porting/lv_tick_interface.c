@@ -54,11 +54,7 @@ uint32_t millis(void)
 {
   struct timespec ts;
 
-#ifdef CONFIG_CLOCK_MONOTONIC
   clock_gettime(CLOCK_MONOTONIC, &ts);
-#else
-  clock_gettime(CLOCK_REALTIME, &ts);
-#endif
   uint32_t tick = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 
   return tick;
