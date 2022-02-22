@@ -168,11 +168,7 @@ static uint32_t get_timestamp(void)
 {
   struct timespec ts;
   uint32_t ms;
-#ifdef CONFIG_CLOCK_MONOTONIC
   clock_gettime(CLOCK_MONOTONIC, &ts);
-#else
-  clock_gettime(CLOCK_REALTIME, &ts);
-#endif
   ms = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
   return ms;
 }
