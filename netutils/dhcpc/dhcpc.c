@@ -130,8 +130,6 @@ struct dhcp_msg
 struct dhcpc_state_s
 {
   FAR const char    *interface;
-  uint8_t            ds_macaddr[IFHWADDRLEN];
-  int                ds_maclen;
   int                sockfd;
   struct in_addr     ipaddr;
   struct in_addr     serverid;
@@ -139,6 +137,8 @@ struct dhcpc_state_s
   bool               cancel;
   pthread_t          thread;              /* Thread ID of the DHCPC thread */
   dhcpc_callback_t   callback;            /* Thread callback of the DHCPC thread */
+  int                maclen;
+  uint8_t            macaddr[1];
 };
 
 /****************************************************************************
@@ -233,11 +233,10 @@ static int dhcpc_sendmsg(FAR struct dhcpc_state_s *pdhcpc,
   memset(&pdhcpc->packet, 0, sizeof(struct dhcp_msg));
   pdhcpc->packet.op    = DHCP_REQUEST;
   pdhcpc->packet.htype = DHCP_HTYPE_ETHERNET;
-  pdhcpc->packet.hlen  = pdhcpc->ds_maclen;
+  pdhcpc->packet.hlen  = pdhcpc->maclen;
   memcpy(pdhcpc->packet.xid, xid, 4);
-  memcpy(pdhcpc->packet.chaddr, pdhcpc->ds_macaddr, pdhcpc->ds_maclen);
-  memset(&pdhcpc->packet.chaddr[pdhcpc->ds_maclen],
-         0, 16 - pdhcpc->ds_maclen);
+  memcpy(pdhcpc->packet.chaddr, pdhcpc->macaddr, pdhcpc->maclen);
+  memset(&pdhcpc->packet.chaddr[pdhcpc->maclen], 0, 16 - pdhcpc->maclen);
   memcpy(pdhcpc->packet.options, magic_cookie, sizeof(magic_cookie));
 
   /* Add the common header options */
@@ -438,7 +437,7 @@ static uint8_t dhcpc_parsemsg(FAR struct dhcpc_state_s *pdhcpc, int buflen,
   if (buflen >= 44 && pdhcpc->packet.op == DHCP_REPLY &&
       memcmp(pdhcpc->packet.xid, xid, sizeof(xid)) == 0 &&
       memcmp(pdhcpc->packet.chaddr,
-             pdhcpc->ds_macaddr, pdhcpc->ds_maclen) == 0)
+             pdhcpc->macaddr, pdhcpc->maclen) == 0)
     {
       memcpy(&presult->ipaddr.s_addr, pdhcpc->packet.yiaddr, 4);
       return dhcpc_parseoptions(presult, &pdhcpc->packet.options[4],
@@ -469,6 +468,7 @@ static void *dhcpc_run(void *args)
       else
         {
           pdhcpc->callback(NULL);
+          memset(&result, 0, sizeof(result));
           nerr("dhcpc_request error\n");
         }
 
@@ -477,6 +477,7 @@ static void *dhcpc_run(void *args)
           return NULL;
         }
 
+      result.lease_time /= 2;
       while (result.lease_time)
         {
           result.lease_time = sleep(result.lease_time);
@@ -513,15 +514,15 @@ FAR void *dhcpc_open(FAR const char *interface, FAR const void *macaddr,
 
   /* Allocate an internal DHCP structure */
 
-  pdhcpc = (FAR struct dhcpc_state_s *)malloc(sizeof(struct dhcpc_state_s));
+  pdhcpc = malloc(sizeof(struct dhcpc_state_s) + maclen - 1);
   if (pdhcpc)
     {
       /* Initialize the allocated structure */
 
       memset(pdhcpc, 0, sizeof(struct dhcpc_state_s));
-      pdhcpc->interface  = interface;
-      pdhcpc->ds_maclen  = maclen > IFHWADDRLEN? IFHWADDRLEN : maclen;
-      memcpy(pdhcpc->ds_macaddr, macaddr, pdhcpc->ds_maclen);
+      pdhcpc->interface = interface;
+      pdhcpc->maclen    = maclen;
+      memcpy(pdhcpc->macaddr, macaddr, pdhcpc->maclen);
 
       /* Create a UDP socket */
 
