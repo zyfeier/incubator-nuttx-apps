@@ -6,10 +6,6 @@
 menuconfig EXAMPLES_LVGLDEMO
 	tristate "LVGL Demo"
 	depends on GRAPHICS_LVGL
-	select LV_FONT_MONTSERRAT_12
-	select LV_FONT_MONTSERRAT_16
-	select LV_FONT_MONTSERRAT_22
-	select LV_FONT_MONTSERRAT_32
 	default n
 	---help---
 		Enable build the Light and Versatile Graphics Library Demo programs
