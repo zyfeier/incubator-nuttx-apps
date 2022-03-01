@@ -24,7 +24,7 @@
 
 #include "../lvgl/src/misc/lv_color.h"
 #include "gpu_port.h"
-#include "lv_gpu_interface.h"
+#include "../lv_gpu_interface.h"
 #include "vg_lite.h"
 #include <lvgl/src/lv_conf_internal.h>
 #include <math.h>

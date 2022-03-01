@@ -75,7 +75,6 @@ struct func_key_pair_s
 
 static const struct func_key_pair_s func_key_pair[] =
 {
-
 #ifdef CONFIG_LV_USE_DEMO_WIDGETS
   { "widgets",        lv_demo_widgets        },
 #endif
@@ -95,9 +94,7 @@ static const struct func_key_pair_s func_key_pair[] =
 #ifdef CONFIG_LV_USE_DEMO_MUSIC
   { "music",          lv_demo_music          },
 #endif
-
   { "", NULL }
-
 };
 
 /****************************************************************************
@@ -207,35 +204,7 @@ int main(int argc, FAR char *argv[])
 
   /* LVGL interface initialization */
 
-  lv_fs_interface_init();
-
-#if defined(CONFIG_LV_USE_LCDDEV_INTERFACE)
-  lv_lcddev_interface_init(NULL, 0);
-#endif
-
-#if defined(CONFIG_LV_USE_GPU_INTERFACE)
-  lv_gpu_interface_init();
-#endif
-
-#if defined(CONFIG_LV_USE_FBDEV_INTERFACE)
-  lv_fbdev_interface_init(NULL, 0);
-#endif
-
-#if defined(CONFIG_LV_USE_BUTTON_INTERFACE)
-  lv_button_interface_init(NULL);
-#endif
-
-#if defined(CONFIG_LV_USE_KEYPAD_INTERFACE)
-  lv_keypad_interface_init(NULL);
-#endif
-
-#if defined(CONFIG_LV_USE_TOUCHPAD_INTERFACE)
-  lv_touchpad_interface_init(NULL);
-#endif
-
-#if defined(CONFIG_LV_USE_ENCODER_INTERFACE)
-  lv_encoder_interface_init(NULL);
-#endif
+  lv_porting_init();
 
   /* LVGL demo creation */
 

@@ -21,7 +21,7 @@
 
 #include <stdlib.h>
 
-#include "lv_gpu_interface.h"
+#include "../lv_gpu_interface.h"
 
 #define USE_GLOBAL_PATH_DATA_BUFFER 1
 

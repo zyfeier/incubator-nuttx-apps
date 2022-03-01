@@ -13,7 +13,7 @@
 #include "../lvgl/src/misc/lv_assert.h"
 #include "../lvgl/src/misc/lv_color.h"
 #include "gpu_port.h"
-#include "lv_gpu_interface.h"
+#include "../lv_gpu_interface.h"
 #include <nuttx/cache.h>
 #include <stdio.h>
 #include <stdlib.h>

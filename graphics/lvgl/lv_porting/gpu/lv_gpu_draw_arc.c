@@ -23,7 +23,7 @@
 #include <stdlib.h>
 
 #include "lv_gpu_draw.h"
-#include "lv_gpu_interface.h"
+#include "../lv_gpu_interface.h"
 
 bool simple_check_intersect_or_inclue(float center_x, float center_y,
                                       float width, float radius,

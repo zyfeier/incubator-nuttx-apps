@@ -24,7 +24,7 @@
 
 #include "lv_gpu_draw.h"
 
-#include "lv_gpu_interface.h"
+#include "../lv_gpu_interface.h"
 
 typedef enum {
     RECT_TYPE_ROUNDED,

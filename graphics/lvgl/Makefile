@@ -31,6 +31,8 @@ LVGL_DIR_NAME = lvgl
 
 -include ./ext/Makefile
 
+CSRCS += lv_porting/lv_porting.c
+
 CSRCS += lv_porting/lv_tick_interface.c
 CSRCS += lv_porting/lv_fs_interface.c
 
@@ -63,22 +65,22 @@ CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../vendor/bes/framewo
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu}
 CSRCS += lv_porting/lv_gpu_interface.c
 ifneq ($(CONFIG_LV_GPU_DRAW_LINE),)
-CSRCS += lv_porting/lv_gpu_draw_line.c
+CSRCS += lv_porting/gpu/lv_gpu_draw_line.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_ARC),)
-CSRCS += lv_porting/lv_gpu_draw_arc.c
-CSRCS += lv_porting/lv_gpu_draw.c
+CSRCS += lv_porting/gpu/lv_gpu_draw_arc.c
+CSRCS += lv_porting/gpu/lv_gpu_draw.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_POLYGON),)
-CSRCS += lv_porting/lv_gpu_draw_polygon.c
+CSRCS += lv_porting/gpu/lv_gpu_draw_polygon.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_RECT),)
-CSRCS += lv_porting/lv_gpu_draw_rect.c
-CSRCS += lv_porting/lv_gpu_draw.c
+CSRCS += lv_porting/gpu/lv_gpu_draw_rect.c
+CSRCS += lv_porting/gpu/lv_gpu_draw.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_IMG),)
-CSRCS += lv_porting/lv_gpu_decoder.c
-CSRCS += lv_porting/lv_gpu_draw_img.c
+CSRCS += lv_porting/gpu/lv_gpu_decoder.c
+CSRCS += lv_porting/gpu/lv_gpu_draw_img.c
 endif
 
 endif
@@ -90,35 +92,5 @@ endif
 ifneq ($(CONFIG_LV_USE_RLOTTIE),)
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/rlottie/inc}
 endif
-
-# Set up build configuration and environment
-
-WD := ${shell echo $(CURDIR) | sed -e 's/ /\\ /g'}
-
-CONFIG_GRAPH_LVGL_URL ?= "https://github.com/lvgl/lvgl/archive"
-
-LVGL_VERSION = $(patsubst "%",%,$(strip $(CONFIG_LVGL_VERSION)))
-LVGL_TARBALL = v$(LVGL_VERSION).zip
-
-LVGL_UNPACKNAME = lvgl
-UNPACK ?= unzip -o
-
-LVGL_UNPACKDIR =  $(WD)/$(LVGL_UNPACKNAME)
-
-$(LVGL_TARBALL):
-	$(Q) echo "Downloading: $(LVGL_TARBALL)"
-	$(Q) curl -O -L $(CONFIG_GRAPH_LVGL_URL)/$(LVGL_TARBALL)
-
-$(LVGL_UNPACKNAME): $(LVGL_TARBALL)
-	$(Q) echo "Unpacking: $(LVGL_TARBALL) -> $(LVGL_UNPACKNAME)"
-	$(Q) $(UNPACK) $(LVGL_TARBALL)
-	$(Q) mv	lvgl-$(LVGL_VERSION) $(LVGL_UNPACKNAME)
-	$(Q) touch $(LVGL_UNPACKNAME)
-
-context::# $(LVGL_UNPACKNAME)
-
-distclean::
-#	$(call DELDIR, $(LVGL_UNPACKNAME))
-#	$(call DELFILE, $(LVGL_TARBALL))
 
 include $(APPDIR)/Application.mk

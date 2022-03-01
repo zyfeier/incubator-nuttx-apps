@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/graphics/lvgl/lv_porting/lv_porting.h
+ * apps/graphics/lvgl/lv_porting/lv_porting.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,44 +18,14 @@
  *
  ****************************************************************************/
 
-#ifndef __LV_PORTING_H__
-#define __LV_PORTING_H__
-
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
-#include <lv_porting/lv_button_interface.h>
-#include <lv_porting/lv_encoder_interface.h>
-#include <lv_porting/lv_fbdev_interface.h>
-#include <lv_porting/lv_fs_interface.h>
-#include <lv_porting/lv_gpu_interface.h>
-#include <lv_porting/lv_lcddev_interface.h>
-#include <lv_porting/lv_keypad_interface.h>
-#include <lv_porting/lv_touchpad_interface.h>
+#include "lv_porting.h"
 
 /****************************************************************************
- * Pre-processor Definitions
- ****************************************************************************/
-
-/****************************************************************************
- * Type Definitions
- ****************************************************************************/
-
-/****************************************************************************
- * Public Data
- ****************************************************************************/
-
-#ifdef __cplusplus
-#define EXTERN extern "C"
-extern "C"
-{
-#else
-#define EXTERN extern
-#endif
-
-/****************************************************************************
- * Public Function Prototypes
+ * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
@@ -66,11 +36,35 @@ extern "C"
  *
  ****************************************************************************/
 
-void lv_porting_init(void);
+void lv_porting_init(void)
+{
+  lv_fs_interface_init();
 
-#undef EXTERN
-#ifdef __cplusplus
-}
+#if defined(CONFIG_LV_USE_LCDDEV_INTERFACE)
+  lv_lcddev_interface_init(NULL, 0);
 #endif
 
-#endif /* __LV_PORTING_H__ */
+#if defined(CONFIG_LV_USE_FBDEV_INTERFACE)
+  lv_fbdev_interface_init(NULL, 0);
+#endif
+
+#if defined(CONFIG_LV_USE_GPU_INTERFACE)
+  lv_gpu_interface_init();
+#endif
+
+#if defined(CONFIG_LV_USE_BUTTON_INTERFACE)
+  lv_button_interface_init(NULL);
+#endif
+
+#if defined(CONFIG_LV_USE_KEYPAD_INTERFACE)
+  lv_keypad_interface_init(NULL);
+#endif
+
+#if defined(CONFIG_LV_USE_TOUCHPAD_INTERFACE)
+  lv_touchpad_interface_init(NULL);
+#endif
+
+#if defined(CONFIG_LV_USE_ENCODER_INTERFACE)
+  lv_encoder_interface_init(NULL);
+#endif
+}
