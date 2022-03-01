@@ -185,7 +185,6 @@ CSRCS += test-osx-select.c
 CSRCS += test-pass-always.c
 CSRCS += test-ping-pong.c
 CSRCS += test-pipe-bind-error.c
-CSRCS += test-pipe-close-stdout-read-stdin.c
 CSRCS += test-pipe-connect-error.c
 CSRCS += test-pipe-connect-multiple.c
 CSRCS += test-pipe-connect-prepare.c
