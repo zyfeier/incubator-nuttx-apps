@@ -545,7 +545,14 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(struct _lv_draw_ctx_t* draw_ctx,
   vg_lite_path_t vg_lite_path;
   memset(&vg_lite_path, 0, sizeof(vg_lite_path_t));
 
-  if (draw_rect_path(&dst_vgbuf, &vg_lite_path, coords, draw_ctx->clip_area,
+  lv_area_t _coords, _clip_area;
+  lv_area_copy(&_coords, coords);
+  lv_area_copy(&_clip_area, draw_ctx->clip_area);
+
+  lv_area_move(&_coords, -draw_ctx->buf_area->x1, -draw_ctx->buf_area->y1);
+  lv_area_move(&_clip_area, -draw_ctx->buf_area->x1, -draw_ctx->buf_area->y1);
+
+  if (draw_rect_path(&dst_vgbuf, &vg_lite_path, &_coords, &_clip_area,
           dsc)
       == false) {
     return LV_RES_OK;
