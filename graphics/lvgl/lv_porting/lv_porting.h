@@ -34,6 +34,9 @@
 #include <lv_porting/lv_keypad_interface.h>
 #include <lv_porting/lv_touchpad_interface.h>
 
+#include <lv_porting/decoder/jpeg_turbo/lv_jpeg_turbo.h>
+#include <lv_porting/decoder/lodepng/lv_lodepng.h>
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/

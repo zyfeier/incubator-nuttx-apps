@@ -289,6 +289,18 @@ config LV_ENCODER_INTERFACE_DEFAULT_DEVICEPATH
 
 endif # LV_USE_ENCODER_INTERFACE
 
+menu "Image Decoder"
+
+config LV_USE_DECODER_JPEG_TURBO
+	bool "Enable JPEG decoder"
+	default n
+
+config LV_USE_DECODER_LODEPNG
+	bool "Enable PNG decoder"
+	default n
+
+endmenu
+
 menu "LVGL extension"
 
 config LVGL_EXTENSION

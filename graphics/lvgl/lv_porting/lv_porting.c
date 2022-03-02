@@ -67,4 +67,12 @@ void lv_porting_init(void)
 #if defined(CONFIG_LV_USE_ENCODER_INTERFACE)
   lv_encoder_interface_init(NULL);
 #endif
+
+#if defined(CONFIG_LV_USE_DECODER_JPEG_TURBO)
+  lv_jpeg_turbo_init();
+#endif
+
+#if defined(CONFIG_LV_USE_DECODER_LODEPNG)
+  lv_lodepng_init();
+#endif
 }

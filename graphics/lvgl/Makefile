@@ -86,6 +86,16 @@ endif
 
 endif
 
+ifneq ($(CONFIG_LV_USE_DECODER_JPEG_TURBO),)
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/libjpeg-turbo}
+CSRCS += lv_porting/decoder/jpeg_turbo/lv_jpeg_turbo.c
+endif
+
+ifneq ($(CONFIG_LV_USE_DECODER_LODEPNG),)
+CSRCS += lv_porting/decoder/lodepng/lodepng.c
+CSRCS += lv_porting/decoder/lodepng/lv_lodepng.c
+endif
+
 ifneq ($(CONFIG_LV_USE_FFMPEG),)
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/ffmpeg}
 endif
