@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/graphics/lvgl/lv_porting/lv_gpu_draw_utils.h
+ * apps/graphics/lvgl/lv_porting/gpu/lv_gpu_draw.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -80,4 +80,4 @@ bool draw_rect_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
                     const lv_area_t* coords, const lv_area_t* clip,
                     const lv_draw_rect_dsc_t* dsc);
 
-#endif //__LV_GPU_DRAW_H__
+#endif /* __LV_GPU_DRAW_H__ */

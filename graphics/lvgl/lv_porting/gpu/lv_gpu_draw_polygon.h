@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/graphics/lvgl/lv_porting/lv_gpu_draw_polygon.h
+ * apps/graphics/lvgl/lv_porting/gpu/lv_gpu_draw_polygon.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with

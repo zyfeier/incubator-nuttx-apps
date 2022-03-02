@@ -1,19 +1,35 @@
-/**
- * @file lv_gpu_decoder.c
+/****************************************************************************
+ * apps/graphics/lvgl/lv_porting/gpu/lv_gpu_decoder.c
  *
- */
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.  The
+ * ASF licenses this file to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ ****************************************************************************/
 
 /*********************
  *      INCLUDES
  *********************/
 
 #include "lv_gpu_decoder.h"
+#include "../lv_gpu_interface.h"
 #include "../lvgl/src/draw/lv_draw_img.h"
 #include "../lvgl/src/draw/lv_img_decoder.h"
 #include "../lvgl/src/misc/lv_assert.h"
 #include "../lvgl/src/misc/lv_color.h"
 #include "gpu_port.h"
-#include "../lv_gpu_interface.h"
+#include "lv_gpu_evoreader.h"
 #include <nuttx/cache.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,8 +37,6 @@
 /*********************
  *      DEFINES
  *********************/
-
-#define GPU_DATA_MAGIC 0x7615600D /* VGISGOOD:1981112333 */
 
 /**********************
  *      TYPEDEFS
@@ -36,6 +50,7 @@ LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp, const lv_color3
 LV_ATTRIBUTE_FAST_MEM static void bgra5658_to_8888(const uint8_t* src, uint32_t* dst);
 LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
 LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
+LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
 
 /**********************
  *   STATIC FUNCTIONS
@@ -43,6 +58,9 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
 
 static uint32_t gpu_img_buf_get_img_size(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
 {
+  if (cf == LV_IMG_CF_EVO) {
+    return sizeof(gpu_data_header_t);
+  }
   w = (cf == LV_IMG_CF_INDEXED_1BIT)   ? ALIGN_UP(w, 64)
       : (cf == LV_IMG_CF_INDEXED_2BIT) ? ALIGN_UP(w, 32)
                                        : ALIGN_UP(w, 16);
@@ -294,6 +312,62 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
   return LV_RES_OK;
 }
 
+LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
+{
+  lv_fs_file_t f;
+  const uint8_t* img_data = NULL;
+  lv_img_cf_t cf = dsc->header.cf;
+  const lv_img_dsc_t* img_dsc = dsc->src;
+  /*Open the file if it's a file*/
+  if (dsc->src_type == LV_IMG_SRC_FILE) {
+    /*Support only "*.evo" files*/
+    GPU_WARN("opening %s", (const char*)dsc->src);
+    if (strcmp(lv_fs_get_ext(dsc->src), "evo")) {
+      GPU_WARN("can't open %s", (const char*)dsc->src);
+      return LV_RES_INV;
+    }
+    lv_fs_res_t res = lv_fs_open(&f, dsc->src, LV_FS_MODE_RD);
+    if (res != LV_FS_RES_OK) {
+      GPU_WARN("gpu_decoder can't open the file");
+      return LV_RES_INV;
+    }
+    lv_fs_seek(&f, 4, LV_FS_SEEK_SET);
+
+    gpu_data_header_t* gpu_data = lv_mem_alloc(sizeof(gpu_data_header_t));
+    if (gpu_data == NULL) {
+      GPU_ERROR("out of memory");
+      lv_fs_close(&f);
+      return LV_RES_INV;
+    }
+    gpu_data->magic = EVO_DATA_MAGIC;
+    if (evo_read(&f, &gpu_data->evocontent) != LV_FS_RES_OK) {
+      lv_mem_free(gpu_data);
+      lv_fs_close(&f);
+      GPU_ERROR("file read failed");
+      return LV_RES_INV;
+    }
+    img_data = (const uint8_t*)gpu_data;
+  } else if (dsc->src_type == LV_IMG_SRC_VARIABLE) {
+    /*The variables should have valid data*/
+    if (img_dsc->data == NULL) {
+      GPU_WARN("no data");
+      return LV_RES_INV;
+    }
+    img_data = img_dsc->data;
+  }
+
+  dsc->img_data = img_data;
+  if (img_data) {
+    if (dsc->src_type == LV_IMG_SRC_FILE) {
+      lv_fs_close(&f);
+    }
+    return LV_RES_OK;
+  } else {
+    /*Unknown source. Can't decode it.*/
+    GPU_WARN("Unknown source:%d w:%d h:%d @%p", dsc->src_type, dsc->header.w, dsc->header.h, dsc->img_data);
+    return LV_RES_INV;
+  }
+}
 /**********************
  *   GLOBAL FUNCTIONS
  **********************/
@@ -309,9 +383,68 @@ void lv_gpu_decoder_init(void)
     return;
   }
 
-  lv_img_decoder_set_info_cb(decoder, lv_img_decoder_built_in_info);
+  lv_img_decoder_set_info_cb(decoder, lv_gpu_decoder_info);
   lv_img_decoder_set_open_cb(decoder, lv_gpu_decoder_open);
   lv_img_decoder_set_close_cb(decoder, lv_gpu_decoder_close);
+}
+
+/**
+ * Get info about a gpu-supported image
+ * @param decoder the decoder where this function belongs
+ * @param src the image source: pointer to an `lv_img_dsc_t` variable, a file path or a symbol
+ * @param header store the image data here
+ * @return LV_RES_OK: the info is successfully stored in `header`; LV_RES_INV: unknown format or other error.
+ */
+lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src, lv_img_header_t* header)
+{
+  LV_UNUSED(decoder); /*Unused*/
+
+  lv_img_src_t src_type = lv_img_src_get_type(src);
+  if (src_type == LV_IMG_SRC_VARIABLE) {
+    lv_img_cf_t cf = ((lv_img_dsc_t*)src)->header.cf;
+    if (cf < CF_BUILT_IN_FIRST || cf > CF_BUILT_IN_LAST)
+      return LV_RES_INV;
+
+    header->w = ((lv_img_dsc_t*)src)->header.w;
+    header->h = ((lv_img_dsc_t*)src)->header.h;
+    header->cf = ((lv_img_dsc_t*)src)->header.cf;
+  } else if (src_type == LV_IMG_SRC_FILE) {
+    /*Support only "*.bin" and ".evo" files*/
+    if (strcmp(lv_fs_get_ext(src), "bin") & strcmp(lv_fs_get_ext(src), "evo"))
+      return LV_RES_INV;
+
+    lv_fs_file_t f;
+    lv_fs_res_t res = lv_fs_open(&f, src, LV_FS_MODE_RD);
+    if (res == LV_FS_RES_OK) {
+      uint32_t rn;
+      res = lv_fs_read(&f, header, sizeof(lv_img_header_t), &rn);
+      lv_fs_close(&f);
+      if (res != LV_FS_RES_OK || rn != sizeof(lv_img_header_t)) {
+        LV_LOG_WARN("Image get info get read file header");
+        return LV_RES_INV;
+      }
+
+      if (header->cf < CF_BUILT_IN_FIRST || header->cf > CF_BUILT_IN_LAST)
+        if (header->cf != LV_IMG_CF_EVO)
+          return LV_RES_INV;
+
+    } else {
+      LV_LOG_ERROR("GPU decoder open %s failed", src);
+      return LV_RES_INV;
+    }
+  } else if (src_type == LV_IMG_SRC_SYMBOL) {
+    /*The size depend on the font but it is unknown here. It should be handled outside of the
+     *function*/
+    header->w = 1;
+    header->h = 1;
+    /*Symbols always have transparent parts. Important because of cover check in the draw
+     *function. The actual value doesn't matter because lv_draw_label will draw it*/
+    header->cf = LV_IMG_CF_ALPHA_1BIT;
+  } else {
+    LV_LOG_WARN("Image get info found unknown src type");
+    return LV_RES_INV;
+  }
+  return LV_RES_OK;
 }
 
 /**
@@ -326,22 +459,27 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* ds
   const lv_img_dsc_t* img_dsc = dsc->src;
   if (dsc->src_type == LV_IMG_SRC_VARIABLE) {
     gpu_data_header_t* header = (gpu_data_header_t*)img_dsc->data;
-    if (header->magic == GPU_DATA_MAGIC) {
+    if (header->magic == GPU_DATA_MAGIC || header->magic == EVO_DATA_MAGIC) {
       /* already decoded, just pass the pointer */
-      GPU_WARN("already decoded %p @ %p", header->vgbuf.memory, header);
+      GPU_WARN("%x already decoded %p @ %p", header->magic, header->vgbuf.memory, header);
       dsc->img_data = img_dsc->data;
       dsc->user_data = NULL;
       return LV_RES_OK;
     }
   }
 
-  dsc->user_data = (void*)GPU_DATA_MAGIC;
   /*Process true color formats*/
   if (cf == LV_IMG_CF_TRUE_COLOR || cf == LV_IMG_CF_TRUE_COLOR_ALPHA || cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
+    dsc->user_data = (void*)GPU_DATA_MAGIC;
     lv_res_t ret = decode_rgb(decoder, dsc);
     return ret;
   } else if ((cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT) || cf == LV_IMG_CF_ALPHA_8BIT || cf == LV_IMG_CF_ALPHA_4BIT) {
+    dsc->user_data = (void*)GPU_DATA_MAGIC;
     lv_res_t ret = decode_indexed(decoder, dsc);
+    return ret;
+  } else if (cf == LV_IMG_CF_EVO) {
+    dsc->user_data = (void*)EVO_DATA_MAGIC;
+    lv_res_t ret = decode_evo(decoder, dsc);
     return ret;
   }
 
@@ -360,8 +498,13 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* ds
 void lv_gpu_decoder_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
 {
   LV_UNUSED(decoder); /*Unused*/
-  if (dsc->img_data != NULL && (uint32_t)dsc->user_data == GPU_DATA_MAGIC) {
-    free((void*)dsc->img_data);
+  if (dsc->img_data != NULL) {
+    if ((uint32_t)dsc->user_data == GPU_DATA_MAGIC) {
+      free((void*)dsc->img_data);
+    } else if ((uint32_t)dsc->user_data == EVO_DATA_MAGIC) {
+      evo_clear(&((gpu_data_header_t*)dsc->img_data)->evocontent);
+      free((void*)dsc->img_data);
+    }
     dsc->img_data = NULL;
   }
 }
@@ -701,6 +844,8 @@ lv_img_dsc_t* gpu_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
 void gpu_data_update(void* data)
 {
   gpu_data_header_t* header = (gpu_data_header_t*)data;
-  header->vgbuf.address = (uint32_t)data + sizeof(gpu_data_header_t);
-  header->vgbuf.memory = (void*)header->vgbuf.address;
+  if (header->magic == GPU_DATA_MAGIC) {
+    header->vgbuf.address = (uint32_t)data + sizeof(gpu_data_header_t);
+    header->vgbuf.memory = (void*)header->vgbuf.address;
+  }
 }

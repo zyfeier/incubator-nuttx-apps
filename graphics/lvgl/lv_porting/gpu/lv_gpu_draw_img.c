@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/graphics/lvgl/lv_porting/lv_gpu_draw_img.c
+ * apps/graphics/lvgl/lv_porting/gpu/lv_gpu_draw_img.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,10 +22,10 @@
  * Included Files
  ****************************************************************************/
 
+#include "../lv_gpu_interface.h"
 #include "../lvgl/src/misc/lv_color.h"
 #include "gpu_port.h"
 #include "lv_gpu_decoder.h"
-#include "../lv_gpu_interface.h"
 #include "vg_lite.h"
 #include <lvgl/src/lv_conf_internal.h>
 #include <nuttx/cache.h>
@@ -185,6 +185,44 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   LV_ASSERT(init_vg_buf(&dst_vgbuf, disp_w, disp_h,
                 disp_w * sizeof(lv_color_t), disp_buf, VGLITE_PX_FMT, false)
       == LV_RES_OK);
+
+  if (*(uint32_t*)map_p == EVO_DATA_MAGIC) {
+    evo_fcontent_t* evocontent = &((gpu_data_header_t*)map_p)->evocontent;
+    GPU_WARN("evo file w/ %d paths", evocontent->pathcount);
+    vg_lite_matrix_t tf;
+    vg_lite_identity(&tf);
+    vg_lite_translate(coords->x1 - disp_area->x1, coords->y1 - disp_area->y1, &tf);
+    if (transformed) {
+      vg_lite_translate(pivot.x, pivot.y, &tf);
+      vg_lite_float_t scale = zoom * 1.0f / LV_IMG_ZOOM_NONE;
+      if (zoom != LV_IMG_ZOOM_NONE) {
+        vg_lite_scale(scale, scale, &tf);
+      }
+      if (angle != 0) {
+        vg_lite_rotate(angle / 10.0f, &tf);
+      }
+      vg_lite_translate(-pivot.x, -pivot.y, &tf);
+    }
+    vg_lite_matrix_t tf0, tfi;
+    evo_matmult(&tf, &evocontent->transform, &tf0);
+    for (int i = 0; i < evocontent->pathcount; i++) {
+      evo_matmult(&tf0, &evocontent->evo_path_dsc[i].pathtransform, &tfi);
+      if (evocontent->evo_path_dsc[i].path_type == 0) { /* Non-gradient */
+        CHECK_ERROR(vg_lite_draw(&dst_vgbuf, &evocontent->evo_path_dsc[i].vpath, evocontent->evo_path_dsc[i].fill_rule, &tfi, evocontent->evo_path_dsc[i].blending_mode, evocontent->evo_path_dsc[i].color));
+      } else if (evocontent->evo_path_dsc[i].path_type > 0) { /* Linear gradient */
+        vg_lite_linear_gradient_t* grad = evocontent->evo_path_dsc[i].lin_gradient;
+        vg_lite_matrix_t tmp;
+        lv_memcpy(&tmp, &grad->matrix, sizeof(vg_lite_matrix_t));
+        evo_matmult(&tf, &grad->matrix, &grad->matrix);
+        CHECK_ERROR(vg_lite_draw_gradient(&dst_vgbuf, &evocontent->evo_path_dsc[i].vpath, evocontent->evo_path_dsc[i].fill_rule, &tfi, grad, evocontent->evo_path_dsc[i].blending_mode));
+        lv_memcpy(&grad->matrix, &tmp, sizeof(vg_lite_matrix_t));
+      } else { /* Radial gradient */
+        CHECK_ERROR(vg_lite_draw_radial_gradient(&dst_vgbuf, &evocontent->evo_path_dsc[i].vpath, evocontent->evo_path_dsc[i].fill_rule, &evocontent->evo_path_dsc[i].pathtransform, evocontent->evo_path_dsc[i].rad_gradient, evocontent->evo_path_dsc[i].color, evocontent->evo_path_dsc[i].blending_mode, VG_LITE_FILTER_LINEAR));
+      }
+    }
+    CHECK_ERROR(vg_lite_finish());
+    return LV_RES_OK;
+  }
   uint32_t rect[4] = { 0, 0 };
   lv_area_t map_tf, draw_area;
   lv_area_copy(&draw_area, draw_ctx->clip_area);
@@ -304,14 +342,10 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     CHECK_ERROR(vg_lite_draw_pattern(&dst_vgbuf, &vpath, VG_LITE_FILL_NON_ZERO, &matrix0, &src_vgbuf, &matrix, blend, VG_LITE_PATTERN_COLOR, 0, filter));
   }
 
-  TC_INIT
-  TC_START
   CHECK_ERROR(vg_lite_finish());
   if (IS_CACHED(dst_vgbuf.memory)) {
     up_invalidate_dcache((uintptr_t)dst_vgbuf.memory, (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
   }
-  TC_END
-  TC_REP(vg_lite_submit)
 
 Error_handler:
   if (allocated_src) {
