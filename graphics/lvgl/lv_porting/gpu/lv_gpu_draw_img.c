@@ -54,7 +54,49 @@
 LV_ATTRIBUTE_FAST_MEM static void recolor_palette(uint32_t* dst,
     const uint32_t* src, uint16_t size, uint32_t recolor, lv_opa_t opa)
 {
-  /* TODO: MVE acceleration */
+#ifdef CONFIG_ARM_HAVE_MVE
+  int32_t blkCnt = size;
+  uint32_t* pwTarget = dst;
+  uint32_t* phwSource = (uint32_t*)src;
+  if (src != NULL) {
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        "   vldrw.32                q0, [%[pSource]], #16               \n"
+        "   vdup.8                  q1, %[opa]                          \n"
+        "   vrmulh.u8               q0, q0, q1                          \n"
+        "   vstrw.32                q0, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   1:                                                          \n"
+        : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+        : [loopCnt] "r"(blkCnt), [opa] "r"(opa)
+        : "q0", "q1", "lr", "memory");
+  } else {
+    uint32_t inits[4] = { 0x0, 0x1010101, 0x2020202, 0x3030303 };
+    uint32_t step = 4;
+    if (size == 16) {
+      step = 0x44;
+      inits[1] = 0x11111111;
+      inits[2] = 0x22222222;
+      inits[3] = 0x33333333;
+    }
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vdup.32                 q0, %[pSource]                      \n"
+        "   vldrw.32                q1, [%[init]]                       \n"
+        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        "   vrmulh.u8               q2, q0, q1                          \n"
+        "   vstrw.32                q2, [%[pTarget]], #16               \n"
+        "   vadd.i8                 q1, q1, %[step]                     \n"
+        "   letp                    lr, 2b                              \n"
+        "   1:                                                          \n"
+        : [pSource] "+r"(recolor), [pTarget] "+r"(pwTarget)
+        : [loopCnt] "r"(blkCnt), [init] "r"(inits), [step] "r"(step)
+        : "q0", "q1", "q2", "lr", "memory");
+  }
+#else
   uint16_t recolor_premult[3] = { (recolor >> 16 & 0xFF) * opa,
     (recolor >> 8 & 0xFF) * opa, (recolor & 0xFF) * opa };
   lv_opa_t mix = 255 - opa;
@@ -79,6 +121,7 @@ LV_ATTRIBUTE_FAST_MEM static void recolor_palette(uint32_t* dst,
           ((uint32_t)recolor_premult[2] * opa_i & 0xFF0000) >> 16; /* B */
     }
   }
+#endif
 }
 
 LV_ATTRIBUTE_FAST_MEM static void fill_rect_path(int16_t* path, lv_area_t* area)

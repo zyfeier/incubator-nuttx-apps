@@ -104,10 +104,6 @@ extern const uint8_t bmode[];
 #define IS_CACHED(addr) (((uint32_t)addr & 0xFF000000) == 0x3C000000)
 #endif
 
-#ifndef MAX
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#endif
-
 #ifdef LV_GPU_USE_LOG
 #define GPU_INFO LV_LOG_INFO
 #define GPU_WARN LV_LOG_WARN
