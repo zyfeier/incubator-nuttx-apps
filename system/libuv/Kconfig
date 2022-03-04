@@ -18,15 +18,16 @@ config LIBUV_THREADPOOL_SIZE
 
 choice
 	prompt "libuv utils"
+	default LIBUV_UTILS_NONE
 
 config LIBUV_UTILS_NONE
-	tristate "none"
+	bool "none"
 
 config LIBUV_UTILS_TEST
-	tristate "uv_run_tests"
+	bool "uv_run_tests"
 
 config LIBUV_UTILS_BENCHMARK
-	tristate "uv_run_benchmarks"
+	bool "uv_run_benchmarks"
 
 endchoice
 

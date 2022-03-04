@@ -21,9 +21,9 @@
 include $(APPDIR)/Make.defs
 -include ./ext/Makefile
 
-LIBUV_PATCHS ?= $(sort $(wildcard $(LIBUV_DIR)/000*.patch))
+LIBUV_PATCHS ?= $(sort $(wildcard 000*.patch))
 
-LIBUV_VERSION  = 1.41.0
+LIBUV_VERSION  = 1.42.0
 LIBUV_UNPACK   = libuv
 LIBUV_TARBALL  = v$(LIBUV_VERSION).zip
 LIBUV_URL_BASE = https://github.com/libuv/libuv/archive/refs/tags/
@@ -32,13 +32,13 @@ LIBUV_URL      = $(LIBUV_URL_BASE)/$(LIBUV_TARBALL)
 
 $(LIBUV_TARBALL):
 	@echo "Downloading: $(LIBUV_TARBALL)"
-	$(Q) curl -L $(LIBUV_URL)
+	$(Q) curl -L $(LIBUV_URL) -o $(LIBUV_TARBALL)
 
 $(LIBUV_UNPACK): $(LIBUV_TARBALL)
 	@echo "Unpacking: $(LIBUV_TARBALL) -> $(LIBUV_UNPACK)"
 	$(call DELDIR, $(LIBUV_UNPACK))
 	$(Q) unzip $(LIBUV_TARBALL)
-	$(Q) move libuv-$(LIBUV_VERSION) $(LIBUV_UNPACK)
+	$(Q) mv libuv-$(LIBUV_VERSION) $(LIBUV_UNPACK)
 	$(Q) cat $(LIBUV_PATCHS) | \
 		patch -s -N -d $(LIBUV_UNPACK) -p1
 
@@ -116,7 +116,6 @@ STACKSIZE = $(CONFIG_LIBUV_UTILS_STACKSIZE)
 ifneq ($(CONFIG_LIBUV_UTILS_TEST),)
 
 PROGNAME = uv_run_tests
-MODULE   = $(CONFIG_LIBUV_UTILS_TEST)
 MAINSRC  = run-tests.c
 
 CSRCS += runner.c
@@ -289,7 +288,6 @@ endif
 ifneq ($(CONFIG_LIBUV_UTILS_BENCHMARK),)
 
 PROGNAME = uv_run_benchmarks
-MODULE   = $(CONFIG_LIBUV_UTILS_BENCHMARK)
 MAINSRC  = run-benchmarks.c
 
 CSRCS += runner.c

@@ -20,11 +20,15 @@
 
 include $(APPDIR)/Make.defs
 
-ifeq ($(CONFIG_EXTERNALS_CMSIS_DSP_ARM_MATH_MATRIX_CHECK),y)
+ifeq ($(CONFIG_CMSIS_DSP_ARM_MATH_MATRIX_CHECK),y)
 CFLAGS += -DARM_MATH_MATRIX_CHECK
 endif
-ifeq ($(CONFIG_EXTERNALS_CMSIS_DSP_ARM_MATH_ROUNDING),y)
+ifeq ($(CONFIG_CMSIS_DSP_ARM_MATH_ROUNDING),y)
 CFLAGS += -DARM_MATH_ROUNDING
+endif
+ifeq ($(CONFIG_ARCH_FPU),y)
+CFLAGS += -D__FPU_PRESENT=1U
+CXXFLAGS += -D__FPU_PRESENT=1U
 endif
 
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/mlearning/cmsis/CMSIS_5/CMSIS/DSP/PrivateInclude/}
@@ -552,6 +556,6 @@ CSRCS += $(CMSIS5_DSP)/ComplexMathFunctions/arm_cmplx_mag_f32.c
 
 CFLAGS += -ffast-math -Wno-shadow
 
-BIN := libarm_math$(LIBEXT)
+MODULE = $(CONFIG_CMSIS_DSP)
 
 include $(APPDIR)/Application.mk

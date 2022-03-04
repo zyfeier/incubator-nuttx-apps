@@ -472,7 +472,7 @@ static int trace_cmd_mode(int index, int argc, FAR char **argv,
 
 #ifdef CONFIG_SCHED_INSTRUMENTATION_SWITCH
 static int trace_cmd_switch(int index, int argc, FAR char **argv,
-                             int notectlfd)
+                            int notectlfd)
 {
   bool enable;
   struct note_filter_mode_s mode;
@@ -722,7 +722,7 @@ static int trace_cmd_irq(int index, int argc, FAR char **argv, int notectlfd)
 
 #ifdef CONFIG_SCHED_INSTRUMENTATION_DUMP
 static int trace_cmd_print(int index, int argc, FAR char **argv,
-                             int notectlfd)
+                           int notectlfd)
 {
   bool enable;
   struct note_filter_mode_s mode;
