@@ -80,7 +80,7 @@ static const struct sensor_info g_sensor_info[] =
   {print_vec3,  sizeof(struct sensor_event_mag),   "mag"},
   {print_vec3,  sizeof(struct sensor_event_gyro),  "gyro"},
   {print_valf2, sizeof(struct sensor_event_baro),  "baro"},
-  {print_valf,  sizeof(struct sensor_event_light), "light"},
+  {print_valf2, sizeof(struct sensor_event_light), "light"},
   {print_valf,  sizeof(struct sensor_event_prox),  "prox"},
   {print_valf,  sizeof(struct sensor_event_humi),  "humi"},
   {print_valf,  sizeof(struct sensor_event_temp),  "temp"},
