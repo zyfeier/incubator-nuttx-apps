@@ -22,11 +22,11 @@
  * Included Files
  ****************************************************************************/
 
-#include "../lvgl/src/misc/lv_color.h"
-#include "gpu_port.h"
-#include "../lv_gpu_interface.h"
+#include "lv_color.h"
+#include "lv_gpu_draw_utils.h"
+#include "lv_porting/lv_gpu_interface.h"
+#include "src/lv_conf_internal.h"
 #include "vg_lite.h"
-#include <lvgl/src/lv_conf_internal.h>
 #include <math.h>
 #include <nuttx/cache.h>
 #include <stdio.h>
@@ -36,27 +36,29 @@
  * Preprocessor Definitions
  ****************************************************************************/
 
-#ifndef M_PI
-#define M_PI 3.1415926535
-#endif
+#define PLAIN_LINE_NUM 10
 
 /****************************************************************************
  * Macros
  ****************************************************************************/
 
+#define P(p) ((lv_fpoint_t) { (p)->x, (p)->y })
+#define PR(p) ((lv_fpoint_t) { (p)->x + w2_dx, (p)->y - w2_dy })
+#define PL(p) ((lv_fpoint_t) { (p)->x - w2_dx, (p)->y + w2_dy })
+#define PB(p) ((lv_fpoint_t) { (p)->x - w2_dy, (p)->y - w2_dx })
+#define PT(p) ((lv_fpoint_t) { (p)->x + w2_dy, (p)->y + w2_dx })
+
 /****************************************************************************
  * Private Data
  ****************************************************************************/
 
+static lv_fpoint_t g_points[PLAIN_LINE_NUM];
+static lv_gpu_curve_op_t g_op[PLAIN_LINE_NUM];
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
-LV_ATTRIBUTE_FAST_MEM static inline void fill_line_path(int16_t* path,
-    lv_coord_t length, lv_coord_t width)
-{
-  path[7] = path[10] = width + 1;
-  path[5] = path[8] = length + 1;
-}
+
 /****************************************************************************
  * Global Functions
  ****************************************************************************/
@@ -65,7 +67,7 @@ LV_ATTRIBUTE_FAST_MEM static inline void fill_line_path(int16_t* path,
  * Name: lv_draw_line_gpu
  *
  * Description:
- *   Draw a skew line with GPU. (buggy)
+ *   Draw a skew line with GPU.
  *
  * Input Parameters:
  * @param draw_ctx draw context (refer to LVGL 8.2 changelog)
@@ -74,11 +76,11 @@ LV_ATTRIBUTE_FAST_MEM static inline void fill_line_path(int16_t* path,
  * @param point2 coordinate 2
  *
  * Returned Value:
- *   None
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_line_gpu(
-    struct _lv_draw_ctx_t* draw_ctx,
+    lv_draw_ctx_t* draw_ctx,
     const lv_draw_line_dsc_t* dsc,
     const lv_point_t* point1,
     const lv_point_t* point2)
@@ -87,74 +89,106 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_line_gpu(
     GPU_INFO("horizontal/vertical line skipped");
     return LV_RES_INV;
   }
-  if (dsc->dash_gap || dsc->dash_width
-      || dsc->opa || dsc->round_start || dsc->round_end) {
-    GPU_INFO("unsupported feature");
-    return LV_RES_INV;
-  }
   const lv_area_t* disp_area = draw_ctx->buf_area;
   lv_color_t* disp_buf = draw_ctx->buf;
   int32_t disp_w = lv_area_get_width(disp_area);
   int32_t disp_h = lv_area_get_height(disp_area);
-  lv_area_t blend_area;
-  lv_coord_t w_2_min = dsc->width >> 1;
-  lv_coord_t w_2_max = w_2_min | 1;
-  blend_area.x1 = LV_MIN(point1->x, point2->x) - w_2_max;
-  blend_area.x2 = LV_MAX(point1->x, point2->x) + w_2_max - 1;
-  blend_area.y1 = LV_MIN(point1->y, point2->y) - w_2_max;
-  blend_area.y2 = LV_MAX(point1->y, point2->y) + w_2_max - 1;
-  if (lv_draw_mask_is_any(&blend_area)) {
-    GPU_WARN("masked line skipped: ([%d,%d], [%d,%d])",
-        point1->x, point1->y, point2->x, point2->y);
-    return LV_RES_INV;
+  lv_coord_t w = dsc->width;
+  lv_coord_t dash_width = dsc->dash_width;
+  lv_coord_t dash_gap = dsc->dash_gap;
+  lv_coord_t dash_l = dash_width + dash_gap;
+
+  float dx = point2->x - point1->x;
+  float dy = point2->y - point1->y;
+  float dl = sqrtf(dx * dx + dy * dy);
+  float w_dx = w * dy / dl;
+  float w_dy = w * dx / dl;
+  float w2_dx = w_dx / 2;
+  float w2_dy = w_dy / 2;
+  lv_coord_t num = 4;
+  if (dsc->round_end)
+    num += 3;
+  if (dsc->round_start)
+    num += 3;
+  lv_coord_t ndash = 0;
+  if (dash_width && dash_l < dl) {
+    ndash = (dl + dash_l - 1) / dash_l;
+    num += ndash * 4;
   }
+  lv_fpoint_t* points = g_points;
+  lv_gpu_curve_op_t* op = g_op;
+  if (num > PLAIN_LINE_NUM) {
+    points = lv_mem_alloc(sizeof(lv_fpoint_t) * num);
+    op = lv_mem_alloc(sizeof(lv_gpu_curve_op_t) * num);
+  }
+  points[0] = PR(point1);
+  op[0] = CURVE_LINE;
+  lv_coord_t i = 1;
+  if (dsc->round_start) {
+    op[0] = CURVE_ARC_90;
+    op[i] = CURVE_NOP;
+    points[i++] = P(point1);
+    op[i] = CURVE_ARC_90;
+    points[i++] = PB(point1);
+    op[i] = CURVE_NOP;
+    points[i++] = P(point1);
+  }
+  op[i] = CURVE_LINE;
+  points[i++] = PL(point1);
+  for (int_fast16_t j = 0; j < ndash; j++) {
+    op[i] = CURVE_LINE;
+    points[i++] = (lv_fpoint_t) {
+      point1->x - w2_dx + dx * (j * dash_l + dash_width) / dl,
+      point1->y + w2_dy + dy * (j * dash_l + dash_width) / dl
+    };
+    op[i] = CURVE_CLOSE;
+    points[i++] = (lv_fpoint_t) {
+      point1->x + w2_dx + dx * (j * dash_l + dash_width) / dl,
+      point1->y - w2_dy + dy * (j * dash_l + dash_width) / dl
+    };
+    op[i] = CURVE_LINE;
+    points[i++] = (lv_fpoint_t) {
+      point1->x + w2_dx + dx * (j + 1) * dash_l / dl,
+      point1->y - w2_dy + dy * (j + 1) * dash_l / dl
+    };
+    op[i] = CURVE_LINE;
+    points[i++] = (lv_fpoint_t) {
+      point1->x - w2_dx + dx * (j + 1) * dash_l / dl,
+      point1->y + w2_dy + dy * (j + 1) * dash_l / dl
+    };
+  }
+  op[i] = CURVE_LINE;
+  points[i++] = PL(point2);
+  if (dsc->round_end) {
+    op[i - 1] = CURVE_ARC_90;
+    op[i] = CURVE_NOP;
+    points[i++] = P(point2);
+    op[i] = CURVE_ARC_90;
+    points[i++] = PT(point2);
+    op[i] = CURVE_NOP;
+    points[i++] = P(point2);
+  }
+  op[i] = CURVE_CLOSE;
+  points[i] = PR(point2);
 
-  vg_lite_buffer_t dst_vgbuf;
-  LV_ASSERT(init_vg_buf(&dst_vgbuf, disp_w, disp_h,
-                disp_w * sizeof(lv_color_t), disp_buf, VGLITE_PX_FMT, false)
-      == LV_RES_OK);
-
-  lv_coord_t x_diff = point2->x - point1->x;
-  lv_coord_t y_diff = point2->y - point1->y;
-  lv_coord_t length = (lv_coord_t)sqrtf(x_diff * x_diff + y_diff * y_diff);
-  static int16_t line_path[13] = {
-    VLC_OP_MOVE, 0, 0,
-    VLC_OP_LINE, 0, 0,
-    VLC_OP_LINE, 0, 0,
-    VLC_OP_LINE, 0, 0,
-    VLC_OP_END
+  lv_gpu_curve_fill_t fill = {
+    .color = dsc->color,
+    .opa = dsc->opa,
+    .type = CURVE_FILL_COLOR
   };
-  fill_line_path(line_path, length, dsc->width);
-
-  vg_lite_path_t vpath;
-  lv_memset_00(&vpath, sizeof(vg_lite_path_t));
-  vg_lite_init_path(&vpath, VG_LITE_S16, VG_LITE_HIGH, sizeof(line_path),
-      line_path, 0, 0, disp_w - 1, disp_h - 1);
-
-  bool flat = LV_ABS(x_diff) > LV_ABS(y_diff) ? true : false;
-
-  vg_lite_matrix_t matrix;
-  vg_lite_identity(&matrix);
-  if (flat) {
-    vg_lite_translate(point1->x, point1->y + w_2_max, &matrix);
-  } else if (y_diff > 0) {
-    vg_lite_translate(point1->x - w_2_min, point1->y, &matrix);
-  } else {
-    vg_lite_translate(point1->x + w_2_max, point1->y, &matrix);
-  }
-  float angle = atan2f(y_diff, x_diff) * 180.0 / M_PI - 90.0f;
-  vg_lite_rotate(angle, &matrix);
-  GPU_INFO("len:%d w:%d ([%d,%d]->[%d,%d])angle:%.2f",
-      length, dsc->width, point1->x, point1->y, point2->x, point2->y, angle);
-  vg_lite_color_t color = BGRA_TO_RGBA(lv_color_to32(dsc->color));
-
-  vg_lite_draw(&dst_vgbuf, &vpath, VG_LITE_FILL_NON_ZERO, &matrix,
-      VG_LITE_BLEND_SRC_OVER, color);
-  vg_lite_error_t vgerr = VG_LITE_SUCCESS;
-  CHECK_ERROR(vg_lite_finish());
-  if (IS_CACHED(dst_vgbuf.memory)) {
-    up_invalidate_dcache((uintptr_t)dst_vgbuf.memory,
-        (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
-  }
+  lv_gpu_curve_t curve = {
+    .fpoints = points,
+    .num = num,
+    .op = op,
+    .fill = &fill
+  };
+  lv_gpu_buffer_t gpu_buf = {
+    .buf = draw_ctx->buf,
+    .clip_area = (lv_area_t*)draw_ctx->clip_area,
+    .w = lv_area_get_width(draw_ctx->buf_area),
+    .h = lv_area_get_height(draw_ctx->buf_area),
+    .cf = BPP_TO_LV_FMT(LV_COLOR_DEPTH)
+  };
+  gpu_draw_curve(&curve, &gpu_buf);
   return LV_RES_OK;
 }

@@ -23,13 +23,12 @@
  *********************/
 
 #include "lv_gpu_decoder.h"
-#include "../lv_gpu_interface.h"
-#include "../lvgl/src/draw/lv_draw_img.h"
-#include "../lvgl/src/draw/lv_img_decoder.h"
-#include "../lvgl/src/misc/lv_assert.h"
-#include "../lvgl/src/misc/lv_color.h"
-#include "gpu_port.h"
+#include "lv_assert.h"
+#include "lv_color.h"
+#include "lv_draw_img.h"
 #include "lv_gpu_evoreader.h"
+#include "lv_img_decoder.h"
+#include "lv_porting/lv_gpu_interface.h"
 #include <nuttx/cache.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,17 +45,23 @@
  *  STATIC PROTOTYPES
  **********************/
 
-LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp, const lv_color32_t* sp);
-LV_ATTRIBUTE_FAST_MEM static void bgra5658_to_8888(const uint8_t* src, uint32_t* dst);
-LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
-LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
-LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
+LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp,
+    const lv_color32_t* sp);
+LV_ATTRIBUTE_FAST_MEM static void bgra5658_to_8888(const uint8_t* src,
+    uint32_t* dst);
+LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
+    lv_img_decoder_dsc_t* dsc);
+LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
+    lv_img_decoder_dsc_t* dsc);
+LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder,
+    lv_img_decoder_dsc_t* dsc);
 
 /**********************
  *   STATIC FUNCTIONS
  **********************/
 
-static uint32_t gpu_img_buf_get_img_size(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
+static uint32_t gpu_img_buf_get_img_size(lv_coord_t w, lv_coord_t h,
+    lv_img_cf_t cf)
 {
   if (cf == LV_IMG_CF_EVO) {
     return sizeof(gpu_data_header_t);
@@ -65,14 +70,17 @@ static uint32_t gpu_img_buf_get_img_size(lv_coord_t w, lv_coord_t h, lv_img_cf_t
       : (cf == LV_IMG_CF_INDEXED_2BIT) ? ALIGN_UP(w, 32)
                                        : ALIGN_UP(w, 16);
   uint8_t px_size = lv_img_cf_get_px_size(cf);
-  uint32_t palette_size = (cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT) ? 1 << px_size
-      : (cf >= LV_IMG_CF_ALPHA_1BIT && cf <= LV_IMG_CF_ALPHA_8BIT)                       ? 1
-                                                                                         : 0;
+  bool indexed = cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT;
+  bool alpha = cf >= LV_IMG_CF_ALPHA_1BIT && cf <= LV_IMG_CF_ALPHA_8BIT;
+  uint32_t palette_size = indexed ? 1 << px_size : alpha ? 1
+                                                         : 0;
   uint32_t data_size = w * h * px_size >> 3;
-  return sizeof(gpu_data_header_t) + data_size + palette_size * sizeof(uint32_t);
+  return sizeof(gpu_data_header_t) + data_size
+      + palette_size * sizeof(uint32_t);
 }
 
-LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp, const lv_color32_t* sp)
+LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp,
+    const lv_color32_t* sp)
 {
   dp->ch.alpha = sp->ch.alpha;
   dp->ch.red = LV_UDIV255(sp->ch.red * dp->ch.alpha);
@@ -80,7 +88,8 @@ LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp, const lv_color3
   dp->ch.blue = LV_UDIV255(sp->ch.blue * dp->ch.alpha);
 }
 
-LV_ATTRIBUTE_FAST_MEM POSSIBLY_UNUSED static void bgra5658_to_8888(const uint8_t* src, uint32_t* dst)
+LV_ATTRIBUTE_FAST_MEM POSSIBLY_UNUSED static void bgra5658_to_8888(
+    const uint8_t* src, uint32_t* dst)
 {
   lv_color32_t* c32 = (lv_color32_t*)dst;
   const lv_color16_t* c16 = (const lv_color16_t*)src;
@@ -119,7 +128,8 @@ static void bit_rev(uint8_t px_size, uint8_t* buf, uint32_t stride)
     break;
   case 2:
     for (int_fast16_t i = 0; i < stride; i++) {
-      buf[i] = buf[i] << 6 | (buf[i] << 2 & 0x30) | (buf[i] >> 2 & 0x0C) | buf[i] >> 6;
+      buf[i] = buf[i] << 6 | (buf[i] << 2 & 0x30)
+          | (buf[i] >> 2 & 0x0C) | buf[i] >> 6;
     }
     break;
   case 4:
@@ -133,7 +143,8 @@ static void bit_rev(uint8_t px_size, uint8_t* buf, uint32_t stride)
   }
 }
 
-LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
+LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
+    lv_img_decoder_dsc_t* dsc)
 {
   lv_fs_file_t f;
   const uint8_t* img_data = NULL;
@@ -154,7 +165,9 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder, lv_i
       return LV_RES_INV;
     }
     lv_fs_seek(&f, 4, LV_FS_SEEK_SET);
-    uint32_t data_size = dsc->header.w * dsc->header.h * lv_img_cf_get_px_size(cf) >> 3;
+    uint32_t data_size = dsc->header.w * dsc->header.h
+            * lv_img_cf_get_px_size(cf)
+        >> 3;
     fs_buf = lv_mem_alloc(data_size);
     if (fs_buf == NULL) {
       GPU_ERROR("out of memory");
@@ -177,7 +190,8 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder, lv_i
     img_data = img_dsc->data;
   }
 
-  uint32_t gpu_data_size = gpu_img_buf_get_img_size(dsc->header.w, dsc->header.h, cf);
+  uint32_t gpu_data_size = gpu_img_buf_get_img_size(dsc->header.w,
+      dsc->header.h, cf);
   uint8_t* gpu_data = aligned_alloc(8, gpu_data_size);
   if (gpu_data == NULL) {
     GPU_ERROR("out of memory");
@@ -191,7 +205,8 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder, lv_i
   header->magic = GPU_DATA_MAGIC;
   dsc->img_data = gpu_data;
   if (img_data) {
-    lv_res_t ret = lv_gpu_load_vgbuf(img_data, &dsc->header, &header->vgbuf, gpu_data + sizeof(gpu_data_header_t));
+    lv_res_t ret = lv_gpu_load_vgbuf(img_data, &dsc->header, &header->vgbuf,
+        gpu_data + sizeof(gpu_data_header_t));
     if (dsc->src_type == LV_IMG_SRC_FILE) {
       lv_mem_free(fs_buf);
       lv_fs_close(&f);
@@ -199,12 +214,14 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder, lv_i
     return ret;
   } else {
     /*Unknown source. Can't decode it.*/
-    GPU_WARN("Unknown source:%d w:%d h:%d @%p", dsc->src_type, dsc->header.w, dsc->header.h, dsc->img_data);
+    GPU_WARN("Unknown source:%d w:%d h:%d @%p", dsc->src_type, dsc->header.w,
+        dsc->header.h, dsc->img_data);
     return LV_RES_INV;
   }
 }
 
-LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
+LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
+    lv_img_decoder_dsc_t* dsc)
 {
   lv_fs_file_t f;
   lv_img_cf_t cf = dsc->header.cf;
@@ -231,7 +248,8 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
       return LV_RES_INV;
     }
   }
-  uint32_t gpu_data_size = gpu_img_buf_get_img_size(dsc->header.w, dsc->header.h, cf);
+  uint32_t gpu_data_size = gpu_img_buf_get_img_size(dsc->header.w,
+      dsc->header.h, cf);
   uint8_t* gpu_data = aligned_alloc(8, gpu_data_size);
   if (gpu_data == NULL) {
     GPU_ERROR("out of memory");
@@ -248,22 +266,26 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
   int32_t vgbuf_w = (cf == LV_IMG_CF_INDEXED_1BIT) ? ALIGN_UP(img_w, 64)
       : (cf == LV_IMG_CF_INDEXED_2BIT)             ? ALIGN_UP(img_w, 32)
                                                    : ALIGN_UP(img_w, 16);
-  uint8_t vgbuf_format = indexed ? BPP_TO_VG_FMT(px_size) : (px_size == 4) ? VG_LITE_A4
-                                                                           : VG_LITE_A8;
+  uint8_t vgbuf_format = indexed ? BPP_TO_VG_FMT(px_size)
+      : (px_size == 4)           ? VG_LITE_A4
+                                 : VG_LITE_A8;
   int32_t vgbuf_stride = vgbuf_w * px_size >> 3;
   int32_t map_stride = (img_w * px_size + 7) >> 3;
   uint32_t vgbuf_data_size = vgbuf_stride * img_h;
   uint32_t palette_size = 1 << px_size;
-  uint32_t* palette = (uint32_t*)(gpu_data + sizeof(gpu_data_header_t) + vgbuf_data_size);
+  uint32_t* palette = (uint32_t*)(gpu_data + sizeof(gpu_data_header_t)
+      + vgbuf_data_size);
   if (indexed) {
     if (dsc->src_type == LV_IMG_SRC_FILE) {
       /*Read the palette from file*/
-      LV_ASSERT(lv_fs_read(&f, palette, sizeof(lv_color32_t) * palette_size, NULL) == LV_FS_RES_OK);
+      LV_ASSERT(lv_fs_read(&f, palette,
+                    sizeof(lv_color32_t) * palette_size, NULL)
+          == LV_FS_RES_OK);
       for (int_fast16_t i = 0; i < palette_size; i++) {
         pre_multiply((lv_color32_t*)&palette[i], (lv_color32_t*)&palette[i]);
       }
     } else {
-      /*The palette begins in the beginning of the image data. Just point to it.*/
+      /*The palette is in the beginning of the image data. Just point to it.*/
       lv_color32_t* palette_p = (lv_color32_t*)img_dsc->data;
       for (int_fast16_t i = 0; i < palette_size; i++) {
         pre_multiply((lv_color32_t*)&palette[i], &palette_p[i]);
@@ -275,7 +297,9 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
 
   void* mem = gpu_data + sizeof(gpu_data_header_t);
   lv_memset_00(mem, vgbuf_data_size);
-  LV_ASSERT(init_vg_buf(vgbuf, vgbuf_w, img_h, vgbuf_stride, mem, vgbuf_format, true) == LV_RES_OK);
+  LV_ASSERT(init_vg_buf(vgbuf, vgbuf_w, img_h, vgbuf_stride, mem, vgbuf_format,
+                true)
+      == LV_RES_OK);
   uint8_t* px_buf = vgbuf->memory;
   const uint8_t* px_map = img_dsc->data;
   if (indexed) {
@@ -312,11 +336,11 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder, 
   return LV_RES_OK;
 }
 
-LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
+LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder,
+    lv_img_decoder_dsc_t* dsc)
 {
   lv_fs_file_t f;
   const uint8_t* img_data = NULL;
-  lv_img_cf_t cf = dsc->header.cf;
   const lv_img_dsc_t* img_dsc = dsc->src;
   /*Open the file if it's a file*/
   if (dsc->src_type == LV_IMG_SRC_FILE) {
@@ -364,7 +388,8 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder, lv_i
     return LV_RES_OK;
   } else {
     /*Unknown source. Can't decode it.*/
-    GPU_WARN("Unknown source:%d w:%d h:%d @%p", dsc->src_type, dsc->header.w, dsc->header.h, dsc->img_data);
+    GPU_WARN("Unknown source:%d w:%d h:%d @%p", dsc->src_type, dsc->header.w,
+        dsc->header.h, dsc->img_data);
     return LV_RES_INV;
   }
 }
@@ -372,9 +397,15 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder, lv_i
  *   GLOBAL FUNCTIONS
  **********************/
 
-/**
- * Initialize the image decoder module
- */
+/****************************************************************************
+ * Name: lv_gpu_decoder_init
+ *
+ * Description:
+ *   Initialize the image decoder module
+ *
+ * @return None
+ *
+ ****************************************************************************/
 void lv_gpu_decoder_init(void)
 {
   lv_img_decoder_t* decoder = lv_img_decoder_create();
@@ -388,14 +419,23 @@ void lv_gpu_decoder_init(void)
   lv_img_decoder_set_close_cb(decoder, lv_gpu_decoder_close);
 }
 
-/**
- * Get info about a gpu-supported image
+/****************************************************************************
+ * Name: lv_gpu_decoder_info
+ *
+ * Description:
+ *   Get info about a gpu-supported image
+ *
  * @param decoder the decoder where this function belongs
- * @param src the image source: pointer to an `lv_img_dsc_t` variable, a file path or a symbol
+ * @param src the image source: pointer to an `lv_img_dsc_t` variable, a file
+ *   path or a symbol
  * @param header store the image data here
- * @return LV_RES_OK: the info is successfully stored in `header`; LV_RES_INV: unknown format or other error.
- */
-lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src, lv_img_header_t* header)
+ *
+ * @return LV_RES_OK: the info is successfully stored in `header`;
+ *         LV_RES_INV: unknown format or other error.
+ *
+ ****************************************************************************/
+lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src,
+    lv_img_header_t* header)
 {
   LV_UNUSED(decoder); /*Unused*/
 
@@ -429,16 +469,17 @@ lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src, lv_img_
           return LV_RES_INV;
 
     } else {
-      LV_LOG_ERROR("GPU decoder open %s failed", src);
+      LV_LOG_ERROR("GPU decoder open %s failed", (const char*)src);
       return LV_RES_INV;
     }
   } else if (src_type == LV_IMG_SRC_SYMBOL) {
-    /*The size depend on the font but it is unknown here. It should be handled outside of the
-     *function*/
+    /* The size depend on the font but it is unknown here. It should be handled
+     * outside of the function */
     header->w = 1;
     header->h = 1;
-    /*Symbols always have transparent parts. Important because of cover check in the draw
-     *function. The actual value doesn't matter because lv_draw_label will draw it*/
+    /* Symbols always have transparent parts. Important because of cover check
+     * in the draw function. The actual value doesn't matter because
+     * lv_draw_label will draw it */
     header->cf = LV_IMG_CF_ALPHA_1BIT;
   } else {
     LV_LOG_WARN("Image get info found unknown src type");
@@ -447,13 +488,23 @@ lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src, lv_img_
   return LV_RES_OK;
 }
 
-/**
- * Open an image for GPU rendering (aligning to 16px and pre-multiplying alpha channel)
+/****************************************************************************
+ * Name: lv_gpu_decoder_open
+ *
+ * Description:
+ *   Open an image for GPU rendering (aligning to 16px and pre-multiplying
+ *   alpha channel)
+ *
  * @param decoder the decoder where this function belongs
- * @param dsc pointer to decoder descriptor. `src`, `style` are already initialized in it.
- * @return LV_RES_OK: the info is successfully stored in `header`; LV_RES_INV: unknown format or other error.
- */
-lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
+ * @param dsc pointer to decoder descriptor. `src`, `style` are already
+ *   initialized in it.
+ *
+ * @return LV_RES_OK: the info is successfully stored in `header`;
+ *         LV_RES_INV: unknown format or other error.
+ *
+ ****************************************************************************/
+lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder,
+    lv_img_decoder_dsc_t* dsc)
 {
   lv_img_cf_t cf = dsc->header.cf;
   const lv_img_dsc_t* img_dsc = dsc->src;
@@ -461,7 +512,8 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* ds
     gpu_data_header_t* header = (gpu_data_header_t*)img_dsc->data;
     if (header->magic == GPU_DATA_MAGIC || header->magic == EVO_DATA_MAGIC) {
       /* already decoded, just pass the pointer */
-      GPU_WARN("%x already decoded %p @ %p", header->magic, header->vgbuf.memory, header);
+      GPU_WARN("%lx already decoded %p @ %p", header->magic,
+          header->vgbuf.memory, header);
       dsc->img_data = img_dsc->data;
       dsc->user_data = NULL;
       return LV_RES_OK;
@@ -469,11 +521,13 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* ds
   }
 
   /*Process true color formats*/
-  if (cf == LV_IMG_CF_TRUE_COLOR || cf == LV_IMG_CF_TRUE_COLOR_ALPHA || cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
+  if (cf == LV_IMG_CF_TRUE_COLOR || cf == LV_IMG_CF_TRUE_COLOR_ALPHA
+      || cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
     dsc->user_data = (void*)GPU_DATA_MAGIC;
     lv_res_t ret = decode_rgb(decoder, dsc);
     return ret;
-  } else if ((cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT) || cf == LV_IMG_CF_ALPHA_8BIT || cf == LV_IMG_CF_ALPHA_4BIT) {
+  } else if ((cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT)
+      || cf == LV_IMG_CF_ALPHA_8BIT || cf == LV_IMG_CF_ALPHA_4BIT) {
     dsc->user_data = (void*)GPU_DATA_MAGIC;
     lv_res_t ret = decode_indexed(decoder, dsc);
     return ret;
@@ -490,11 +544,18 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* ds
   }
 }
 
-/**
- * Close the pending decoding. Free resources etc.
+/****************************************************************************
+ * Name: lv_gpu_decoder_close
+ *
+ * Description:
+ *   Close the pending decoding. Free resources etc.
+ *
  * @param decoder pointer to the decoder the function associated with
  * @param dsc pointer to decoder descriptor
- */
+ *
+ * @return None
+ *
+ ****************************************************************************/
 void lv_gpu_decoder_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
 {
   LV_UNUSED(decoder); /*Unused*/
@@ -509,18 +570,24 @@ void lv_gpu_decoder_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
   }
 }
 
-/**
- * Load an image into vg_lite buffer with automatic alignment. A optional buffer
- * address buf_p is passed to serve as vgbuf memory. If buf_p == NULL, appropriate
- * room will be allocated in vgbuf_p->memory, leaving the user responsible for
- * cleaning it up.
+/****************************************************************************
+ * Name: lv_gpu_load_vgbuf
+ *
+ * Description:
+ *   Load an image into vg_lite buffer with automatic alignment. Appropriate
+ *   room will be allocated in vgbuf_p->memory, leaving the user responsible
+ *   for cleaning it up.
+ *
  * @param img_data pointer to the pixel buffer
- * @param img_header header of the image containing width, height and color format
+ * @param img_header header of the image containing width, height and color
+ *   format
  * @param vgbuf_p address of the vg_lite_buffer_t structure to be initialized
+ *
  * @return LV_RES_OK: ok; LV_RES_INV: failed
- */
-LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img_header_t* header,
-    vg_lite_buffer_t* vgbuf_p, uint8_t* buf_p)
+ *
+ ****************************************************************************/
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
+    lv_img_header_t* header, vg_lite_buffer_t* vgbuf_p, uint8_t* buf_p)
 {
   vg_lite_buffer_t vgbuf;
 
@@ -530,13 +597,15 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
   uint8_t vgbuf_format = VGLITE_PX_FMT;
   int32_t map_stride = header->w * sizeof(lv_color_t);
 #if LV_COLOR_DEPTH == 16
-  if (header->cf == LV_IMG_CF_TRUE_COLOR_ALPHA || header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
+  if (header->cf == LV_IMG_CF_TRUE_COLOR_ALPHA
+      || header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
     vgbuf_stride = vgbuf_w * sizeof(lv_color32_t);
     vgbuf_format = VG_LITE_BGRA8888;
     map_stride = header->w * LV_IMG_PX_SIZE_ALPHA_BYTE;
   }
 #else
-  bool noalpha = header->cf == LV_IMG_CF_TRUE_COLOR || header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED;
+  bool noalpha = header->cf == LV_IMG_CF_TRUE_COLOR
+      || header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED;
 #endif
   uint32_t vgbuf_size = header->h * vgbuf_stride;
   if (mem == NULL) {
@@ -544,7 +613,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
   }
   if (mem != NULL) {
     lv_memset_00(mem, vgbuf_size);
-    LV_ASSERT(init_vg_buf(&vgbuf, vgbuf_w, header->h, vgbuf_stride, mem, vgbuf_format, true) == LV_RES_OK);
+    LV_ASSERT(init_vg_buf(&vgbuf, vgbuf_w, header->h, vgbuf_stride, mem,
+                  vgbuf_format, true)
+        == LV_RES_OK);
     uint8_t* px_buf = vgbuf.memory;
     const uint8_t* px_map = img_data;
     TC_INIT
@@ -570,7 +641,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
           pwTarget++;
           blkCnt--;
         }
-// #define USE_MVE_INTRINSICS (disabled due to intrinsics being much slower than hand-written asm)
+/* (disabled due to intrinsics being much slower than hand-written asm) */
+// #define USE_MVE_INTRINSICS
 #ifdef USE_MVE_INTRINSICS
         uint32x4_t maskA = vldrwq_u32(_maskA);
         uint32x4_t maskRB = vldrwq_u32(_maskRB);
@@ -579,9 +651,11 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
         do {
           mve_pred16_t tailPred = vctp32q(blkCnt);
 
-          /* load a vector of 4 bgra5658 pixels (residuals are processed in the next loop) */
+          /* load a vector of 4 bgra5658 pixels
+           * (residuals are processed in the next loop) */
           uint32x4_t vecIn = vld1q_z_u32((const uint32_t*)phwSource, tailPred);
-          /* extract individual channels and place them in high 8bits (P=GlB, Q=RGh) */
+          /* extract individual channels and place them in high 8bits
+           * (P=GlB, Q=RGh) */
 
           uint32_t carry = 0;
           vecIn = vshlcq(vecIn, &carry, 8); /* |***A|QPAQ|PAQP|AQP0| */
@@ -719,7 +793,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
         int32_t blkCnt = header->w;
         const lv_color32_t* phwSource = (const lv_color32_t*)px_map;
         uint32_t* pwTarget = (uint32_t*)px_buf;
-        uint32_t chroma32 = (header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) ? LV_COLOR_CHROMA_KEY.full : 0;
+        uint32_t chroma32 = (header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED)
+            ? LV_COLOR_CHROMA_KEY.full
+            : 0;
 #ifdef CONFIG_ARM_HAVE_MVE
         if (!IS_ALIGNED(phwSource, 4)) {
           if (phwSource->full != chroma32) {
@@ -790,25 +866,36 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img
   return LV_RES_OK;
 }
 
-/**
- * Get the vgbuf pointer corresponding to the data pointer
+/****************************************************************************
+ * Name: lv_gpu_get_vgbuf
  *
- * @param data pointer to gpu_data (img_dsc->data)
- * @return pointer to the vg_lite_buffer_t structure in data
- */
+ * Description:
+ * Get the vgbuf cache corresponding to the image pointer (if available).
+ *
+ * @param ptr pointer to the pixel buffer
+ *
+ * @return pointer to the vg_lite_buffer_t structure in cache items, NULL if
+ *   cache miss
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM vg_lite_buffer_t* lv_gpu_get_vgbuf(void* data)
 {
   gpu_data_header_t* header = data;
   return header->magic == GPU_DATA_MAGIC ? &header->vgbuf : NULL;
 }
 
-/**
- * Allocate an image buffer in RAM
+/****************************************************************************
+ * Name: gpu_img_buf_alloc
+ *
+ * Description:
+ *   Allocate an image buffer in RAM
+ *
  * @param w width of image
  * @param h height of image
  * @param cf a color format (`LV_IMG_CF_...`)
- * @return an allocated image, or NULL on failure
- */
+ *
+ * @return an allocated image descriptor, or NULL on failure
+ ****************************************************************************/
 lv_img_dsc_t* gpu_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
 {
   /*Allocate image descriptor*/
@@ -841,6 +928,17 @@ lv_img_dsc_t* gpu_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
   return dsc;
 }
 
+/****************************************************************************
+ * Name: gpu_data_update
+ *
+ * Description:
+ *   Update gpu specific data after memory move
+ *
+ * @param data gpu decoded image data
+ *
+ * @return None
+ *
+ ****************************************************************************/
 void gpu_data_update(void* data)
 {
   gpu_data_header_t* header = (gpu_data_header_t*)data;

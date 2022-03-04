@@ -166,6 +166,15 @@ typedef struct {
   lv_coord_t height;
 } lv_gpu_color_fmt_convert_dsc_t;
 
+typedef struct {
+  void* buf;
+  lv_area_t *clip_area;
+  lv_coord_t w;
+  lv_coord_t h;
+  lv_img_cf_t cf;
+  bool premult;
+} lv_gpu_buffer_t;
+
 typedef lv_draw_ctx_t gpu_draw_ctx_t;
 
 /****************************************************************************
@@ -189,7 +198,7 @@ extern "C" {
  *   None
  *
  * Returned Value:
- *   LV_RES_OK on success; LV_RES_INV on failure.
+ * @return LV_RES_OK on success; LV_RES_INV on failure. (always succeed)
  *
  ****************************************************************************/
 
@@ -205,7 +214,7 @@ lv_res_t lv_gpu_interface_init(void);
  *   None
  *
  * Returned Value:
- *   power mode from lv_gpu_mode_t
+ * @return power mode from lv_gpu_mode_t
  *
  ****************************************************************************/
 
@@ -218,38 +227,14 @@ lv_gpu_mode_t lv_gpu_getmode(void);
  *   Set GPU power mode at runtime.
  *
  * Input Parameters:
- *   mode - power mode from lv_gpu_mode_t
+ * @param mode - power mode from lv_gpu_mode_t
  *
  * Returned Value:
- *   LV_RES_OK on success; LV_RES_INV on failure.
+ * @return LV_RES_OK on success; LV_RES_INV on failure.
  *
  ****************************************************************************/
 
 lv_res_t lv_gpu_setmode(lv_gpu_mode_t mode);
-
-/****************************************************************************
- * Name: lv_draw_map_gpu
- *
- * Description:
- *   Copy a transformed map (image) to a display buffer.
- *
- * Input Parameters:
- * @param map_area area of the image  (absolute coordinates)
- * @param clip_area clip the map to this area (absolute coordinates)
- * @param map_buf a pixels of the map (image)
- * @param opa overall opacity in 0x00..0xff range
- * @param chroma chroma key color
- * @param angle rotation angle (= degree*10)
- * @param zoom image scale in 0..65535 range, where 256 is 1.0x scale
- * @param mode blend mode from `lv_blend_mode_t`
- *
- * Returned Value:
- *   None
- *
- ****************************************************************************/
-
-LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(struct _lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
-    const lv_area_t* coords, const uint8_t* map_p, lv_img_cf_t color_format);
 
 /****************************************************************************
  * Name: lv_gpu_color_fmt_convert
@@ -266,7 +251,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_map_gpu(struct _lv_draw_ctx_t* draw_ctx, 
  *
  ****************************************************************************/
 
-LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_convert_dsc_t* dsc);
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(
+    const lv_gpu_color_fmt_convert_dsc_t* dsc);
 
 /****************************************************************************
  * Name: init_vg_buf
@@ -279,15 +265,18 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(const lv_gpu_color_fmt_c
  * @param width Width of buffer in pixels
  * @param height Height of buffer in pixels
  * @param stride Stride of the buffer in bytes
- * @param ptr Pointer to the buffer (must be aligned according VG-Lite requirements)
+ * @param ptr Pointer to the buffer (must be aligned according VG-Lite
+ *   requirements)
+ * @param format Destination buffer format (vg_lite_buffer_format_t)
+ * @param source if true, stride alignment check will be performed
  *
  * Returned Value:
  * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 
-LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width, uint32_t height,
-    uint32_t stride, void* ptr, uint8_t format, bool source);
+LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width,
+    uint32_t height, uint32_t stride, void* ptr, uint8_t format, bool source);
 
 /****************************************************************************
  * Name: lv_gpu_draw_ctx_init

@@ -69,6 +69,10 @@ ifneq ($(CONFIG_LV_GPU_DRAW_ARC)$(CONFIG_LV_GPU_DRAW_RECT),)
 CSRCS += lv_porting/gpu/lv_gpu_draw.c
 endif
 
+CSRCS += lv_porting/gpu/lv_gpu_decoder.c
+CSRCS += lv_porting/gpu/lv_gpu_evoreader.c
+CSRCS += lv_porting/gpu/lv_gpu_draw_utils.c
+
 ifneq ($(CONFIG_LV_GPU_DRAW_LINE),)
 CSRCS += lv_porting/gpu/lv_gpu_draw_line.c
 endif
@@ -82,9 +86,7 @@ ifneq ($(CONFIG_LV_GPU_DRAW_RECT),)
 CSRCS += lv_porting/gpu/lv_gpu_draw_rect.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_IMG),)
-CSRCS += lv_porting/gpu/lv_gpu_decoder.c
 CSRCS += lv_porting/gpu/lv_gpu_draw_img.c
-CSRCS += lv_porting/gpu/lv_gpu_evoreader.c
 endif
 
 endif

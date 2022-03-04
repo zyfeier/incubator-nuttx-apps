@@ -40,7 +40,7 @@ extern "C" {
 #endif
 
 /****************************************************************************
- * Name: lv_draw_map_gpu
+ * Name: lv_draw_image_decoded_gpu
  *
  * Description:
  *   Copy a transformed map (image) to a display buffer.
@@ -54,12 +54,12 @@ extern "C" {
  * @param color_format image format
  *
  * Returned Value:
- *   None
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
-    struct _lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
+    lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
     const lv_area_t* coords, const uint8_t* map_p, lv_img_cf_t color_format);
 
 #undef EXTERN

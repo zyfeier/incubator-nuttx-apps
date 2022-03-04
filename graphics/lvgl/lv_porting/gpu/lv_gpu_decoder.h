@@ -18,19 +18,15 @@
  *
  ****************************************************************************/
 
-#ifndef LV_GPU_DECODER_H
-#define LV_GPU_DECODER_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef __LV_GPU_DECODER_H__
+#define __LV_GPU_DECODER_H__
 
 /*********************
  *      INCLUDES
  *********************/
-#include "../lv_conf_internal.h"
-#include "../lvgl/src/draw/lv_img_decoder.h"
 #include "lv_gpu_evoreader.h"
+#include "lv_img_decoder.h"
+#include "src/lv_conf_internal.h"
 #include "vg_lite.h"
 #include <lvgl/lvgl.h>
 
@@ -57,55 +53,146 @@ typedef struct {
 /**********************
  * GLOBAL PROTOTYPES
  **********************/
-/**
- * Initialize the image decoder module
- */
+
+#ifdef __cplusplus
+#define EXTERN extern "C"
+extern "C" {
+#else
+#define EXTERN extern
+#endif
+
+/****************************************************************************
+ * Name: lv_gpu_decoder_init
+ *
+ * Description:
+ *   Initialize the image decoder module
+ *
+ * @return None
+ *
+ ****************************************************************************/
+
 void lv_gpu_decoder_init(void);
 
-/**
- * Get info about a gpu-supported image
+/****************************************************************************
+ * Name: lv_gpu_decoder_info
+ *
+ * Description:
+ *   Get info about a gpu-supported image
+ *
  * @param decoder the decoder where this function belongs
- * @param src the image source: pointer to an `lv_img_dsc_t` variable, a file path or a symbol
+ * @param src the image source: pointer to an `lv_img_dsc_t` variable, a file
+ *   path or a symbol
  * @param header store the image data here
- * @return LV_RES_OK: the info is successfully stored in `header`; LV_RES_INV: unknown format or other error.
- */
-lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src, lv_img_header_t* header);
+ *
+ * @return LV_RES_OK: the info is successfully stored in `header`;
+ *         LV_RES_INV: unknown format or other error.
+ *
+ ****************************************************************************/
 
-/**
- * Open an image for GPU rendering (aligning to 16px and pre-multiplying alpha channel)
+lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src,
+    lv_img_header_t* header);
+
+/****************************************************************************
+ * Name: lv_gpu_decoder_open
+ *
+ * Description:
+ *   Open an image for GPU rendering (aligning to 16px and pre-multiplying
+ *   alpha channel)
+ *
  * @param decoder the decoder where this function belongs
- * @param dsc pointer to decoder descriptor. `src`, `style` are already initialized in it.
- * @return LV_RES_OK: the info is successfully stored in `header`; LV_RES_INV: unknown format or other error.
- */
-lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
+ * @param dsc pointer to decoder descriptor. `src`, `style` are already
+ *   initialized in it.
+ *
+ * @return LV_RES_OK: the info is successfully stored in `header`;
+ *         LV_RES_INV: unknown format or other error.
+ *
+ ****************************************************************************/
 
-/**
- * Close the pending decoding. Free resources etc.
+lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder,
+    lv_img_decoder_dsc_t* dsc);
+
+/****************************************************************************
+ * Name: lv_gpu_decoder_close
+ *
+ * Description:
+ *   Close the pending decoding. Free resources etc.
+ *
  * @param decoder pointer to the decoder the function associated with
  * @param dsc pointer to decoder descriptor
- */
-void lv_gpu_decoder_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc);
+ *
+ * @return None
+ *
+ ****************************************************************************/
 
-/**
- * Load an image into vg_lite buffer with automatic alignment. Appropriate room will be
- * allocated in vgbuf_p->memory, leaving the user responsible for cleaning it up.
+void lv_gpu_decoder_close(lv_img_decoder_t* decoder,
+    lv_img_decoder_dsc_t* dsc);
+
+/****************************************************************************
+ * Name: lv_gpu_load_vgbuf
+ *
+ * Description:
+ *   Load an image into vg_lite buffer with automatic alignment. Appropriate
+ *   room will be allocated in vgbuf_p->memory, leaving the user responsible
+ *   for cleaning it up.
+ *
  * @param img_data pointer to the pixel buffer
- * @param img_header header of the image containing width, height and color format
+ * @param img_header header of the image containing width, height and color
+ *   format
  * @param vgbuf_p address of the vg_lite_buffer_t structure to be initialized
+ *
  * @return LV_RES_OK: ok; LV_RES_INV: failed
- */
-lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img_header_t* header, vg_lite_buffer_t* vgbuf_p, uint8_t* buf_p);
+ *
+ ****************************************************************************/
 
-/**
+lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img_header_t* header,
+    vg_lite_buffer_t* vgbuf_p, uint8_t* buf_p);
+
+/****************************************************************************
+ * Name: lv_gpu_get_vgbuf
+ *
+ * Description:
  * Get the vgbuf cache corresponding to the image pointer (if available).
  *
  * @param ptr pointer to the pixel buffer
- * @return pointer to the vg_lite_buffer_t structure in cache items, NULL if cache miss
- */
+ *
+ * @return pointer to the vg_lite_buffer_t structure in cache items, NULL if
+ *   cache miss
+ *
+ ****************************************************************************/
+
 vg_lite_buffer_t* lv_gpu_get_vgbuf(void* data);
 
+/****************************************************************************
+ * Name: gpu_img_buf_alloc
+ *
+ * Description:
+ *   Allocate an image buffer in RAM
+ *
+ * @param w width of image
+ * @param h height of image
+ * @param cf a color format (`LV_IMG_CF_...`)
+ *
+ * @return an allocated image descriptor, or NULL on failure
+ ****************************************************************************/
+
+lv_img_dsc_t* gpu_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf);
+
+/****************************************************************************
+ * Name: gpu_data_update
+ *
+ * Description:
+ *   Update gpu specific data after memory move
+ *
+ * @param data gpu decoded image data
+ *
+ * @return None
+ *
+ ****************************************************************************/
+
+void gpu_data_update(void* data);
+#undef EXTERN
 #ifdef __cplusplus
-} /*extern "C"*/
+}
 #endif
 
-#endif /*LV_GPU_DECODER_H*/
+#endif /* __LV_GPU_DECODER_H__ */

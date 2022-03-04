@@ -43,7 +43,7 @@ extern "C" {
  * Name: lv_draw_line_gpu
  *
  * Description:
- *   Draw a skew line with GPU. (buggy)
+ *   Draw a skew line with GPU.
  *
  * Input Parameters:
  * @param draw_ctx draw context (refer to LVGL 8.2 changelog)
@@ -52,12 +52,12 @@ extern "C" {
  * @param point2 coordinate 2
  *
  * Returned Value:
- *   None
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_line_gpu(
-    struct _lv_draw_ctx_t* draw_ctx,
+    lv_draw_ctx_t* draw_ctx,
     const lv_draw_line_dsc_t* dsc,
     const lv_point_t* point1,
     const lv_point_t* point2);

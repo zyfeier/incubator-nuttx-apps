@@ -22,11 +22,10 @@
  * Included Files
  ****************************************************************************/
 
-#include "../lvgl/src/misc/lv_color.h"
-#include "gpu_port.h"
-#include "../lv_gpu_interface.h"
+#include "lv_color.h"
+#include "lv_porting/lv_gpu_interface.h"
+#include "src/lv_conf_internal.h"
 #include "vg_lite.h"
-#include <lvgl/src/lv_conf_internal.h>
 #include <nuttx/cache.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,11 +65,11 @@ static uint32_t grad_mem[VLC_GRADBUFFER_WIDTH];
  * @param point_cnt number of vertices
  *
  * Returned Value:
- *   None
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_polygon_gpu(
-    struct _lv_draw_ctx_t* draw_ctx, const lv_draw_rect_dsc_t* dsc,
+    lv_draw_ctx_t* draw_ctx, const lv_draw_rect_dsc_t* dsc,
     const lv_point_t* points, uint16_t point_cnt)
 {
   /* Init destination vglite buffer */
@@ -149,7 +148,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_polygon_gpu(
   } else {
     /* Regular fill */
     lv_color_t bg_color = dsc->bg_color;
-    if (dsc->bg_opa != LV_OPA_COVER) {
+    if (dsc->bg_opa < LV_OPA_MAX) {
       bg_color = lv_color_mix(bg_color, lv_color_black(), dsc->bg_opa);
       LV_COLOR_SET_A(bg_color, dsc->bg_opa);
     }

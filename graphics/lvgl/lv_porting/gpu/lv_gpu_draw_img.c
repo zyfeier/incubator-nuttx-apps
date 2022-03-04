@@ -22,12 +22,12 @@
  * Included Files
  ****************************************************************************/
 
-#include "../lv_gpu_interface.h"
-#include "../lvgl/src/misc/lv_color.h"
-#include "gpu_port.h"
+#include "lv_color.h"
 #include "lv_gpu_decoder.h"
+#include "lv_gpu_draw_utils.h"
+#include "lv_porting/lv_gpu_interface.h"
+#include "src/lv_conf_internal.h"
 #include "vg_lite.h"
-#include <lvgl/src/lv_conf_internal.h>
 #include <nuttx/cache.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -137,7 +137,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_rect_path(int16_t* path, lv_area_t* area)
  ****************************************************************************/
 
 /****************************************************************************
- * Name: lv_draw_map_gpu
+ * Name: lv_draw_image_decoded_gpu
  *
  * Description:
  *   Copy a transformed map (image) to a display buffer.
@@ -151,12 +151,12 @@ LV_ATTRIBUTE_FAST_MEM static void fill_rect_path(int16_t* path, lv_area_t* area)
  * @param color_format image format
  *
  * Returned Value:
- *   None
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
-    struct _lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
+    lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
     const lv_area_t* coords, const uint8_t* map_p, lv_img_cf_t color_format)
 {
   lv_opa_t opa = dsc->opa;
@@ -178,6 +178,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   int32_t disp_h = lv_area_get_height(disp_area);
   int32_t map_w = lv_area_get_width(coords);
   int32_t map_h = lv_area_get_height(coords);
+  lv_area_t coords_rel;
+  lv_area_copy(&coords_rel, coords);
+  lv_area_move(&coords_rel, -disp_area->x1, -disp_area->y1);
   vg_lite_buffer_t dst_vgbuf;
   vg_lite_buffer_t* vgbuf;
   vg_lite_error_t vgerr = VG_LITE_SUCCESS;
@@ -190,19 +193,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     evo_fcontent_t* evocontent = &((gpu_data_header_t*)map_p)->evocontent;
     GPU_WARN("evo file w/ %d paths", evocontent->pathcount);
     vg_lite_matrix_t tf;
-    vg_lite_identity(&tf);
-    vg_lite_translate(coords->x1 - disp_area->x1, coords->y1 - disp_area->y1, &tf);
-    if (transformed) {
-      vg_lite_translate(pivot.x, pivot.y, &tf);
-      vg_lite_float_t scale = zoom * 1.0f / LV_IMG_ZOOM_NONE;
-      if (zoom != LV_IMG_ZOOM_NONE) {
-        vg_lite_scale(scale, scale, &tf);
-      }
-      if (angle != 0) {
-        vg_lite_rotate(angle / 10.0f, &tf);
-      }
-      vg_lite_translate(-pivot.x, -pivot.y, &tf);
-    }
+    gpu_set_tf(&tf, dsc, &coords_rel);
     vg_lite_matrix_t tf0, tfi;
     evo_matmult(&tf, &evocontent->transform, &tf0);
     for (int i = 0; i < evocontent->pathcount; i++) {
@@ -263,21 +254,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   const uint32_t* palette = (const uint32_t*)(map_p + sizeof(gpu_data_header_t) + src_vgbuf.stride * src_vgbuf.height);
 
   vg_lite_matrix_t matrix;
-  vg_lite_identity(&matrix);
-  vg_lite_translate(coords->x1 - disp_area->x1, coords->y1 - disp_area->y1, &matrix);
+  gpu_set_tf(&matrix, dsc, &coords_rel);
   rect[2] = map_w;
   rect[3] = map_h;
-  if (transformed) {
-    vg_lite_translate(pivot.x, pivot.y, &matrix);
-    vg_lite_float_t scale = zoom * 1.0f / LV_IMG_ZOOM_NONE;
-    if (zoom != LV_IMG_ZOOM_NONE) {
-      vg_lite_scale(scale, scale, &matrix);
-    }
-    if (angle != 0) {
-      vg_lite_rotate(angle / 10.0f, &matrix);
-    }
-    vg_lite_translate(-pivot.x, -pivot.y, &matrix);
-  }
   lv_color32_t color;
   vg_lite_blend_t blend = LV_BLEND_MODE_TO_VG(blend_mode);
   if (opa >= LV_OPA_MAX) {

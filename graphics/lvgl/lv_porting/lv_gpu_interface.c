@@ -22,13 +22,13 @@
  * Included Files
  ****************************************************************************/
 #include "lv_gpu_interface.h"
-#include "../lvgl/src/draw/sw/lv_draw_sw.h"
-#include "../lvgl/src/misc/lv_color.h"
-#include "gpu_port.h"
 #include "gpu/lv_gpu_decoder.h"
 #include "gpu/lv_gpu_draw.h"
+#include "gpu/lv_gpu_draw_utils.h"
+#include "lv_color.h"
+#include "lv_draw_sw.h"
+#include "src/lv_conf_internal.h"
 #include "vg_lite.h"
-#include <lvgl/src/lv_conf_internal.h>
 #include <nuttx/cache.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -168,15 +168,26 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_wait(struct _lv_draw_ctx_t* draw)
 /****************************************************************************
  * Global Functions
  ****************************************************************************/
-/***
- * Fills vg_lite_buffer_t structure according given parameters.
- * @param[out] dst Buffer structure to be filled
- * @param[in] width Width of buffer in pixels
- * @param[in] height Height of buffer in pixels
- * @param[in] stride Stride of the buffer in bytes
- * @param[in] ptr Pointer to the buffer (must be aligned according to VGLite
- *                requirements)
- */
+/****************************************************************************
+ * Name: init_vg_buf
+ *
+ * Description:
+ *   Fills vg_lite_buffer_t structure according given parameters.
+ *
+ * Input Parameters:
+ * @param vdst Buffer structure to be filled
+ * @param width Width of buffer in pixels
+ * @param height Height of buffer in pixels
+ * @param stride Stride of the buffer in bytes
+ * @param ptr Pointer to the buffer (must be aligned according VG-Lite
+ *   requirements)
+ * @param format Destination buffer format (vg_lite_buffer_format_t)
+ * @param source if true, stride alignment check will be performed
+ *
+ * Returned Value:
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width,
     uint32_t height, uint32_t stride, void* ptr, uint8_t format, bool source)
 {
@@ -186,6 +197,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width,
     return -1;
   }
 
+  lv_memset_00(vdst, sizeof(vg_lite_buffer_t));
   dst->format = format;
   dst->tiled = VG_LITE_LINEAR;
   dst->image_mode = VG_LITE_NORMAL_IMAGE_MODE;
@@ -195,7 +207,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width,
   dst->height = height;
   dst->stride = stride;
 
-  memset(&dst->yuv, 0, sizeof(dst->yuv));
+  lv_memset_00(&dst->yuv, sizeof(dst->yuv));
 
   dst->memory = ptr;
   dst->address = (uint32_t)dst->memory;
@@ -254,7 +266,7 @@ void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx)
  *   None
  *
  * Returned Value:
- *   LV_RES_OK on success; LV_RES_INV on failure.
+ * @return LV_RES_OK on success; LV_RES_INV on failure. (always succeed)
  *
  ****************************************************************************/
 
@@ -277,7 +289,7 @@ lv_res_t lv_gpu_interface_init(void)
  *   None
  *
  * Returned Value:
- *   power mode from lv_gpu_mode_t
+ * @return power mode from lv_gpu_mode_t
  *
  ****************************************************************************/
 
@@ -293,10 +305,10 @@ lv_gpu_mode_t lv_gpu_getmode(void)
  *   Set GPU power mode at runtime.
  *
  * Input Parameters:
- *   mode - power mode from lv_gpu_mode_t
+ * @param mode - power mode from lv_gpu_mode_t
  *
  * Returned Value:
- *   LV_RES_OK on success; LV_RES_INV on failure.
+ * @return LV_RES_OK on success; LV_RES_INV on failure.
  *
  ****************************************************************************/
 

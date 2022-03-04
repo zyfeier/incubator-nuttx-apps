@@ -52,12 +52,12 @@ extern "C" {
  * @param point_cnt number of vertices
  *
  * Returned Value:
- *   None
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_polygon_gpu(
-    struct _lv_draw_ctx_t* draw_ctx, const lv_draw_rect_dsc_t* dsc,
+    lv_draw_ctx_t* draw_ctx, const lv_draw_rect_dsc_t* dsc,
     const lv_point_t* points, uint16_t point_cnt);
 
 #undef EXTERN
