@@ -6,11 +6,13 @@
 /*********************
  *      INCLUDES
  *********************/
-#include "lvgl/lvgl.h"
-
 #include "lv_lodepng.h"
 #include "lodepng.h"
 #include <stdlib.h>
+#include "lvgl/lvgl.h"
+#ifdef CONFIG_LV_USE_GPU_INTERFACE
+#include "lv_porting/gpu/lv_gpu_decoder.h"
+#endif
 
 /*********************
  *      DEFINES
@@ -128,8 +130,8 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
         }
 
         /*Decode the PNG image*/
-        uint32_t png_width;             /*Will be the width of the decoded image*/
-        uint32_t png_height;            /*Will be the width of the decoded image*/
+        unsigned int png_width;             /*Will be the width of the decoded image*/
+        unsigned int png_height;            /*Will be the width of the decoded image*/
         uint8_t * img_data = NULL;
 
         /*Decode the loaded image in ARGB8888 */
@@ -142,7 +144,24 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
 
         /*Convert the image to the system's color depth*/
         convert_color_depth(img_data,  png_width * png_height);
-        dsc->img_data = img_data;
+#ifdef CONFIG_LV_USE_GPU_INTERFACE
+        lv_img_dsc_t img_dsc;
+        img_dsc.header = dsc->header;
+        img_dsc.data = (const uint8_t *)img_data;
+        img_dsc.data_size = 0;
+        const void* tmp = dsc->src;
+        dsc->src = &img_dsc;
+        dsc->src_type = LV_IMG_SRC_VARIABLE;
+        lv_res_t res = lv_gpu_decoder_open(decoder, dsc);
+        dsc->src = tmp;
+        if (res == LV_RES_OK) {
+            lv_mem_free(img_data);
+        } else {
+            dsc->img_data = (const uint8_t *)img_data;
+        }
+#else
+        dsc->img_data = (const uint8_t *)img_data;
+#endif
         return LV_RES_OK;     /*The image is fully decoded. Return with its pointer*/
     }
 
@@ -155,10 +174,14 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
 static void decoder_close(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc)
 {
     LV_UNUSED(decoder); /*Unused*/
+#ifdef CONFIG_LV_USE_GPU_INTERFACE
+    lv_gpu_decoder_close(decoder, dsc);
+#else
     if(dsc->img_data) {
         lv_mem_free((uint8_t *)dsc->img_data);
         dsc->img_data = NULL;
     }
+#endif
 }
 
 /**
