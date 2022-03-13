@@ -61,6 +61,10 @@ ifeq ($(CONFIG_BUILD_KERNEL),y)
 install: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_install)
 
 .import: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all)
+	$(Q) for app in ${CONFIGURED_APPS}; do \
+		$(MAKE) -C "$${app}" archive ; \
+	done
+	$(Q) install libapps.a $(APPDIR)$(DELIM)import$(DELIM)libs
 	$(Q) $(MAKE) install
 
 import: $(IMPORT_TOOLS)
@@ -89,11 +93,7 @@ $(SYMTABOBJ): %$(OBJEXT): %.c
 	$(call COMPILE, -fno-lto $<, $@)
 
 $(BIN): $(SYMTABOBJ)
-ifeq ($(CONFIG_CYGWIN_WINTOOL),y)
-	$(call ARLOCK, "${shell cygpath -w $(BIN)}", $^)
-else
-	$(call ARLOCK, $(BIN), $^)
-endif
+	$(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^)
 
 endif # !CONFIG_BUILD_LOADABLE
 
@@ -146,11 +146,13 @@ preconfig: Kconfig
 
 export:
 ifneq ($(EXPORTDIR),)
+	$(Q) mkdir -p "${EXPORTDIR}"$(DELIM)registry || exit 1;
+ifneq ($(CONFIG_BUILD_KERNEL),y)
 ifneq ($(BUILTIN_REGISTRY),)
-	$(Q) mkdir -p "${EXPORTDIR}"/registry || exit 1; \
-	for f in "${BUILTIN_REGISTRY}"/*.bdat "${BUILTIN_REGISTRY}"/*.pdat ; do \
-		[ -f "$${f}" ] && cp -f "$${f}" "${EXPORTDIR}"/registry ; \
+	for f in "${BUILTIN_REGISTRY}"$(DELIM)*.bdat "${BUILTIN_REGISTRY}"$(DELIM)*.pdat ; do \
+		[ -f "$${f}" ] && cp -f "$${f}" "${EXPORTDIR}"$(DELIM)registry ; \
 	done
+endif
 endif
 endif
 
