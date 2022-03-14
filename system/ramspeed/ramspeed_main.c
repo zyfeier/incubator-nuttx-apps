@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/system/ramspeed/ramspeed.c
+ * apps/system/ramspeed/ramspeed_main.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -113,7 +113,7 @@ static void parse_commandline(int argc, FAR char **argv,
 {
   int ch;
 
-  memset(info, 0, sizeof(FAR struct ramspeed_s));
+  memset(info, 0, sizeof(struct ramspeed_s));
   info->repeat_num = 100;
 
   if (argc < 7)
@@ -416,7 +416,7 @@ static void memset_speed_test(FAR void *dest, uint8_t value,
  ****************************************************************************/
 
 /****************************************************************************
- * Name: main
+ * Name: ramspeed_main
  ****************************************************************************/
 
 int main(int argc, FAR char *argv[])
