@@ -26,7 +26,7 @@
 #define USE_GLOBAL_PATH_DATA_BUFFER 1
 
 #if (USE_GLOBAL_PATH_DATA_BUFFER == 1)
-uint8_t g_path_data_buffer[196];
+uint8_t g_path_data_buffer[260];
 #endif
 
 #define R(color) ((color) & 0x00ff0000) >> 16

@@ -78,6 +78,6 @@ vg_lite_error_t vg_lite_update_grad_as_lvgl(vg_lite_linear_gradient_t* grad,
 
 bool draw_rect_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
                     const lv_area_t* coords, const lv_area_t* clip,
-                    const lv_draw_rect_dsc_t* dsc);
+                    const lv_draw_rect_dsc_t* dsc, lv_grad_dir_t grad_dir);
 
 #endif /* __LV_GPU_DRAW_H__ */

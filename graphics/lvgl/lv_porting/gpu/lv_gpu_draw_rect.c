@@ -26,6 +26,12 @@
 
 #include "../lv_gpu_interface.h"
 
+// bezier control point angle 45 proportion with radius
+#define BEZIER_CTRL_P_45_P_R (0.414213f)
+
+// angle 45 proportion with radius
+#define ANGLE_45_P_R (0.707106f)
+
 typedef enum {
     RECT_TYPE_ROUNDED,
     RECT_TYPE_DEFAULT,
@@ -34,13 +40,17 @@ typedef enum {
 static uint8_t rounded_rect_path_cmds[] = {
     VLC_OP_MOVE,
     VLC_OP_LINE,
-    VLC_OP_SCWARC,
+    VLC_OP_QUAD,
+    VLC_OP_QUAD,
     VLC_OP_LINE,
-    VLC_OP_SCWARC,
+    VLC_OP_QUAD,
+    VLC_OP_QUAD,
     VLC_OP_LINE,
-    VLC_OP_SCWARC,
+    VLC_OP_QUAD,
+    VLC_OP_QUAD,
     VLC_OP_LINE,
-    VLC_OP_SCWARC,
+    VLC_OP_QUAD,
+    VLC_OP_QUAD,
     VLC_OP_END
 };
 
@@ -156,57 +166,80 @@ static void fill_rounded_rect_border_half(vg_lite_path_t* vg_lite_path,
                              float small_half_rect_width,
                              float small_half_rect_height)
 {
+    // big
+    const float offset_bezier_ctrl_p_b = BEZIER_CTRL_P_45_P_R * radius;
+    const float offset_angle_45_b = ANGLE_45_P_R * radius;
+
+    float half_r_w_b_no_radius = half_rect_width - radius;
+    float half_r_h_b_no_radius = half_rect_height - radius;
+
+    // small
+    const float offset_bezier_ctrl_p_s = BEZIER_CTRL_P_45_P_R * small_radius;
+    const float offset_angle_45_s = ANGLE_45_P_R * small_radius;
+
+    float half_r_w_s_no_radius = small_half_rect_width - small_radius;
+    float half_r_h_s_no_radius = small_half_rect_height - small_radius;
+
     uint8_t path_cmds[] = {
         VLC_OP_MOVE,
         VLC_OP_LINE,
-        VLC_OP_SCWARC,
+        VLC_OP_QUAD,
+        VLC_OP_QUAD,
         VLC_OP_LINE,
-        VLC_OP_SCWARC,
+        VLC_OP_QUAD,
+        VLC_OP_QUAD,
         VLC_OP_LINE,
         VLC_OP_LINE,
         VLC_OP_LINE,
-        VLC_OP_SCCWARC,
+        VLC_OP_QUAD,
+        VLC_OP_QUAD,
         VLC_OP_LINE,
-        VLC_OP_SCCWARC,
+        VLC_OP_QUAD,
+        VLC_OP_QUAD,
         VLC_OP_LINE,
         VLC_OP_END
     };
-
-    if (x_vector < 0) {
-        path_cmds[2] = VLC_OP_SCCWARC;
-        path_cmds[4] = VLC_OP_SCCWARC;
-        path_cmds[8] = VLC_OP_SCWARC;
-        path_cmds[10] = VLC_OP_SCWARC;
-    }
 
     malloc_float_path_data(vg_lite_path, path_data, path_cmds, sizeof(path_cmds));
 
     float tmp_path_data[] = {
         center_x, center_y - half_rect_height,
 
-        center_x + (half_rect_width - radius) * x_vector, center_y - half_rect_height,
+        center_x + x_vector * half_r_w_b_no_radius, center_y - half_rect_height,
 
-        radius, radius, 0,
-        center_x + half_rect_width * x_vector, center_y - half_rect_height + radius,
+        center_x + x_vector * (half_r_w_b_no_radius + offset_bezier_ctrl_p_b), center_y - half_rect_height,
+        center_x + x_vector * (half_r_w_b_no_radius + offset_angle_45_b), center_y - half_r_h_b_no_radius - offset_angle_45_b,
 
-        center_x + half_rect_width * x_vector, center_y + half_rect_height - radius,
+        center_x + x_vector * half_rect_width, center_y - half_r_h_b_no_radius - offset_bezier_ctrl_p_b,
+        center_x + x_vector * half_rect_width, center_y - half_r_h_b_no_radius,
 
-        radius, radius, 0,
-        center_x + (half_rect_width - radius) * x_vector, center_y + half_rect_height,
+        center_x + x_vector * half_rect_width, center_y + half_r_h_b_no_radius,
+
+        center_x + x_vector * half_rect_width, center_y + half_r_h_b_no_radius + offset_bezier_ctrl_p_b,
+        center_x + x_vector * (half_r_w_b_no_radius + offset_angle_45_b), center_y + half_r_h_b_no_radius + offset_angle_45_b,
+
+        center_x + x_vector * (half_r_w_b_no_radius + offset_bezier_ctrl_p_b), center_y + half_rect_height,
+        center_x + x_vector * half_r_w_b_no_radius, center_y + half_rect_height,
 
         center_x, center_y + half_rect_height,
 
         center_x, center_y + small_half_rect_height,
 
-        center_x + (small_half_rect_width - small_radius) * x_vector, center_y + small_half_rect_height,
+        center_x + x_vector * half_r_w_s_no_radius, center_y + small_half_rect_height,
 
-        small_radius, small_radius, 0,
-        center_x + small_half_rect_width * x_vector, center_y + small_half_rect_height - small_radius,
+        center_x + x_vector * (half_r_w_s_no_radius + offset_bezier_ctrl_p_s), center_y + small_half_rect_height,
+        center_x + x_vector * (half_r_w_s_no_radius + offset_angle_45_s), center_y + half_r_h_s_no_radius + offset_angle_45_s,
 
-        center_x + small_half_rect_width * x_vector, center_y - small_half_rect_height + small_radius,
+        center_x + x_vector * small_half_rect_width, center_y + half_r_h_s_no_radius + offset_bezier_ctrl_p_s,
+        center_x + x_vector * small_half_rect_width, center_y + half_r_h_s_no_radius,
 
-        small_radius, small_radius, 0,
-        center_x + (small_half_rect_width - small_radius) * x_vector, center_y - small_half_rect_height,
+        center_x + x_vector * small_half_rect_width, center_y - half_r_h_s_no_radius,
+
+        center_x + x_vector * small_half_rect_width, center_y - half_r_h_s_no_radius - offset_bezier_ctrl_p_s,
+        center_x + x_vector * (half_r_w_s_no_radius + offset_angle_45_s), center_y - half_r_h_s_no_radius - offset_angle_45_s,
+
+        center_x + x_vector * (half_r_w_s_no_radius + offset_bezier_ctrl_p_s), center_y - small_half_rect_height,
+        center_x + x_vector * half_r_w_s_no_radius, center_y - small_half_rect_height,
 
         center_x, center_y - small_half_rect_height
     };
@@ -309,31 +342,49 @@ static void fill_rounded_rect_path_data(vg_lite_path_t* vg_lite_path,
                                         float rect_width, float rect_height,
                                         float center_x, float center_y)
 {
+    const float offset_bezier_ctrl_p = BEZIER_CTRL_P_45_P_R * radius;
+    const float offset_angle_45 = ANGLE_45_P_R * radius;
+
     float half_rect_width = rect_width / 2;
     float half_rect_height = rect_height / 2;
 
+    float half_r_w_no_radius = half_rect_width - radius;
+    float half_r_h_no_radius = half_rect_height - radius;
+
     float tmp_path_data[] = {
-        center_x - half_rect_width + radius, center_y - half_rect_height,
+        center_x - half_r_w_no_radius, center_y - half_rect_height,
 
-        center_x + half_rect_width - radius, center_y - half_rect_height,
+        center_x + half_r_w_no_radius, center_y - half_rect_height,
 
-        radius, radius, 0,
-        center_x + half_rect_width, center_y - half_rect_height + radius,
+        center_x + half_r_w_no_radius + offset_bezier_ctrl_p, center_y - half_rect_height,
+        center_x + half_r_w_no_radius + offset_angle_45, center_y - half_r_h_no_radius - offset_angle_45,
 
-        center_x + half_rect_width, center_y + half_rect_height - radius,
+        center_x + half_rect_width, center_y - half_r_h_no_radius - offset_bezier_ctrl_p,
+        center_x + half_rect_width, center_y - half_r_h_no_radius,
 
-        radius, radius, 0,
-        center_x + half_rect_width - radius, center_y + half_rect_height,
+        center_x + half_rect_width, center_y + half_r_h_no_radius,
 
-        center_x - half_rect_width + radius, center_y + half_rect_height,
+        center_x + half_rect_width, center_y + half_r_h_no_radius + offset_bezier_ctrl_p,
+        center_x + half_r_w_no_radius + offset_angle_45, center_y + half_r_h_no_radius + offset_angle_45,
 
-        radius, radius, 0,
-        center_x - half_rect_width, center_y + half_rect_height - radius,
+        center_x + half_r_w_no_radius + offset_bezier_ctrl_p, center_y + half_rect_height,
+        center_x + half_r_w_no_radius, center_y + half_rect_height,
 
-        center_x - half_rect_width, center_y - half_rect_height + radius,
+        center_x - half_r_w_no_radius, center_y + half_rect_height,
 
-        radius, radius, 0,
-        center_x - half_rect_width + radius, center_y - half_rect_height
+        center_x - half_r_w_no_radius - offset_bezier_ctrl_p, center_y + half_rect_height,
+        center_x - half_r_w_no_radius - offset_angle_45, center_y + half_r_h_no_radius + offset_angle_45,
+
+        center_x - half_rect_width, center_y + half_r_h_no_radius + offset_bezier_ctrl_p,
+        center_x - half_rect_width, center_y + half_r_h_no_radius,
+
+        center_x - half_rect_width, center_y - half_r_h_no_radius,
+
+        center_x - half_rect_width, center_y - half_r_h_no_radius - offset_bezier_ctrl_p,
+        center_x - half_r_w_no_radius - offset_angle_45, center_y - half_r_h_no_radius - offset_angle_45,
+
+        center_x - half_r_w_no_radius - offset_bezier_ctrl_p, center_y - half_rect_height,
+        center_x - half_r_w_no_radius, center_y - half_rect_height
     };
 
     vg_lite_path_append(vg_lite_path, path_cmds, tmp_path_data, path_cmds_size);
@@ -343,7 +394,7 @@ static void draw_bg_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
                          rect_type draw_rect_type, const void* img_src,
                          const lv_area_t* coords, const lv_area_t* clip_area,
                          const lv_draw_rect_dsc_t* dsc, bool draw_border,
-                         vg_lite_blend_t blend)
+                         vg_lite_blend_t blend, lv_grad_dir_t grad_dir)
 {
     if(dsc->bg_opa <= LV_OPA_MIN) return;
 
@@ -354,12 +405,11 @@ static void draw_bg_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
     lv_coord_t rect_height = draw_coords.y2 - draw_coords.y1 + 1;
 
     lv_opa_t opa = dsc->bg_opa >= LV_OPA_MAX ? LV_OPA_COVER : dsc->bg_opa;
-    lv_grad_dir_t grad_dir = dsc->bg_grad.dir;
-    lv_color_t lv_bg_color = grad_dir == LV_GRAD_DIR_NONE ? dsc->bg_color : dsc->bg_grad.stops[0].color;
-    if(lv_bg_color.full == dsc->bg_grad.stops[1].color.full) grad_dir = LV_GRAD_DIR_NONE;
 
     vg_lite_matrix_t path_matrix;
     vg_lite_identity(&path_matrix);
+
+    lv_color_t lv_bg_color = grad_dir == LV_GRAD_DIR_NONE ? dsc->bg_color : dsc->bg_grad.stops[0].color;
 
     uint32_t bg_color_argb8888 = lv_color_to32(lv_bg_color);
     vg_lite_color_t bg_color = get_vg_lite_color_lvgl_mix(bg_color_argb8888,
@@ -416,7 +466,7 @@ static void draw_bg_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
 
 bool draw_rect_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
                     const lv_area_t* coords, const lv_area_t* clip,
-                    const lv_draw_rect_dsc_t* dsc)
+                    const lv_draw_rect_dsc_t* dsc, lv_grad_dir_t grad_dir)
 {
     rect_type draw_rect_type = RECT_TYPE_ROUNDED;
 
@@ -457,7 +507,7 @@ bool draw_rect_path(vg_lite_buffer_t* vg_buf, vg_lite_path_t* vg_lite_path,
         }
 
         draw_bg_path(vg_buf, vg_lite_path, draw_rect_type, NULL, coords,
-                     &draw_clip, dsc, draw_border, vg_lite_blend);
+                     &draw_clip, dsc, draw_border, vg_lite_blend, grad_dir);
 
         if (draw_border == true) {
             lv_opa_t opa = dsc->border_opa;
@@ -503,8 +553,18 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(struct _lv_draw_ctx_t* draw_ctx,
     return LV_RES_OK;
   }
 
-  if (area_height + area_width < 240) {
-    return LV_RES_INV;
+  lv_grad_dir_t grad_dir = dsc->bg_grad.dir;
+  lv_color_t lv_bg_color = grad_dir == LV_GRAD_DIR_NONE ? dsc->bg_color : dsc->bg_grad.stops[0].color;
+  if(lv_bg_color.full == dsc->bg_grad.stops[1].color.full) grad_dir = LV_GRAD_DIR_NONE;
+
+  if (grad_dir == LV_GRAD_DIR_NONE) {
+    if (area_height + area_width < 80) {
+      return LV_RES_INV;
+    }
+  } else {
+    if (area_height + area_width < 160) {
+      return LV_RES_INV;
+    }
   }
 
   bool draw_shadow = true;
@@ -553,7 +613,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(struct _lv_draw_ctx_t* draw_ctx,
   lv_area_move(&_clip_area, -draw_ctx->buf_area->x1, -draw_ctx->buf_area->y1);
 
   if (draw_rect_path(&dst_vgbuf, &vg_lite_path, &_coords, &_clip_area,
-          dsc)
+          dsc, grad_dir)
       == false) {
     return LV_RES_OK;
   }
