@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <math.h>
 #include <limits.h>
+#include <fixedmath.h>
 
 #include <arpa/inet.h>
 
@@ -240,8 +241,9 @@ static void ping6_result(FAR const struct ping6_result_s *result)
             if (result->nreplies > 0)
               {
                 long avg = priv->tsum / result->nreplies;
-                long tmdev = sqrt(priv->tsum2 / result->nreplies -
-                                 (long long)avg * avg);
+                long long tempnum = priv->tsum2 / result->nreplies -
+                                   (long long)avg * avg;
+                long tmdev = ub16toi(ub32sqrtub16(uitoub32(tempnum)));
 
                 printf("rtt min/avg/max/mdev = %ld.%03ld/%ld.%03ld/"
                        "%ld.%03ld/%ld.%03ld ms\n",
