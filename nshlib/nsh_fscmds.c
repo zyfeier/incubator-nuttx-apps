@@ -1218,8 +1218,8 @@ int cmd_mkdir(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
       for (; ; )
         {
-          slash = strstr(slash, "/");
-          if (slash)
+          slash = strchr(slash, '/');
+          if (slash != NULL)
             {
               *slash = '\0';
             }
@@ -1233,7 +1233,7 @@ int cmd_mkdir(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
               break;
             }
 
-          if (slash)
+          if (slash != NULL)
             {
               *slash++ = '/';
             }
