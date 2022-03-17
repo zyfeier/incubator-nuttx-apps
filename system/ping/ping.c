@@ -280,7 +280,7 @@ int main(int argc, FAR char *argv[])
   info.callback  = ping_result;
   info.priv      = &priv;
   priv.code      = ICMP_I_OK;
-  priv.tmin      = INT_MAX;
+  priv.tmin      = LONG_MAX;
   priv.tmax      = 0;
   priv.tsum      = 0;
   priv.tsum2     = 0;

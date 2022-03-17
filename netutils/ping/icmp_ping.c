@@ -61,7 +61,7 @@
  */
 
 static uint16_t g_pingid;
-static volatile bool exiting;
+static volatile bool g_exiting;
 
 /****************************************************************************
  * Private Functions
@@ -73,7 +73,7 @@ static volatile bool exiting;
 
 static void sigexit(int signo)
 {
-  exiting = true;
+  g_exiting = true;
 }
 
 /****************************************************************************
@@ -185,7 +185,7 @@ void icmp_ping(FAR const struct ping_info_s *info)
   int ch;
   int i;
 
-  exiting = false;
+  g_exiting = false;
   signal(SIGINT, sigexit);
 
   /* Initialize result structure */
@@ -233,7 +233,7 @@ void icmp_ping(FAR const struct ping_info_s *info)
 
   while (result.nrequests < info->count)
     {
-      if (exiting)
+      if (g_exiting)
         {
           break;
         }
