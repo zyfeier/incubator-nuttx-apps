@@ -395,7 +395,7 @@ static int nxplayer_opendevice(FAR struct nxplayer_s *pplayer, int format,
                                * to find the subformat
                                */
 
-                              for (x = 0; x < sizeof(caps.ac_controls); x++)
+                              for (x = 0; x < sizeof(caps.ac_controls.b); x++)
                                 {
                                   if (caps.ac_controls.b[x] == subfmt)
                                     {
