@@ -21,6 +21,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <nuttx/cache.h>
 
 #include "lv_gpu_draw.h"
 
@@ -90,7 +91,7 @@ static void draw_gradient_path(vg_lite_buffer_t* vg_lite_buffer,
     }
 
     uint8_t stops_count = dsc->bg_grad.stops_count;
-    lv_gradient_stop_t* bg_stops = dsc->bg_grad.stops;
+    const lv_gradient_stop_t* bg_stops = dsc->bg_grad.stops;
 
     uint32_t ramps[LV_GRADIENT_MAX_STOPS + 1];
     uint32_t stops[LV_GRADIENT_MAX_STOPS + 1];
@@ -155,7 +156,7 @@ static void fill_rect_border_half(vg_lite_path_t* vg_lite_path,
 
     malloc_float_path_data(vg_lite_path, path_data, path_cmds, sizeof(path_cmds));
 
-    vg_lite_path_append(vg_lite_path, path_cmds, path_data_float, sizeof(path_cmds));
+    vg_lite_path_append(vg_lite_path, (uint8_t*)path_cmds, (void*)path_data_float, sizeof(path_cmds));
 }
 
 static void fill_rounded_rect_border_half(vg_lite_path_t* vg_lite_path,
@@ -620,7 +621,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(struct _lv_draw_ctx_t* draw_ctx,
 
   vg_lite_finish();
   if (IS_CACHED(dst_vgbuf.memory)) {
-    cpu_gpu_data_cache_invalid((uint32_t)dst_vgbuf.memory, buf_size);
+    up_invalidate_dcache((uintptr_t)dst_vgbuf.memory,
+        (uintptr_t)dst_vgbuf.memory + buf_size);
   }
 
   LV_ASSERT_MEM_INTEGRITY();

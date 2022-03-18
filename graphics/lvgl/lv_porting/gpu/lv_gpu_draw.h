@@ -47,7 +47,8 @@ vg_lite_color_t get_vg_lite_color_lvgl_mix(uint32_t color_argb888,
 vg_lite_blend_t get_vg_lite_blend(lv_blend_mode_t blend_mode);
 
 void malloc_float_path_data(vg_lite_path_t* vg_lite_path,
-                            lv_gpu_path_data_t* path_data, uint8_t* path_cmds,
+                            lv_gpu_path_data_t* path_data,
+                            const uint8_t* path_cmds,
                             size_t cmds_size);
 
 void free_float_path_data(lv_gpu_path_data_t* path_data);

@@ -90,9 +90,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_line_gpu(
     return LV_RES_INV;
   }
   const lv_area_t* disp_area = draw_ctx->buf_area;
-  lv_color_t* disp_buf = draw_ctx->buf;
-  int32_t disp_w = lv_area_get_width(disp_area);
-  int32_t disp_h = lv_area_get_height(disp_area);
   lv_coord_t w = dsc->width;
   lv_coord_t dash_width = dsc->dash_width;
   lv_coord_t dash_gap = dsc->dash_gap;

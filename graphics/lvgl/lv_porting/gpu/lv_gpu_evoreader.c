@@ -300,7 +300,7 @@ lv_fs_res_t evo_read(lv_fs_file_t* fp, evo_fcontent_t* ret)
         evo_clear(ret);
         return readres;
       }
-      LV_LOG_WARN("%f,%08X\n", gstops_buf[0], gcolor_buf[0]);
+      LV_LOG_WARN("%f,%08lx\n", gstops_buf[0], gcolor_buf[0]);
       /* Treating gradient data differently depending on gradient type. */
       if (ret->evo_path_dsc[i].path_type > 0) {
         // Process linear gradient.
@@ -321,7 +321,7 @@ lv_fs_res_t evo_read(lv_fs_file_t* fp, evo_fcontent_t* ret)
             gcolor_buf[j] |= g & 0x0000FF00;
             gcolor_buf[j] |= b >> 8;
           }
-          LV_LOG_WARN("%ld,%08X\n", stopconv[j], gcolor_buf[j]);
+          LV_LOG_WARN("%ld,%08lx\n", stopconv[j], gcolor_buf[j]);
         }
         vg_lite_linear_gradient_t* lgrad = ret->evo_path_dsc[i].lin_gradient;
         lv_memcpy(&lgrad->matrix, &gdata.gradient_transform, sizeof(vg_lite_matrix_t));
