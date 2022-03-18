@@ -40,6 +40,8 @@
  * Macros
  ****************************************************************************/
 
+#define SIGN(x) ((x) > 0 ? 1 : ((x < 0) ? -1 : 0))
+
 /****************************************************************************
  * Private Data
  ****************************************************************************/
@@ -52,10 +54,21 @@ static uint32_t last_grad_hash = 0;
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
 static inline float get_angle(lv_point_t* p)
 {
   lv_point_t u = { p[0].x - p[1].x, p[0].y - p[1].y };
   lv_point_t v = { p[2].x - p[1].x, p[2].y - p[1].y };
+  float det = u.x * v.y - u.y * v.x;
+  float denom = sqrtf((u.x * u.x + u.y * u.y) * (v.x * v.x + v.y * v.y));
+  float angle = asinf(det / denom);
+  return fabsf(angle);
+}
+
+static inline float get_angle_f(lv_fpoint_t* p)
+{
+  lv_fpoint_t u = { p[0].x - p[1].x, p[0].y - p[1].y };
+  lv_fpoint_t v = { p[2].x - p[1].x, p[2].y - p[1].y };
   float det = u.x * v.y - u.y * v.x;
   float denom = sqrtf((u.x * u.x + u.y * u.y) * (v.x * v.x + v.y * v.y));
   float angle = asinf(det / denom);
@@ -261,6 +274,7 @@ static inline void fill_curve_path_f(float* path, lv_gpu_curve_t* curve,
 {
   uint32_t i = 0;
   int32_t dx1, dy1, dx2, dy2;
+  float c;
   *(uint8_t*)path++ = VLC_OP_MOVE;
   *path++ = curve->fpoints[0].x;
   *path++ = curve->fpoints[0].y;
@@ -339,10 +353,11 @@ static inline void fill_curve_path_f(float* path, lv_gpu_curve_t* curve,
         dy1 = curve->fpoints[i + 1].y - curve->fpoints[i].y;
         dx2 = curve->fpoints[i + 2].x - curve->fpoints[i + 1].x;
         dy2 = curve->fpoints[i + 2].y - curve->fpoints[i + 1].y;
-        *path++ = curve->fpoints[i].x + arc_magic * dy1;
-        *path++ = curve->fpoints[i].y - arc_magic * dx1;
-        *path++ = curve->fpoints[i + 2].x + arc_magic * dy2;
-        *path++ = curve->fpoints[i + 2].y - arc_magic * dx2;
+        c = SIGN(dx1 * dy2 - dx2 * dy1) * arc_magic;
+        *path++ = curve->fpoints[i].x - c * dy1;
+        *path++ = curve->fpoints[i].y + c * dx1;
+        *path++ = curve->fpoints[i + 2].x - c * dy2;
+        *path++ = curve->fpoints[i + 2].y + c * dx2;
         *path++ = curve->fpoints[i + 2].x;
         *path++ = curve->fpoints[i + 2].y;
         if (area) {
@@ -366,16 +381,16 @@ static inline void fill_curve_path_f(float* path, lv_gpu_curve_t* curve,
     case CURVE_ARC_ACUTE:
       if (i < curve->num - 2) {
         *(uint8_t*)path++ = VLC_OP_CUBIC;
-        float theta = get_angle(&curve->fpoints[i]);
-        float c = 1.3333333f * tanf(theta * 0.25f);
+        float theta = get_angle_f(&curve->fpoints[i]);
         dx1 = curve->fpoints[i + 1].x - curve->fpoints[i].x;
         dy1 = curve->fpoints[i + 1].y - curve->fpoints[i].y;
         dx2 = curve->fpoints[i + 2].x - curve->fpoints[i + 1].x;
         dy2 = curve->fpoints[i + 2].y - curve->fpoints[i + 1].y;
-        *path++ = curve->fpoints[i].x + c * dy1;
-        *path++ = curve->fpoints[i].y - c * dx1;
-        *path++ = curve->fpoints[i + 2].x + c * dy2;
-        *path++ = curve->fpoints[i + 2].y - c * dx2;
+        c = SIGN(dx1 * dy2 - dx2 * dy1) * 1.3333333f * tanf(theta * 0.25f);
+        *path++ = curve->fpoints[i].x - c * dy1;
+        *path++ = curve->fpoints[i].y + c * dx1;
+        *path++ = curve->fpoints[i + 2].x - c * dy2;
+        *path++ = curve->fpoints[i + 2].y + c * dx2;
         *path++ = curve->fpoints[i + 2].x;
         *path++ = curve->fpoints[i + 2].y;
         if (area) {
@@ -433,7 +448,7 @@ static inline uint32_t calc_grad_hash(const lv_grad_dsc_t* grad)
 LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_curve(lv_gpu_curve_t* curve,
     const lv_gpu_buffer_t* gpu_buf)
 {
-  if (!curve || !curve->op || !curve->points && !curve->fpoints) {
+  if (!curve || !curve->op || (!curve->points && !curve->fpoints)) {
     GPU_ERROR("Invalid argument");
     return LV_RES_INV;
   }
@@ -604,10 +619,13 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_set_tf(void* vg_matrix,
     const lv_draw_img_dsc_t* dsc, const lv_area_t* coords)
 {
   vg_lite_matrix_t* matrix = vg_matrix;
+  vg_lite_identity(matrix);
+  if (!dsc) {
+    return LV_RES_OK;
+  }
   uint16_t angle = dsc->angle;
   uint16_t zoom = dsc->zoom;
   lv_point_t pivot = dsc->pivot;
-  vg_lite_identity(matrix);
   vg_lite_translate(coords->x1, coords->y1, matrix);
   bool transformed = (angle != 0) || (zoom != LV_IMG_ZOOM_NONE);
   if (transformed) {

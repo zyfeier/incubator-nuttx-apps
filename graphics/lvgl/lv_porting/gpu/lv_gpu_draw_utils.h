@@ -87,7 +87,7 @@ typedef struct {
 
 typedef struct {
   lv_point_t* points;
-  lv_fpoint_t *fpoints;
+  lv_fpoint_t* fpoints;
   uint32_t num;
   lv_gpu_curve_op_t* op;
   lv_gpu_curve_fill_t* fill;

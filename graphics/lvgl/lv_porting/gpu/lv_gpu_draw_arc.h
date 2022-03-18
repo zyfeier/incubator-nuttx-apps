@@ -43,23 +43,22 @@ extern "C" {
  * Name: lv_draw_arc_gpu
  *
  * Description:
- *   Draw arc with GPU
+ *   Draw an arc with GPU.
  *
  * Input Parameters:
  * @param draw_ctx draw context (refer to LVGL 8.2 changelog)
  * @param dsc draw arc description
- * @param center arc center
  * @param radius arc radius
- * @param start_angle arc start angle
- * @param end_angle arc end angle
+ * @param start_angle arc start angle in degrees
+ * @param end_angle arc end angle in degrees
  *
  * Returned Value:
- *   None
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
-    struct _lv_draw_ctx_t* draw_ctx,
+    lv_draw_ctx_t* draw_ctx,
     const lv_draw_arc_dsc_t* dsc,
     const lv_point_t* center,
     uint16_t radius,
