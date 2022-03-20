@@ -163,7 +163,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
       points[16] = points[1];
       op[17] = CURVE_CLOSE;
       points[17] = points[9];
-      num = 17;
+      num = 18;
     }
   } else {
     if (end_angle < start_angle) {

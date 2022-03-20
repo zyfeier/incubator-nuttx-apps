@@ -89,7 +89,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_line_gpu(
     GPU_INFO("horizontal/vertical line skipped");
     return LV_RES_INV;
   }
-  const lv_area_t* disp_area = draw_ctx->buf_area;
   lv_coord_t w = dsc->width;
   lv_coord_t dash_width = dsc->dash_width;
   lv_coord_t dash_gap = dsc->dash_gap;
