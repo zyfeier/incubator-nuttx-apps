@@ -1396,7 +1396,7 @@ int main(int argc, FAR char *argv[])
           sscanf(type_data[t].input, type_data[t].format, &nou);
           if (type_data[t].value.u != nou)
             {
-              printf("Test #%u assigned %nou instead of %lli.\n",
+              printf("Test #%u assigned %uou instead of %lli.\n",
                      t + 1, nou, type_data[t].value.u);
               ok = false;
             }
