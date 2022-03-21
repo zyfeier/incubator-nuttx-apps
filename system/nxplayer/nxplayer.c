@@ -317,7 +317,7 @@ static int nxplayer_opendevice(FAR struct nxplayer_s *pplayer, int format,
       struct audio_caps_s caps;
       FAR struct dirent *pdevice;
       FAR DIR *dirp;
-      char path[64];
+      char path[PATH_MAX];
       uint8_t supported = true;
       uint8_t x;
 
@@ -1683,7 +1683,7 @@ int nxplayer_setdevice(FAR struct nxplayer_s *pplayer,
 
   /* Save the path and format capabilities of the preferred device */
 
-  strncpy(pplayer->prefdevice, pdevice, sizeof(pplayer->prefdevice));
+  strlcpy(pplayer->prefdevice, pdevice, sizeof(pplayer->prefdevice));
   pplayer->prefformat = caps.ac_format.b[0] | (caps.ac_format.b[1] << 8);
   pplayer->preftype = caps.ac_controls.b[0];
 
@@ -1778,7 +1778,7 @@ static int nxplayer_playinternal(FAR struct nxplayer_s *pplayer,
   struct audio_caps_desc_s cap_desc;
   struct ap_buffer_info_s  buf_info;
 #ifdef CONFIG_NXPLAYER_INCLUDE_MEDIADIR
-  char                path[128];
+  char                path[PATH_MAX];
 #endif
   int                 tmpsubfmt = AUDIO_FMT_UNDEF;
   int                 ret;
@@ -2087,7 +2087,7 @@ int nxplayer_playraw(FAR struct nxplayer_s *pplayer,
 void nxplayer_setmediadir(FAR struct nxplayer_s *pplayer,
      FAR const char *mediadir)
 {
-  strncpy(pplayer->mediadir, mediadir, sizeof(pplayer->mediadir));
+  strlcpy(pplayer->mediadir, mediadir, sizeof(pplayer->mediadir));
 }
 #endif
 
@@ -2312,7 +2312,7 @@ int nxplayer_systemreset(FAR struct nxplayer_s *pplayer)
 {
   struct dirent *pdevice;
   DIR           *dirp;
-  char           path[64];
+  char           path[PATH_MAX];
 
   /* Search for a device in the audio device directory */
 
