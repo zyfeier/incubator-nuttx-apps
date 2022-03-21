@@ -151,7 +151,6 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
         img_dsc.data_size = 0;
         const void* tmp = dsc->src;
         dsc->src = &img_dsc;
-        dsc->src_type = LV_IMG_SRC_VARIABLE;
         lv_res_t res = lv_gpu_decoder_open(decoder, dsc);
         dsc->src = tmp;
         if (res == LV_RES_OK) {
