@@ -641,3 +641,26 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_set_tf(void* vg_matrix,
   }
   return LV_RES_OK;
 }
+
+/****************************************************************************
+ * Name: lv_gpu_get_buf_from_cache
+ *
+ * Description:
+ *   Get a GPU decoder cached image buffer
+ *
+ * Input Parameters:
+ * @param src image src (img_dsc_t or file path string)
+ * @param recolor object recolor prop (image cache is unique to recolor)
+ * @param frame_id frame id (normally 0)
+ *
+ * Returned Value:
+ * @return buf pointer on success, NULL on failure.
+ *
+ ****************************************************************************/
+void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor,
+    int32_t frame_id)
+{
+  _lv_img_cache_entry_t* cdsc = _lv_img_cache_open(src, recolor, frame_id);
+  vg_lite_buffer_t* vgbuf = lv_gpu_get_vgbuf((void*)cdsc->dec_dsc.img_data);
+  return vgbuf ? vgbuf->memory : NULL;
+}

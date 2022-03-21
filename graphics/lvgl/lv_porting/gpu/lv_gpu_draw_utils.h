@@ -183,6 +183,24 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_curve(lv_gpu_curve_t* curve,
 LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_set_tf(void* matrix,
     const lv_draw_img_dsc_t* dsc, const lv_area_t* coords);
 
+/****************************************************************************
+ * Name: lv_gpu_get_buf_from_cache
+ *
+ * Description:
+ *   Get a GPU decoder cached image buffer
+ *
+ * Input Parameters:
+ * @param src image src (img_dsc_t or file path string)
+ * @param recolor object recolor prop (image cache is unique to recolor)
+ * @param frame_id frame id (normally 0)
+ *
+ * Returned Value:
+ * @return buf pointer on success, NULL on failure.
+ *
+ ****************************************************************************/
+
+void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor, int32_t frame_id);
+
 #undef EXTERN
 #ifdef __cplusplus
 }
