@@ -284,7 +284,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   vg_lite_path_t vpath;
   lv_memset_00(&vpath, sizeof(vg_lite_path_t));
   CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_S16, VG_LITE_LOW, sizeof(rect_path), rect_path,
-      0, 0, disp_w - 1, disp_h - 1));
+      0, 0, disp_w, disp_h));
   if (indexed || alpha) {
     uint8_t px_size = VG_FMT_TO_BPP(src_vgbuf.format);
     uint16_t palette_size = 1 << px_size;

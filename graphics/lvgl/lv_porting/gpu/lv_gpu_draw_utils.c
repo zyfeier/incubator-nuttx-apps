@@ -494,7 +494,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_curve(lv_gpu_curve_t* curve,
   vg_lite_path_t vpath;
   lv_memset_00(&vpath, sizeof(vpath));
   CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_FP32, VG_LITE_HIGH, path_length,
-      path, clip_area.x1, clip_area.y1, clip_area.x2, clip_area.y2));
+      path, clip_area.x1, clip_area.y1, clip_area.x2 + 1, clip_area.y2 + 1));
   vg_lite_matrix_t imat;
   vg_lite_identity(&imat);
 
