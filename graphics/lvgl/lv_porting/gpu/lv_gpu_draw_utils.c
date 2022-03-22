@@ -26,6 +26,7 @@
 #include "lv_color.h"
 #include "lv_gpu_decoder.h"
 #include "src/lv_conf_internal.h"
+#include "src/misc/lv_gc.h"
 #include "vg_lite.h"
 #include <math.h>
 #include <nuttx/cache.h>
@@ -55,7 +56,7 @@ static uint32_t last_grad_hash = 0;
  * Private Functions
  ****************************************************************************/
 
-static inline float get_angle(lv_point_t* p)
+LV_ATTRIBUTE_FAST_MEM static float get_angle(lv_point_t* p)
 {
   lv_point_t u = { p[0].x - p[1].x, p[0].y - p[1].y };
   lv_point_t v = { p[2].x - p[1].x, p[2].y - p[1].y };
@@ -65,7 +66,7 @@ static inline float get_angle(lv_point_t* p)
   return fabsf(angle);
 }
 
-static inline float get_angle_f(lv_fpoint_t* p)
+LV_ATTRIBUTE_FAST_MEM static float get_angle_f(lv_fpoint_t* p)
 {
   lv_fpoint_t u = { p[0].x - p[1].x, p[0].y - p[1].y };
   lv_fpoint_t v = { p[2].x - p[1].x, p[2].y - p[1].y };
@@ -75,7 +76,7 @@ static inline float get_angle_f(lv_fpoint_t* p)
   return fabsf(angle);
 }
 
-static inline void update_area(lv_area_t* a, lv_point_t p)
+LV_ATTRIBUTE_FAST_MEM static void update_area(lv_area_t* a, lv_point_t p)
 {
   if (p.x < a->x1) {
     a->x1 = p.x;
@@ -89,7 +90,7 @@ static inline void update_area(lv_area_t* a, lv_point_t p)
   }
 }
 
-static inline void update_area_f(lv_area_t* a, lv_fpoint_t p)
+LV_ATTRIBUTE_FAST_MEM static void update_area_f(lv_area_t* a, lv_fpoint_t p)
 {
   if (p.x < a->x1) {
     a->x1 = (lv_coord_t)p.x;
@@ -103,7 +104,7 @@ static inline void update_area_f(lv_area_t* a, lv_fpoint_t p)
   }
 }
 
-static inline uint32_t calc_curve_length(lv_gpu_curve_t* curve)
+LV_ATTRIBUTE_FAST_MEM static uint32_t calc_curve_length(lv_gpu_curve_t* curve)
 {
   uint32_t sum = 1; /* VLC_OP_END */
   for (uint32_t i = 0; i < curve->num; i++) {
@@ -120,8 +121,8 @@ static inline uint32_t calc_curve_length(lv_gpu_curve_t* curve)
   return sum * sizeof(float);
 }
 
-static inline void fill_curve_path(float* path, lv_gpu_curve_t* curve,
-    lv_area_t* area)
+LV_ATTRIBUTE_FAST_MEM static void fill_curve_path(float* path,
+    lv_gpu_curve_t* curve, lv_area_t* area)
 {
   uint32_t i = 0;
   int32_t dx1, dy1, dx2, dy2;
@@ -269,8 +270,8 @@ static inline void fill_curve_path(float* path, lv_gpu_curve_t* curve,
   *(uint8_t*)path++ = VLC_OP_END;
 }
 
-static inline void fill_curve_path_f(float* path, lv_gpu_curve_t* curve,
-    lv_area_t* area)
+LV_ATTRIBUTE_FAST_MEM static void fill_curve_path_f(float* path,
+    lv_gpu_curve_t* curve, lv_area_t* area)
 {
   uint32_t i = 0;
   int32_t dx1, dy1, dx2, dy2;
@@ -420,11 +421,75 @@ static inline void fill_curve_path_f(float* path, lv_gpu_curve_t* curve,
   *(uint8_t*)path++ = VLC_OP_END;
 }
 
-static inline uint32_t calc_grad_hash(const lv_grad_dsc_t* grad)
+LV_ATTRIBUTE_FAST_MEM static uint32_t calc_grad_hash(const lv_grad_dsc_t* grad)
 {
   uint32_t hash = lv_color_to16(grad->stops[0].color) ^ grad->stops[0].frac;
   return hash << 16
       | (lv_color_to16(grad->stops[1].color) ^ grad->stops[1].frac);
+}
+
+LV_ATTRIBUTE_FAST_MEM static uint16_t fill_round_rect_path(float* path,
+    lv_area_t* rect, lv_coord_t radius)
+{
+  if (!radius) {
+    *(uint8_t*)path = VLC_OP_MOVE;
+    *(uint8_t*)(path + 3) = *(uint8_t*)(path + 6) = *(uint8_t*)(path + 9)
+        = VLC_OP_LINE;
+    *(uint8_t*)(path + 12) = VLC_OP_CLOSE;
+    path[1] = path[4] = rect->x1;
+    path[7] = path[10] = rect->x2 + 1;
+    path[2] = path[11] = rect->y1;
+    path[5] = path[8] = rect->y2 + 1;
+    return 13;
+  }
+  float r = radius;
+  float c = arc_magic * r;
+  float cx0 = rect->x1 + r;
+  float cx1 = rect->x2 - r;
+  float cy0 = rect->y1 + r;
+  float cy1 = rect->y2 - r;
+  *(uint8_t*)path++ = VLC_OP_MOVE;
+  *path++ = cx0 - r;
+  *path++ = cy0;
+  *(uint8_t*)path++ = VLC_OP_CUBIC;
+  *path++ = cx0 - r;
+  *path++ = cy0 - c;
+  *path++ = cx0 - c;
+  *path++ = cy0 - r;
+  *path++ = cx0;
+  *path++ = cy0 - r;
+  *(uint8_t*)path++ = VLC_OP_LINE;
+  *path++ = cx1;
+  *path++ = cy0 - r;
+  *(uint8_t*)path++ = VLC_OP_CUBIC;
+  *path++ = cx1 + c;
+  *path++ = cy0 - r;
+  *path++ = cx1 + r;
+  *path++ = cy0 - c;
+  *path++ = cx1 + r;
+  *path++ = cy0;
+  *(uint8_t*)path++ = VLC_OP_LINE;
+  *path++ = cx1 + r;
+  *path++ = cy1;
+  *(uint8_t*)path++ = VLC_OP_CUBIC;
+  *path++ = cx1 + r;
+  *path++ = cy1 + c;
+  *path++ = cx1 + c;
+  *path++ = cy1 + r;
+  *path++ = cx1;
+  *path++ = cy1 + r;
+  *(uint8_t*)path++ = VLC_OP_LINE;
+  *path++ = cx0;
+  *path++ = cy1 + r;
+  *(uint8_t*)path++ = VLC_OP_CUBIC;
+  *path++ = cx0 - c;
+  *path++ = cy1 + r;
+  *path++ = cx0 - r;
+  *path++ = cy1 + c;
+  *path++ = cx0 - r;
+  *path++ = cy1;
+  *(uint8_t*)path++ = VLC_OP_CLOSE;
+  return 41;
 }
 
 /****************************************************************************
@@ -663,4 +728,63 @@ void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor,
   _lv_img_cache_entry_t* cdsc = _lv_img_cache_open(src, recolor, frame_id);
   vg_lite_buffer_t* vgbuf = lv_gpu_get_vgbuf((void*)cdsc->dec_dsc.img_data);
   return vgbuf ? vgbuf->memory : NULL;
+}
+
+/****************************************************************************
+ * Name: lv_gpu_draw_mask_apply_path
+ *
+ * Description:
+ *   Convert supported masks over an area to VGLite path data. Returning true
+ *   indicates that vpath->path and vpath->path_length has been modified.
+ *
+ * Input Parameters:
+ * @param vpath targer VG path (vg_lite_path_t*)
+ * @param coords area to check
+ *
+ * Returned Value:
+ * @return true if supported mask is found, false otherwise
+ *
+ ****************************************************************************/
+bool lv_gpu_draw_mask_apply_path(void* vpath, lv_area_t* coords)
+{
+  bool masked = false;
+  for (uint8_t i = 0; i < _LV_MASK_MAX_NUM; i++) {
+    _lv_draw_mask_common_dsc_t* comm = LV_GC_ROOT(_lv_draw_mask_list[i]).param;
+    if (!comm) {
+      continue;
+    }
+    if (comm->type == LV_DRAW_MASK_TYPE_RADIUS) {
+      lv_draw_mask_radius_param_t* r = LV_GC_ROOT(_lv_draw_mask_list[i]).param;
+      lv_coord_t w = lv_area_get_width(&r->cfg.rect);
+      lv_coord_t h = lv_area_get_height(&r->cfg.rect);
+      if ((r->cfg.outer && !_lv_area_is_out(coords, &r->cfg.rect, r->cfg.radius))
+          || !_lv_area_is_in(coords, &r->cfg.rect, r->cfg.radius)) {
+        masked = true;
+        /* 3(MOVE) + 3(LINE) * 3 + 7(CUBIC) * 4 + 1(CLOSE/END) = 41 *
+         * rect: 3(MOVE) + 3(LINE) * 3 + 1(CLOSE/END) = 13          */
+        uint16_t length = 41 + r->cfg.outer * 13;
+        uint16_t path_length = length * sizeof(float);
+        float* path = lv_mem_buf_get(path_length);
+        if (!path) {
+          GPU_ERROR("out of memory");
+          return false;
+        }
+        vg_lite_path_t* v = vpath;
+        v->path = path;
+        v->path_length = path_length;
+        lv_coord_t radius = LV_MIN(r->cfg.radius, (LV_MIN(w, h) - 1) / 2);
+        uint16_t len = fill_round_rect_path(path, &r->cfg.rect, radius);
+
+        if (r->cfg.outer) {
+          fill_round_rect_path(path + len, coords, 0);
+        }
+        *(uint8_t*)(path + length - 1) = VLC_OP_END;
+      }
+      /* TODO: support multiple masks */
+      break;
+    } else {
+      GPU_WARN("mask type %d unsupported", comm->type);
+    }
+  }
+  return masked;
 }

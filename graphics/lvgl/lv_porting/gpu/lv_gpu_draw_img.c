@@ -47,6 +47,21 @@
  * Private Data
  ****************************************************************************/
 
+static const vg_lite_matrix_t imat = {
+  .m = {
+      { 1.0f, 0.0f, 0.0f },
+      { 0.0f, 1.0f, 0.0f },
+      { 0.0f, 0.0f, 1.0f } }
+};
+
+static int16_t rect_path[] = {
+  VLC_OP_MOVE, 0, 0,
+  VLC_OP_LINE, 0, 0,
+  VLC_OP_LINE, 0, 0,
+  VLC_OP_LINE, 0, 0,
+  VLC_OP_END
+};
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -197,18 +212,23 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     vg_lite_matrix_t tf0, tfi;
     evo_matmult(&tf, &evocontent->transform, &tf0);
     for (int i = 0; i < evocontent->pathcount; i++) {
-      evo_matmult(&tf0, &evocontent->evo_path_dsc[i].pathtransform, &tfi);
-      if (evocontent->evo_path_dsc[i].path_type == 0) { /* Non-gradient */
-        CHECK_ERROR(vg_lite_draw(&dst_vgbuf, &evocontent->evo_path_dsc[i].vpath, evocontent->evo_path_dsc[i].fill_rule, &tfi, evocontent->evo_path_dsc[i].blending_mode, evocontent->evo_path_dsc[i].color));
-      } else if (evocontent->evo_path_dsc[i].path_type > 0) { /* Linear gradient */
-        vg_lite_linear_gradient_t* grad = evocontent->evo_path_dsc[i].lin_gradient;
+      evo_path_dsc_t* dsci = &evocontent->evo_path_dsc[i];
+      evo_matmult(&tf0, &dsci->pathtransform, &tfi);
+      if (dsci->path_type == 0) { /* Non-gradient */
+        CHECK_ERROR(vg_lite_draw(&dst_vgbuf, &dsci->vpath, dsci->fill_rule,
+            &tfi, dsci->blending_mode, dsci->color));
+      } else if (dsci->path_type > 0) { /* Linear gradient */
+        vg_lite_linear_gradient_t* grad = dsci->lin_gradient;
         vg_lite_matrix_t tmp;
         lv_memcpy(&tmp, &grad->matrix, sizeof(vg_lite_matrix_t));
         evo_matmult(&tf, &grad->matrix, &grad->matrix);
-        CHECK_ERROR(vg_lite_draw_gradient(&dst_vgbuf, &evocontent->evo_path_dsc[i].vpath, evocontent->evo_path_dsc[i].fill_rule, &tfi, grad, evocontent->evo_path_dsc[i].blending_mode));
+        CHECK_ERROR(vg_lite_draw_gradient(&dst_vgbuf, &dsci->vpath,
+            dsci->fill_rule, &tfi, grad, dsci->blending_mode));
         lv_memcpy(&grad->matrix, &tmp, sizeof(vg_lite_matrix_t));
       } else { /* Radial gradient */
-        CHECK_ERROR(vg_lite_draw_radial_gradient(&dst_vgbuf, &evocontent->evo_path_dsc[i].vpath, evocontent->evo_path_dsc[i].fill_rule, &evocontent->evo_path_dsc[i].pathtransform, evocontent->evo_path_dsc[i].rad_gradient, evocontent->evo_path_dsc[i].color, evocontent->evo_path_dsc[i].blending_mode, VG_LITE_FILTER_LINEAR));
+        CHECK_ERROR(vg_lite_draw_radial_gradient(&dst_vgbuf, &dsci->vpath,
+            dsci->fill_rule, &dsci->pathtransform, dsci->rad_gradient,
+            dsci->color, dsci->blending_mode, VG_LITE_FILTER_LINEAR));
       }
     }
     CHECK_ERROR(vg_lite_finish());
@@ -234,7 +254,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   bool allocated_src = false;
   vgbuf = lv_gpu_get_vgbuf((void*)map_p);
   if (vgbuf) {
-    indexed = (vgbuf->format >= VG_LITE_INDEX_1) && (vgbuf->format <= VG_LITE_INDEX_8);
+    indexed = (vgbuf->format >= VG_LITE_INDEX_1)
+        && (vgbuf->format <= VG_LITE_INDEX_8);
     alpha = (vgbuf->format == VG_LITE_A4) || (vgbuf->format == VG_LITE_A8);
     lv_memcpy_small(&src_vgbuf, vgbuf, sizeof(src_vgbuf));
   } else {
@@ -251,7 +272,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     allocated_src = true;
   }
 
-  const uint32_t* palette = (const uint32_t*)(map_p + sizeof(gpu_data_header_t) + src_vgbuf.stride * src_vgbuf.height);
+  const uint32_t* palette = (const uint32_t*)(map_p + sizeof(gpu_data_header_t)
+      + src_vgbuf.stride * src_vgbuf.height);
 
   vg_lite_matrix_t matrix;
   gpu_set_tf(&matrix, dsc, &coords_rel);
@@ -269,22 +291,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     src_vgbuf.image_mode = VG_LITE_MULTIPLY_IMAGE_MODE;
   }
 
-  vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR : VG_LITE_FILTER_POINT;
-  vg_lite_matrix_t matrix0;
-  vg_lite_identity(&matrix0);
-  static int16_t rect_path[13] = {
-    VLC_OP_MOVE, 0, 0,
-    VLC_OP_LINE, 0, 0,
-    VLC_OP_LINE, 0, 0,
-    VLC_OP_LINE, 0, 0,
-    VLC_OP_END
-  };
-  fill_rect_path(rect_path, &draw_area);
-
-  vg_lite_path_t vpath;
-  lv_memset_00(&vpath, sizeof(vg_lite_path_t));
-  CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_S16, VG_LITE_LOW, sizeof(rect_path), rect_path,
-      0, 0, disp_w, disp_h));
+  vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR
+                                        : VG_LITE_FILTER_POINT;
   if (indexed || alpha) {
     uint8_t px_size = VG_FMT_TO_BPP(src_vgbuf.format);
     uint16_t palette_size = 1 << px_size;
@@ -295,7 +303,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
         goto Error_handler;
       }
       recolor_palette(palette_r, alpha ? NULL : palette, palette_size,
-          recolor_opa != LV_OPA_TRANSP ? lv_color_to32(recolor) : *palette, recolor_opa);
+          recolor_opa != LV_OPA_TRANSP ? lv_color_to32(recolor) : *palette,
+          recolor_opa);
       vg_lite_set_CLUT(palette_size, palette_r);
       lv_mem_buf_release(palette_r);
     } else {
@@ -304,31 +313,51 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   } else if (recolor_opa != LV_OPA_TRANSP) {
     /* ARGB recolor, unsupported by GPU */
     GPU_ERROR("ARGB recolor!");
-    return LV_RES_INV;
+    goto Error_handler;
   }
-  if (_lv_area_is_in(&map_tf, &draw_area, 0)) {
+  fill_rect_path(rect_path, &draw_area);
+  vg_lite_path_t vpath;
+  lv_memset_00(&vpath, sizeof(vg_lite_path_t));
+  CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_S16, VG_LITE_HIGH,
+      sizeof(rect_path), rect_path, draw_area.x1, draw_area.y1,
+      draw_area.x2 + 1, draw_area.y2 + 1));
+  bool masked = lv_gpu_draw_mask_apply_path(&vpath, &draw_area);
+  if (masked) {
+    /* masked, have to use draw_pattern */
+    vpath.format = VG_LITE_FP32;
+    goto Draw_pattern;
+  } else if (_lv_area_is_in(&map_tf, &draw_area, 0)) {
     /* No clipping, simply blit */
-    CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend, color.full, filter));
-  } else if (!transformed && map_tf.x1 == draw_area.x1 && map_tf.y1 == draw_area.y1) {
+    CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend,
+        color.full, filter));
+  } else if (!transformed && map_tf.x1 == draw_area.x1
+      && map_tf.y1 == draw_area.y1) {
     /* Clipped from left top, use good old blit_rect */
     rect[2] = lv_area_get_width(&draw_area);
     rect[3] = lv_area_get_height(&draw_area);
-
-    CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend, color.full, filter));
+    CHECK_ERROR(vg_lite_blit_rect(&dst_vgbuf, &src_vgbuf, rect, &matrix, blend,
+        color.full, filter));
   } else {
+  Draw_pattern:
     /* arbitrarily clipped, have to use draw_pattern */
     CHECK_ERROR(vg_lite_set_multiply_color(color.full));
-    CHECK_ERROR(vg_lite_draw_pattern(&dst_vgbuf, &vpath, VG_LITE_FILL_NON_ZERO, &matrix0, &src_vgbuf, &matrix, blend, VG_LITE_PATTERN_COLOR, 0, filter));
+    CHECK_ERROR(vg_lite_draw_pattern(&dst_vgbuf, &vpath, VG_LITE_FILL_EVEN_ODD,
+        (vg_lite_matrix_t*)&imat, &src_vgbuf, &matrix, blend, 0, 0, filter));
   }
 
   CHECK_ERROR(vg_lite_finish());
+  if (masked) {
+    lv_mem_buf_release(vpath.path);
+  }
   if (IS_CACHED(dst_vgbuf.memory)) {
-    up_invalidate_dcache((uintptr_t)dst_vgbuf.memory, (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
+    up_invalidate_dcache((uintptr_t)dst_vgbuf.memory,
+        (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
   }
 
 Error_handler:
   if (allocated_src) {
-    GPU_WARN("freeing allocated vgbuf:(%ld,%ld)@%p", src_vgbuf.width, src_vgbuf.height, src_vgbuf.memory);
+    GPU_WARN("freeing allocated vgbuf:(%ld,%ld)@%p", src_vgbuf.width,
+        src_vgbuf.height, src_vgbuf.memory);
     free(src_vgbuf.memory);
   }
   if (vgerr != VG_LITE_SUCCESS) {
@@ -337,7 +366,8 @@ Error_handler:
   return LV_RES_OK;
 Fallback:
   if (IS_ERROR(vgerr)) {
-    GPU_ERROR("[%s: %d] failed.error type is %s\n", __func__, __LINE__, error_type[vgerr]);
+    GPU_ERROR("[%s: %d] failed.error type is %s\n", __func__, __LINE__,
+        error_type[vgerr]);
   }
   /*Fall back to SW render in case of error*/
   GPU_ERROR("GPU blit failed. Fallback to SW.\n");

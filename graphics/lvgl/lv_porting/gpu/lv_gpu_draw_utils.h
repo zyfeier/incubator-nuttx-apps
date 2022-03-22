@@ -201,6 +201,24 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_set_tf(void* matrix,
 
 void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor, int32_t frame_id);
 
+/****************************************************************************
+ * Name: lv_gpu_draw_mask_apply_path
+ *
+ * Description:
+ *   Convert supported masks over an area to VGLite path data. Returning true
+ *   indicates that vpath->path and vpath->path_length has been modified.
+ *
+ * Input Parameters:
+ * @param vpath targer VG path (vg_lite_path_t*)
+ * @param coords area to check
+ *
+ * Returned Value:
+ * @return true if supported mask is found, false otherwise
+ *
+ ****************************************************************************/
+
+bool lv_gpu_draw_mask_apply_path(void *vpath, lv_area_t* coords);
+
 #undef EXTERN
 #ifdef __cplusplus
 }

@@ -357,7 +357,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder,
     }
     lv_fs_seek(&f, 4, LV_FS_SEEK_SET);
 
-    gpu_data_header_t* gpu_data = lv_mem_alloc(sizeof(gpu_data_header_t));
+    gpu_data_header_t* gpu_data = lv_mem_buf_get(sizeof(gpu_data_header_t));
     if (gpu_data == NULL) {
       GPU_ERROR("out of memory");
       lv_fs_close(&f);
@@ -365,7 +365,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder,
     }
     gpu_data->magic = EVO_DATA_MAGIC;
     if (evo_read(&f, &gpu_data->evocontent) != LV_FS_RES_OK) {
-      lv_mem_free(gpu_data);
+      lv_mem_buf_release(gpu_data);
       lv_fs_close(&f);
       GPU_ERROR("file read failed");
       return LV_RES_INV;
@@ -460,7 +460,7 @@ lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src,
       res = lv_fs_read(&f, header, sizeof(lv_img_header_t), &rn);
       lv_fs_close(&f);
       if (res != LV_FS_RES_OK || rn != sizeof(lv_img_header_t)) {
-        LV_LOG_WARN("Image get info get read file header");
+        LV_LOG_WARN("Image get info read file header failed");
         return LV_RES_INV;
       }
 
@@ -469,7 +469,7 @@ lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src,
           return LV_RES_INV;
 
     } else {
-      LV_LOG_ERROR("GPU decoder open %s failed", (const char*)src);
+      LV_LOG_INFO("GPU decoder open %s failed", (const char*)src);
       return LV_RES_INV;
     }
   } else if (src_type == LV_IMG_SRC_SYMBOL) {
