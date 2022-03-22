@@ -268,7 +268,7 @@ static int tsock_send_event(int fd, FAR struct daemon_priv_s *priv,
     }
 
   event.usockid = i + TEST_SOCKET_SOCKID_BASE;
-  event.events = events;
+  event.head.events = events;
 
   wlen = write(fd, &event, sizeof(event));
   if (wlen < 0)
@@ -392,8 +392,9 @@ static int socket_request(int fd, FAR struct daemon_priv_s *priv,
 
   /* Prepare response. */
 
-  resp.head.msgid = USRSOCK_MESSAGE_RESPONSE_ACK;
-  resp.head.flags = 0;
+  resp.head.msgid  = USRSOCK_MESSAGE_RESPONSE_ACK;
+  resp.head.flags  = 0;
+  resp.head.events = 0;
   resp.xid = req->head.xid;
   resp.result = socketid;
 
@@ -428,7 +429,8 @@ static int close_request(int fd, FAR struct daemon_priv_s *priv,
 
   /* Prepare response. */
 
-  resp.head.msgid = USRSOCK_MESSAGE_RESPONSE_ACK;
+  resp.head.msgid  = USRSOCK_MESSAGE_RESPONSE_ACK;
+  resp.head.events = 0;
   resp.xid = req->head.xid;
   if (priv->conf->delay_all_responses)
     {
@@ -566,8 +568,9 @@ prepare:
   /* Prepare response. */
 
   resp.xid = req->head.xid;
-  resp.head.msgid = USRSOCK_MESSAGE_RESPONSE_ACK;
-  resp.head.flags = 0;
+  resp.head.msgid  = USRSOCK_MESSAGE_RESPONSE_ACK;
+  resp.head.flags  = 0;
+  resp.head.events = 0;
 
   if (priv->conf->endpoint_block_connect)
     {
@@ -759,8 +762,9 @@ prepare:
   /* Prepare response. */
 
   resp.xid = req->head.xid;
-  resp.head.msgid = USRSOCK_MESSAGE_RESPONSE_ACK;
-  resp.head.flags = 0;
+  resp.head.msgid  = USRSOCK_MESSAGE_RESPONSE_ACK;
+  resp.head.flags  = 0;
+  resp.head.events = 0;
 
   if (priv->conf->delay_all_responses)
     {
@@ -895,8 +899,9 @@ prepare:
   /* Prepare response. */
 
   resp.reqack.xid = req->head.xid;
-  resp.reqack.head.msgid = USRSOCK_MESSAGE_RESPONSE_DATA_ACK;
-  resp.reqack.head.flags = 0;
+  resp.reqack.head.msgid  = USRSOCK_MESSAGE_RESPONSE_DATA_ACK;
+  resp.reqack.head.flags  = 0;
+  resp.reqack.head.events = 0;
 
   if (priv->conf->delay_all_responses)
     {
@@ -1086,8 +1091,9 @@ prepare:
   /* Prepare response. */
 
   resp.xid = req->head.xid;
-  resp.head.msgid = USRSOCK_MESSAGE_RESPONSE_ACK;
-  resp.head.flags = 0;
+  resp.head.msgid  = USRSOCK_MESSAGE_RESPONSE_ACK;
+  resp.head.flags  = 0;
+  resp.head.events = 0;
 
   if (priv->conf->delay_all_responses)
     {
@@ -1192,8 +1198,9 @@ prepare:
   /* Prepare response. */
 
   resp.reqack.xid = req->head.xid;
-  resp.reqack.head.msgid = USRSOCK_MESSAGE_RESPONSE_DATA_ACK;
-  resp.reqack.head.flags = 0;
+  resp.reqack.head.msgid  = USRSOCK_MESSAGE_RESPONSE_DATA_ACK;
+  resp.reqack.head.flags  = 0;
+  resp.reqack.head.events = 0;
 
   if (priv->conf->delay_all_responses)
     {
@@ -1303,8 +1310,9 @@ prepare:
   /* Prepare response. */
 
   resp.reqack.xid = req->head.xid;
-  resp.reqack.head.msgid = USRSOCK_MESSAGE_RESPONSE_DATA_ACK;
-  resp.reqack.head.flags = 0;
+  resp.reqack.head.msgid  = USRSOCK_MESSAGE_RESPONSE_DATA_ACK;
+  resp.reqack.head.flags  = 0;
+  resp.reqack.head.events = 0;
 
   if (priv->conf->delay_all_responses)
     {
@@ -1564,6 +1572,7 @@ static int establish_blocked_connection(int fd,
 
       priv->sockets_waiting_connect--;
       resp->head.flags &= ~USRSOCK_MESSAGE_FLAG_REQ_IN_PROGRESS;
+      resp->head.events = 0;
 
       wlen = write(fd, resp, sizeof(*resp));
       if (wlen < 0)
@@ -1615,6 +1624,7 @@ static int fail_blocked_connection(int fd, FAR struct daemon_priv_s *priv,
 
       priv->sockets_waiting_connect--;
       resp->head.flags &= ~USRSOCK_MESSAGE_FLAG_REQ_IN_PROGRESS;
+      resp->head.events = 0;
 
       wlen = write(fd, resp, sizeof(*resp));
       if (wlen < 0)
