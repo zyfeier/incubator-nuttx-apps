@@ -83,7 +83,11 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_polygon_gpu(
       == LV_RES_OK);
   /* Convert to vglite path */
   uint32_t path_size = (point_cnt * 3 + 1) * sizeof(int16_t);
-  int16_t* poly_path = lv_mem_alloc(path_size);
+  int16_t* poly_path = lv_mem_buf_get(path_size);
+  if (!poly_path) {
+    GPU_WARN("out of memory");
+    return LV_RES_INV;
+  }
   lv_area_t poly_coords = { points->x, points->y, points->x, points->y };
   poly_path[0] = VLC_OP_MOVE;
   poly_path[1] = points->x;
@@ -103,8 +107,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_polygon_gpu(
   lv_area_t clip_area;
   is_common = _lv_area_intersect(&clip_area, &poly_coords, draw_ctx->clip_area);
   if (!is_common) {
-    lv_mem_free(poly_path);
-    return LV_RES_OK;
+    goto cleanup;
   }
   /* Calculate some parameters */
   lv_coord_t poly_w = lv_area_get_width(&poly_coords);
@@ -160,5 +163,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_polygon_gpu(
     up_invalidate_dcache((uintptr_t)dst_vgbuf.memory,
         (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
   }
+cleanup:
+  lv_mem_buf_release(poly_path);
   return LV_RES_OK;
 }

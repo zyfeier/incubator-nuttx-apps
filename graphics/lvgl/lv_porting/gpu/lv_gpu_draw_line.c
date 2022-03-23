@@ -114,8 +114,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_line_gpu(
   lv_fpoint_t* points = g_points;
   lv_gpu_curve_op_t* op = g_op;
   if (num > PLAIN_LINE_NUM) {
-    points = lv_mem_alloc(sizeof(lv_fpoint_t) * num);
-    op = lv_mem_alloc(sizeof(lv_gpu_curve_op_t) * num);
+    points = lv_mem_buf_get(sizeof(lv_fpoint_t) * num);
+    op = lv_mem_buf_get(sizeof(lv_gpu_curve_op_t) * num);
   }
   points[0] = PR(point1);
   op[0] = CURVE_LINE;
@@ -186,5 +186,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_line_gpu(
     .cf = BPP_TO_LV_FMT(LV_COLOR_DEPTH)
   };
   gpu_draw_curve(&curve, &gpu_buf);
+  if (num > PLAIN_LINE_NUM) {
+    lv_mem_buf_release(points);
+    lv_mem_buf_release(op);
+  }
   return LV_RES_OK;
 }

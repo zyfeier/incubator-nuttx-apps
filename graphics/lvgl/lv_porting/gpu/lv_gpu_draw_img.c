@@ -290,14 +290,14 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     uint16_t palette_size = 1 << px_size;
     src_vgbuf.format = BPP_TO_VG_FMT(px_size);
     if (alpha || recolor_opa != LV_OPA_TRANSP) {
-      uint32_t* palette_r = lv_mem_alloc(palette_size * sizeof(lv_color32_t));
+      uint32_t* palette_r = lv_mem_buf_get(palette_size * sizeof(lv_color32_t));
       if (palette_r == NULL) {
         goto Error_handler;
       }
       recolor_palette(palette_r, alpha ? NULL : palette, palette_size,
           recolor_opa != LV_OPA_TRANSP ? lv_color_to32(recolor) : *palette, recolor_opa);
       vg_lite_set_CLUT(palette_size, palette_r);
-      lv_mem_free(palette_r);
+      lv_mem_buf_release(palette_r);
     } else {
       vg_lite_set_CLUT(palette_size, (uint32_t*)palette);
     }
