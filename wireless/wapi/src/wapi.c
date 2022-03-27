@@ -709,17 +709,13 @@ static int wapi_scan_results_cmd(int sock, int argc, FAR char **argv)
   /* Print found aps */
 
   printf("bssid / frequency / signal level / encode / ssid\n");
-  info = list.head.scan;
-  if (info)
+  for (info = list.head.scan; info; info = info->next)
     {
-      for (; info; info = info->next)
-        {
-          printf("%02x:%02x:%02x:%02x:%02x:%02x\t%g\t%d\t%04x\t%s\n",
-                info->ap.ether_addr_octet[0], info->ap.ether_addr_octet[1],
-                info->ap.ether_addr_octet[2], info->ap.ether_addr_octet[3],
-                info->ap.ether_addr_octet[4], info->ap.ether_addr_octet[5],
-                info->freq, info->rssi, info->encode, info->essid);
-        }
+      printf("%02x:%02x:%02x:%02x:%02x:%02x\t%g\t%d\t%04x\t%s\n",
+             info->ap.ether_addr_octet[0], info->ap.ether_addr_octet[1],
+             info->ap.ether_addr_octet[2], info->ap.ether_addr_octet[3],
+             info->ap.ether_addr_octet[4], info->ap.ether_addr_octet[5],
+             info->freq, info->rssi, info->encode, info->essid);
     }
 
   /* Free ap list */
