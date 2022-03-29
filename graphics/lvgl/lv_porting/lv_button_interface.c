@@ -196,6 +196,7 @@ static lv_indev_t *button_init(int fd)
 lv_indev_t *lv_button_interface_init(const char *dev_path)
 {
   const char *device_path = dev_path;
+  lv_indev_t *indev;
   int fd;
   btn_buttonset_t supported;
   int ret;
@@ -225,5 +226,12 @@ lv_indev_t *lv_button_interface_init(const char *dev_path)
 
   LV_LOG_INFO("button supported BUTTONs 0x%08x", (unsigned int)supported);
 
-  return button_init(fd);
+  indev = button_init(fd);
+
+  if (indev == NULL)
+    {
+      close(fd);
+    }
+
+  return indev;
 }

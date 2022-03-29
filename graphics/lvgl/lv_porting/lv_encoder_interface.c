@@ -132,6 +132,7 @@ static lv_indev_t *encoder_init(int fd)
 lv_indev_t *lv_encoder_interface_init(const char *dev_path)
 {
   const char *device_path = dev_path;
+  lv_indev_t *indev;
   int fd;
 
   if (device_path == NULL)
@@ -149,5 +150,12 @@ lv_indev_t *lv_encoder_interface_init(const char *dev_path)
 
   LV_LOG_INFO("encoder %s open success", device_path);
 
-  return encoder_init(fd);
+  indev = encoder_init(fd);
+
+  if (indev == NULL)
+    {
+      close(fd);
+    }
+
+  return indev;
 }

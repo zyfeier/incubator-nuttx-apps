@@ -208,6 +208,7 @@ static lv_indev_t *keypad_init(int fd)
 lv_indev_t *lv_keypad_interface_init(const char *dev_path)
 {
   const char *device_path = dev_path;
+  lv_indev_t *indev;
   int fd;
   int ret;
   btn_buttonset_t supported;
@@ -238,5 +239,12 @@ lv_indev_t *lv_keypad_interface_init(const char *dev_path)
 
   LV_LOG_INFO("button supported BUTTONs 0x%08x", (unsigned int)supported);
 
-  return keypad_init(fd);
+  indev = keypad_init(fd);
+
+  if (indev == NULL)
+    {
+      close(fd);
+    }
+
+  return indev;
 }
