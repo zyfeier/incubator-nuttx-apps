@@ -429,13 +429,13 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
   if (!fbdev_obj->double_buffer)
     {
       LV_LOG_ERROR("fbdev does not support double buffering");
-      return NULL;
+      goto failed;
     }
 
   if (!fbdev_obj->color_match)
     {
       LV_LOG_ERROR("fbdev and lvgl color depth do not match");
-      return NULL;
+      goto failed;
     }
 
   buf = fbdev_obj->fbmem;
@@ -453,7 +453,7 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
   if (buf == NULL)
     {
       LV_LOG_ERROR("Unable to get buffer");
-      return NULL;
+      goto failed;
     }
 
   lv_disp_draw_buf_init(&(fbdev_obj->disp_draw_buf), buf, NULL,
@@ -497,6 +497,10 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
 #endif /* CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER */
 
   return fbdev_obj->disp;
+
+failed:
+  free(fbdev_obj);
+  return NULL;
 }
 
 /****************************************************************************
