@@ -116,6 +116,8 @@ static void *fs_open(lv_fs_drv_t *drv, const char *path, lv_fs_mode_t mode)
   fp = malloc(sizeof(file_t));
   if (fp == NULL)
     {
+      close(f);
+      LV_LOG_ERROR("fp malloc failed");
       return NULL;
     }
 
