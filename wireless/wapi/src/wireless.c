@@ -752,7 +752,7 @@ int wapi_set_essid(int sock, FAR const char *ifname, FAR const char *essid,
 
   wrq.u.essid.pointer = buf;
   wrq.u.essid.length =
-    snprintf(buf, ((WAPI_ESSID_MAX_SIZE + 1) * sizeof(char)), "%s", essid);
+    snprintf(buf, WAPI_ESSID_MAX_SIZE + 1, "%s", essid) + 1;
   wrq.u.essid.flags = flag;
 
   strlcpy(wrq.ifr_name, ifname, IFNAMSIZ);
@@ -1240,6 +1240,7 @@ int wapi_scan_stat(int sock, FAR const char *ifname)
   char buf;
 
   wrq.u.data.pointer = &buf;
+  wrq.u.data.length  = sizeof(buf);
 
   strlcpy(wrq.ifr_name, ifname, IFNAMSIZ);
   ret = ioctl(sock, SIOCGIWSCAN, (unsigned long)((uintptr_t)&wrq));
