@@ -41,11 +41,7 @@
  * Macros
  ****************************************************************************/
 
-#define __SIGN(x) ((x) > 0 ? 1 : ((x < 0) ? -1 : 0))
-#define __PR(p, dx, dy) ((lv_fpoint_t) { (p)->x + (dx), (p)->y - (dy) })
-#define __PL(p, dx, dy) ((lv_fpoint_t) { (p)->x - (dx), (p)->y + (dy) })
-#define __PB(p, dx, dy) ((lv_fpoint_t) { (p)->x - (dy), (p)->y - (dx) })
-#define __PT(p, dx, dy) ((lv_fpoint_t) { (p)->x + (dy), (p)->y + (dx) })
+#define SIGN(x) ((x) > 0 ? 1 : ((x < 0) ? -1 : 0))
 
 /****************************************************************************
  * Private Data
@@ -60,29 +56,13 @@ static uint32_t last_grad_hash = 0;
  * Private Functions
  ****************************************************************************/
 
-static float inv_sqrt(float number)
-{
-  long i;
-  float x2, y;
-  const float threehalfs = 1.5F;
-
-  x2 = number * 0.5F;
-  y = number;
-  i = *(long*)&y; // evil floating point bit level hacking
-  i = 0x5f3759df - (i >> 1); // what the fuck?
-  y = *(float*)&i;
-  y = y * (threehalfs - (x2 * y * y)); // 1st iteration
-
-  return y;
-}
-
 LV_ATTRIBUTE_FAST_MEM static float get_angle(lv_point_t* p)
 {
-  lv_fpoint_t u = { p[0].x - p[1].x, p[0].y - p[1].y };
-  lv_fpoint_t v = { p[2].x - p[1].x, p[2].y - p[1].y };
+  lv_point_t u = { p[0].x - p[1].x, p[0].y - p[1].y };
+  lv_point_t v = { p[2].x - p[1].x, p[2].y - p[1].y };
   float det = u.x * v.y - u.y * v.x;
-  float norm2 = (u.x * u.x + u.y * u.y) * (v.x * v.x + v.y * v.y);
-  float angle = asinf(det * inv_sqrt(norm2));
+  float denom = sqrtf((u.x * u.x + u.y * u.y) * (v.x * v.x + v.y * v.y));
+  float angle = asinf(det / denom);
   return fabsf(angle);
 }
 
@@ -91,22 +71,36 @@ LV_ATTRIBUTE_FAST_MEM static float get_angle_f(lv_fpoint_t* p)
   lv_fpoint_t u = { p[0].x - p[1].x, p[0].y - p[1].y };
   lv_fpoint_t v = { p[2].x - p[1].x, p[2].y - p[1].y };
   float det = u.x * v.y - u.y * v.x;
-  float norm2 = (u.x * u.x + u.y * u.y) * (v.x * v.x + v.y * v.y);
-  float angle = asinf(det * inv_sqrt(norm2));
+  float denom = sqrtf((u.x * u.x + u.y * u.y) * (v.x * v.x + v.y * v.y));
+  float angle = asinf(det / denom);
   return fabsf(angle);
 }
 
-LV_ATTRIBUTE_FAST_MEM static void update_area(lv_area_t* a, float x, float y)
+LV_ATTRIBUTE_FAST_MEM static void update_area(lv_area_t* a, lv_point_t p)
 {
-  if (x < a->x1) {
-    a->x1 = (lv_coord_t)x;
-  } else if (x > a->x2) {
-    a->x2 = (lv_coord_t)x;
+  if (p.x < a->x1) {
+    a->x1 = p.x;
+  } else if (p.x > a->x2) {
+    a->x2 = p.x;
   }
-  if (y < a->y1) {
-    a->y1 = (lv_coord_t)y;
-  } else if (y > a->y2) {
-    a->y2 = (lv_coord_t)y;
+  if (p.y < a->y1) {
+    a->y1 = p.y;
+  } else if (p.y > a->y2) {
+    a->y2 = p.y;
+  }
+}
+
+LV_ATTRIBUTE_FAST_MEM static void update_area_f(lv_area_t* a, lv_fpoint_t p)
+{
+  if (p.x < a->x1) {
+    a->x1 = (lv_coord_t)p.x;
+  } else if (p.x > a->x2) {
+    a->x2 = (lv_coord_t)p.x;
+  }
+  if (p.y < a->y1) {
+    a->y1 = (lv_coord_t)p.y;
+  } else if (p.y > a->y2) {
+    a->y2 = (lv_coord_t)p.y;
   }
 }
 
@@ -132,7 +126,6 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path(float* path,
 {
   uint32_t i = 0;
   int32_t dx1, dy1, dx2, dy2;
-  float c;
   *(uint8_t*)path++ = VLC_OP_MOVE;
   *path++ = curve->points[0].x;
   *path++ = curve->points[0].y;
@@ -152,7 +145,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path(float* path,
         *path++ = curve->points[++i].x;
         *path++ = curve->points[i].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
+          update_area(area, curve->points[i]);
         }
       } else {
         i = curve->num;
@@ -165,7 +158,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path(float* path,
         *path++ = curve->points[i].x;
         *path++ = curve->points[i].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
+          update_area(area, curve->points[i]);
         }
       } else {
         i = curve->num;
@@ -179,8 +172,8 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path(float* path,
         *path++ = curve->points[++i].x;
         *path++ = curve->points[i].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
-          update_area(area, *(path - 4), *(path - 3));
+          update_area(area, curve->points[i]);
+          update_area(area, curve->points[i - 1]);
         }
       } else {
         i = curve->num;
@@ -196,9 +189,9 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path(float* path,
         *path++ = curve->points[++i].x;
         *path++ = curve->points[i].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
-          update_area(area, *(path - 4), *(path - 3));
-          update_area(area, *(path - 6), *(path - 5));
+          update_area(area, curve->points[i]);
+          update_area(area, curve->points[i - 1]);
+          update_area(area, curve->points[i - 2]);
         }
       } else {
         i = curve->num;
@@ -211,17 +204,24 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path(float* path,
         dy1 = curve->points[i + 1].y - curve->points[i].y;
         dx2 = curve->points[i + 2].x - curve->points[i + 1].x;
         dy2 = curve->points[i + 2].y - curve->points[i + 1].y;
-        c = __SIGN(dx1 * dy2 - dx2 * dy1) * arc_magic;
-        *path++ = curve->points[i].x - c * dy1;
-        *path++ = curve->points[i].y + c * dx1;
-        *path++ = curve->points[i + 2].x - c * dy2;
-        *path++ = curve->points[i + 2].y + c * dx2;
+        *path++ = curve->points[i].x + arc_magic * dy1;
+        *path++ = curve->points[i].y - arc_magic * dx1;
+        *path++ = curve->points[i + 2].x + arc_magic * dy2;
+        *path++ = curve->points[i + 2].y - arc_magic * dx2;
         *path++ = curve->points[i + 2].x;
         *path++ = curve->points[i + 2].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
-          update_area(area, *(path - 4), *(path - 3));
-          update_area(area, *(path - 6), *(path - 5));
+          lv_point_t ctl0 = {
+            .x = (lv_coord_t) * (path - 6),
+            .y = (lv_coord_t) * (path - 5)
+          };
+          lv_point_t ctl1 = {
+            .x = (lv_coord_t) * (path - 4),
+            .y = (lv_coord_t) * (path - 3)
+          };
+          update_area(area, ctl0);
+          update_area(area, ctl1);
+          update_area(area, curve->points[i + 2]);
         }
         i += 2;
       } else {
@@ -232,21 +232,29 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path(float* path,
       if (i < curve->num - 2) {
         *(uint8_t*)path++ = VLC_OP_CUBIC;
         float theta = get_angle(&curve->points[i]);
+        float c = 1.3333333f * tanf(theta * 0.25f);
         dx1 = curve->points[i + 1].x - curve->points[i].x;
         dy1 = curve->points[i + 1].y - curve->points[i].y;
         dx2 = curve->points[i + 2].x - curve->points[i + 1].x;
         dy2 = curve->points[i + 2].y - curve->points[i + 1].y;
-        c = __SIGN(dx1 * dy2 - dx2 * dy1) * 1.3333333f * tanf(theta * 0.25f);
-        *path++ = curve->points[i].x - c * dy1;
-        *path++ = curve->points[i].y + c * dx1;
-        *path++ = curve->points[i + 2].x - c * dy2;
-        *path++ = curve->points[i + 2].y + c * dx2;
+        *path++ = curve->points[i].x + c * dy1;
+        *path++ = curve->points[i].y - c * dx1;
+        *path++ = curve->points[i + 2].x + c * dy2;
+        *path++ = curve->points[i + 2].y - c * dx2;
         *path++ = curve->points[i + 2].x;
         *path++ = curve->points[i + 2].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
-          update_area(area, *(path - 4), *(path - 3));
-          update_area(area, *(path - 6), *(path - 5));
+          lv_point_t ctl0 = {
+            .x = (lv_coord_t) * (path - 6),
+            .y = (lv_coord_t) * (path - 5)
+          };
+          lv_point_t ctl1 = {
+            .x = (lv_coord_t) * (path - 4),
+            .y = (lv_coord_t) * (path - 3)
+          };
+          update_area(area, ctl0);
+          update_area(area, ctl1);
+          update_area(area, curve->points[i + 2]);
         }
         i += 2;
       } else {
@@ -287,7 +295,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path_f(float* path,
         *path++ = curve->fpoints[++i].x;
         *path++ = curve->fpoints[i].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
+          update_area_f(area, curve->fpoints[i]);
         }
       } else {
         i = curve->num;
@@ -300,7 +308,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path_f(float* path,
         *path++ = curve->fpoints[i].x;
         *path++ = curve->fpoints[i].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
+          update_area_f(area, curve->fpoints[i]);
         }
       } else {
         i = curve->num;
@@ -314,8 +322,8 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path_f(float* path,
         *path++ = curve->fpoints[++i].x;
         *path++ = curve->fpoints[i].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
-          update_area(area, *(path - 4), *(path - 3));
+          update_area_f(area, curve->fpoints[i]);
+          update_area_f(area, curve->fpoints[i - 1]);
         }
       } else {
         i = curve->num;
@@ -331,9 +339,9 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path_f(float* path,
         *path++ = curve->fpoints[++i].x;
         *path++ = curve->fpoints[i].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
-          update_area(area, *(path - 4), *(path - 3));
-          update_area(area, *(path - 6), *(path - 5));
+          update_area_f(area, curve->fpoints[i]);
+          update_area_f(area, curve->fpoints[i - 1]);
+          update_area_f(area, curve->fpoints[i - 2]);
         }
       } else {
         i = curve->num;
@@ -346,7 +354,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path_f(float* path,
         dy1 = curve->fpoints[i + 1].y - curve->fpoints[i].y;
         dx2 = curve->fpoints[i + 2].x - curve->fpoints[i + 1].x;
         dy2 = curve->fpoints[i + 2].y - curve->fpoints[i + 1].y;
-        c = __SIGN(dx1 * dy2 - dx2 * dy1) * arc_magic;
+        c = SIGN(dx1 * dy2 - dx2 * dy1) * arc_magic;
         *path++ = curve->fpoints[i].x - c * dy1;
         *path++ = curve->fpoints[i].y + c * dx1;
         *path++ = curve->fpoints[i + 2].x - c * dy2;
@@ -354,9 +362,17 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path_f(float* path,
         *path++ = curve->fpoints[i + 2].x;
         *path++ = curve->fpoints[i + 2].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
-          update_area(area, *(path - 4), *(path - 3));
-          update_area(area, *(path - 6), *(path - 5));
+          lv_point_t ctl0 = {
+            .x = (lv_coord_t) * (path - 6),
+            .y = (lv_coord_t) * (path - 5)
+          };
+          lv_point_t ctl1 = {
+            .x = (lv_coord_t) * (path - 4),
+            .y = (lv_coord_t) * (path - 3)
+          };
+          update_area(area, ctl0);
+          update_area(area, ctl1);
+          update_area_f(area, curve->fpoints[i + 2]);
         }
         i += 2;
       } else {
@@ -371,7 +387,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path_f(float* path,
         dy1 = curve->fpoints[i + 1].y - curve->fpoints[i].y;
         dx2 = curve->fpoints[i + 2].x - curve->fpoints[i + 1].x;
         dy2 = curve->fpoints[i + 2].y - curve->fpoints[i + 1].y;
-        c = __SIGN(dx1 * dy2 - dx2 * dy1) * 1.3333333f * tanf(theta * 0.25f);
+        c = SIGN(dx1 * dy2 - dx2 * dy1) * 1.3333333f * tanf(theta * 0.25f);
         *path++ = curve->fpoints[i].x - c * dy1;
         *path++ = curve->fpoints[i].y + c * dx1;
         *path++ = curve->fpoints[i + 2].x - c * dy2;
@@ -379,9 +395,17 @@ LV_ATTRIBUTE_FAST_MEM static void fill_curve_path_f(float* path,
         *path++ = curve->fpoints[i + 2].x;
         *path++ = curve->fpoints[i + 2].y;
         if (area) {
-          update_area(area, *(path - 2), *(path - 1));
-          update_area(area, *(path - 4), *(path - 3));
-          update_area(area, *(path - 6), *(path - 5));
+          lv_point_t ctl0 = {
+            .x = (lv_coord_t) * (path - 6),
+            .y = (lv_coord_t) * (path - 5)
+          };
+          lv_point_t ctl1 = {
+            .x = (lv_coord_t) * (path - 4),
+            .y = (lv_coord_t) * (path - 3)
+          };
+          update_area(area, ctl0);
+          update_area(area, ctl1);
+          update_area_f(area, curve->fpoints[i + 2]);
         }
         i += 2;
       } else {
@@ -416,7 +440,7 @@ LV_ATTRIBUTE_FAST_MEM static uint16_t fill_round_rect_path(float* path,
     path[7] = path[10] = rect->x2 + 1;
     path[2] = path[11] = rect->y1;
     path[5] = path[8] = rect->y2 + 1;
-    return GPU_RECT_PATH_LEN;
+    return 13;
   }
   float r = radius;
   float c = arc_magic * r;
@@ -465,77 +489,7 @@ LV_ATTRIBUTE_FAST_MEM static uint16_t fill_round_rect_path(float* path,
   *path++ = cx0 - r;
   *path++ = cy1;
   *(uint8_t*)path++ = VLC_OP_CLOSE;
-  return GPU_POINT_PATH_LEN;
-}
-
-LV_ATTRIBUTE_FAST_MEM static uint16_t fill_line_path(float* path,
-    lv_fpoint_t* points, lv_draw_line_dsc_t* dsc)
-{
-  float dx = points[1].x - points[0].x;
-  float dy = points[1].y - points[0].y;
-  float dl_inv = inv_sqrt(dx * dx + dy * dy);
-  float r = dsc->width * 0.5f;
-  float tmp = r * dl_inv;
-  float w2_dx = tmp * dy;
-  float w2_dy = tmp * dx;
-  float c_dx = arc_magic * w2_dx;
-  float c_dy = arc_magic * w2_dy;
-  float* p = path;
-  lv_fpoint_t tmp_p = __PL(points, w2_dx, w2_dy);
-  *(uint8_t*)p++ = VLC_OP_MOVE;
-  *(lv_fpoint_t*)p++ = tmp_p;
-  p++;
-  if (!dsc->round_start) {
-    *(uint8_t*)p++ = VLC_OP_LINE;
-    *(lv_fpoint_t*)p++ = __PR(points, w2_dx, w2_dy);
-    p++;
-  } else {
-    *(uint8_t*)p++ = VLC_OP_CUBIC;
-    *(lv_fpoint_t*)p++ = __PB(&tmp_p, c_dx, c_dy);
-    p++;
-    tmp_p = __PB(points, w2_dx, w2_dy);
-    *(lv_fpoint_t*)p++ = __PL(&tmp_p, c_dx, c_dy);
-    p++;
-    *(lv_fpoint_t*)p++ = tmp_p;
-    p++;
-    *(uint8_t*)p++ = VLC_OP_CUBIC;
-    *(lv_fpoint_t*)p++ = __PR(&tmp_p, c_dx, c_dy);
-    p++;
-    tmp_p = __PR(points, w2_dx, w2_dy);
-    *(lv_fpoint_t*)p++ = __PB(&tmp_p, c_dx, c_dy);
-    p++;
-    *(lv_fpoint_t*)p++ = tmp_p;
-    p++;
-  }
-  points++;
-  tmp_p = __PR(points, w2_dx, w2_dy);
-  *(uint8_t*)p++ = VLC_OP_LINE;
-  *(lv_fpoint_t*)p++ = tmp_p;
-  p++;
-  if (!dsc->round_end) {
-    *(uint8_t*)p++ = VLC_OP_LINE;
-    *(lv_fpoint_t*)p++ = __PL(points, w2_dx, w2_dy);
-    p++;
-  } else {
-    *(uint8_t*)p++ = VLC_OP_CUBIC;
-    *(lv_fpoint_t*)p++ = __PT(&tmp_p, c_dx, c_dy);
-    p++;
-    tmp_p = __PT(points, w2_dx, w2_dy);
-    *(lv_fpoint_t*)p++ = __PR(&tmp_p, c_dx, c_dy);
-    p++;
-    *(lv_fpoint_t*)p++ = tmp_p;
-    p++;
-    *(uint8_t*)p++ = VLC_OP_CUBIC;
-    *(lv_fpoint_t*)p++ = __PL(&tmp_p, c_dx, c_dy);
-    p++;
-    tmp_p = __PL(points, w2_dx, w2_dy);
-    *(lv_fpoint_t*)p++ = __PT(&tmp_p, c_dx, c_dy);
-    p++;
-    *(lv_fpoint_t*)p++ = tmp_p;
-    p++;
-  }
-  *(uint8_t*)p++ = VLC_OP_CLOSE;
-  return p - path;
+  return 41;
 }
 
 /****************************************************************************
@@ -559,34 +513,37 @@ LV_ATTRIBUTE_FAST_MEM static uint16_t fill_line_path(float* path,
 LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_curve(lv_gpu_curve_t* curve,
     const lv_gpu_buffer_t* gpu_buf)
 {
-  if (!gpu_buf || !gpu_buf->buf || !curve || !curve->op
-      || (!curve->points && !curve->fpoints) || !curve->fill) {
+  if (!curve || !curve->op || (!curve->points && !curve->fpoints)) {
     GPU_ERROR("Invalid argument");
     return LV_RES_INV;
   }
-  if (curve->fill->type == CURVE_FILL_LINEAR_GRADIENT && !curve->fill->grad) {
-    GPU_ERROR("Invalid gradient argument");
-    return LV_RES_INV;
-  }
-  lv_gpu_curve_fill_t fill = *curve->fill;
-
+  vg_lite_error_t vgerr;
+  lv_coord_t w = gpu_buf->w;
+  lv_coord_t h = gpu_buf->h;
+  lv_img_cf_t cf = gpu_buf->cf;
+  void* buf = gpu_buf->buf;
+  uint8_t bpp = lv_img_cf_get_px_size(cf);
+  /* Init destination vglite buffer */
+  vg_lite_buffer_t dst_vgbuf;
+  LV_ASSERT(init_vg_buf(&dst_vgbuf, w, h, w * bpp >> 3, buf,
+                BPP_TO_VG_FMT(bpp), false)
+      == LV_RES_OK);
   uint32_t path_length = calc_curve_length(curve);
-  float* path = lv_mem_buf_get(path_length);
+  float* path = lv_mem_alloc(path_length);
   if (!path) {
     GPU_ERROR("out of memory");
     return LV_RES_INV;
   }
   lv_memset_00(path, path_length);
   /* Convert to vglite path */
+  lv_gpu_curve_fill_type_t type = curve->fill->type;
   lv_area_t grad_area;
-  if (CURVE_FILL_TYPE(fill.type) == CURVE_FILL_LINEAR_GRADIENT
-      && !curve->fill->grad->coords) {
+  if (CURVE_FILL_TYPE(type) == CURVE_FILL_LINEAR_GRADIENT) {
     if (curve->points) {
       fill_curve_path(path, curve, &grad_area);
     } else {
       fill_curve_path_f(path, curve, &grad_area);
     }
-    fill.grad->coords = &grad_area;
   } else {
     if (curve->points) {
       fill_curve_path(path, curve, NULL);
@@ -594,67 +551,28 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_curve(lv_gpu_curve_t* curve,
       fill_curve_path_f(path, curve, NULL);
     }
   }
-  return gpu_draw_path(path, path_length, &fill, gpu_buf);
-}
 
-/****************************************************************************
- * Name: gpu_draw_path
- *
- * Description:
- *   Draw a pre-computed path(use gpu_fill_path or refer to VGLite manuals).
- *
- * Input Parameters:
- * @param path address of path buffer (must be float*)
- * @param length length of path in bytes
- * @param fill gpu curve fill descriptor
- * @param gpu_buf GPU buffer descriptor
- *
- * Returned Value:
- * @return LV_RES_OK on success, LV_RES_INV on failure.
- *
- ****************************************************************************/
-lv_res_t gpu_draw_path(float* path, lv_coord_t length,
-    lv_gpu_curve_fill_t* gpu_fill, const lv_gpu_buffer_t* gpu_buf)
-{
-  lv_coord_t w = gpu_buf->w;
-  lv_coord_t h = gpu_buf->h;
-  lv_img_cf_t cf = gpu_buf->cf;
-  void* buf = gpu_buf->buf;
-  lv_area_t* disp_area = gpu_buf->buf_area;
-  uint8_t bpp = lv_img_cf_get_px_size(cf);
-  /* Init destination vglite buffer */
-  vg_lite_buffer_t dst_vgbuf;
-  LV_ASSERT(init_vg_buf(&dst_vgbuf, w, h, w * bpp >> 3, buf,
-                BPP_TO_VG_FMT(bpp), false)
-      == LV_RES_OK);
-  lv_area_t clip_area = { 0, 0, INT16_MAX, INT16_MAX };
-  if (disp_area) {
-    lv_memcpy_small(&clip_area, disp_area, sizeof(lv_area_t));
-  }
+  lv_area_t clip_area = { 0, 0, w - 1, h - 1 };
   if (gpu_buf->clip_area) {
     _lv_area_intersect(&clip_area, &clip_area, gpu_buf->clip_area);
   }
-
-  vg_lite_error_t vgerr;
   vg_lite_path_t vpath;
   lv_memset_00(&vpath, sizeof(vpath));
-  CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_FP32, VG_LITE_HIGH, length,
+  CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_FP32, VG_LITE_HIGH, path_length,
       path, clip_area.x1, clip_area.y1, clip_area.x2 + 1, clip_area.y2 + 1));
-  vg_lite_matrix_t gmat;
-  vg_lite_identity(&gmat);
-  if (disp_area) {
-    vg_lite_translate(-disp_area->x1, -disp_area->y1, &gmat);
-  }
-  lv_opa_t opa = gpu_fill->opa;
+  vg_lite_matrix_t imat;
+  vg_lite_identity(&imat);
+
+  lv_opa_t opa = curve->fill->opa;
   vg_lite_blend_t blend = VG_LITE_BLEND_SRC_OVER;
   vg_lite_filter_t filter = VG_LITE_FILTER_BI_LINEAR;
-  vg_lite_fill_t fill = CURVE_FILL_RULE(gpu_fill->type);
-  vg_lite_pattern_mode_t pattern = CURVE_FILL_PATTERN(gpu_fill->type);
+  vg_lite_fill_t fill = CURVE_FILL_RULE(type);
+  vg_lite_pattern_mode_t pattern = CURVE_FILL_PATTERN(type);
 
-  lv_gpu_curve_fill_type_t type = CURVE_FILL_TYPE(gpu_fill->type);
+  type = CURVE_FILL_TYPE(type);
 
   if (type == CURVE_FILL_COLOR) {
-    vg_lite_color_t color = BGRA_TO_RGBA(lv_color_to32(gpu_fill->color));
+    vg_lite_color_t color = BGRA_TO_RGBA(lv_color_to32(curve->fill->color));
     if (opa < LV_OPA_MAX) {
       color = ((uint32_t)opa) << 24 | /* A */
           (((color & 0xFF0000) * opa & 0xFF000000) | /* B */
@@ -662,33 +580,28 @@ lv_res_t gpu_draw_path(float* path, lv_coord_t length,
               ((color & 0xFF) * opa)) /* R */
               >> 8;
     }
-    CHECK_ERROR(vg_lite_draw(&dst_vgbuf, &vpath, fill, &gmat, blend, color));
+    CHECK_ERROR(vg_lite_draw(&dst_vgbuf, &vpath, fill, &imat, blend, color));
     CHECK_ERROR(vg_lite_finish());
 
   } else if (type == CURVE_FILL_IMAGE) {
-    const uint8_t* img_data = gpu_fill->img->img_dsc->data;
-    lv_img_header_t* img_header = &gpu_fill->img->img_dsc->header;
+    const uint8_t* img_data = curve->fill->img->img_dsc->data;
+    lv_img_header_t* img_header = &curve->fill->img->img_dsc->header;
     vg_lite_buffer_t* vgbuf = lv_gpu_get_vgbuf((void*)img_data);
     vg_lite_buffer_t src_vgbuf;
     bool allocated_src = false;
     if (!vgbuf) {
       if (lv_gpu_load_vgbuf(img_data, img_header, &src_vgbuf, NULL)
           != LV_RES_OK) {
-        lv_mem_buf_release(path);
+        lv_mem_free(path);
         return LV_RES_INV;
       }
       allocated_src = true;
       vgbuf = &src_vgbuf;
     }
-    lv_draw_img_dsc_t* draw_dsc = gpu_fill->img->draw_dsc;
-    lv_area_t coords = { .x1 = gpu_fill->img->coords->x1,
-      .y1 = gpu_fill->img->coords->y1 };
-    if (disp_area) {
-      coords.x1 -= disp_area->x1;
-      coords.y1 -= disp_area->y1;
-    }
+    lv_draw_img_dsc_t* draw_dsc = curve->fill->img->draw_dsc;
+    lv_area_t* coords = curve->fill->img->coords;
     vg_lite_matrix_t matrix;
-    gpu_set_tf(&matrix, draw_dsc, &coords);
+    gpu_set_tf(&matrix, draw_dsc, coords);
     vg_lite_color_t color = opa;
     if (opa < LV_OPA_MAX) {
       color |= color << 8;
@@ -698,8 +611,8 @@ lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     } else {
       vgbuf->image_mode = VG_LITE_NORMAL_IMAGE_MODE;
     }
-    color = BGRA_TO_RGBA(lv_color_to32(gpu_fill->color));
-    CHECK_ERROR(vg_lite_draw_pattern(&dst_vgbuf, &vpath, fill, &gmat, vgbuf,
+    color = BGRA_TO_RGBA(lv_color_to32(curve->fill->color));
+    CHECK_ERROR(vg_lite_draw_pattern(&dst_vgbuf, &vpath, fill, &imat, vgbuf,
         &matrix, blend, pattern, color, filter));
     CHECK_ERROR(vg_lite_finish());
     if (allocated_src) {
@@ -711,7 +624,7 @@ lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     init_vg_buf(&grad.image, VLC_GRADBUFFER_WIDTH, 1,
         VLC_GRADBUFFER_WIDTH * sizeof(uint32_t), grad_mem,
         VG_LITE_BGRA8888, false);
-    lv_grad_dsc_t* lv_grad = gpu_fill->grad->grad_dsc;
+    lv_grad_dsc_t* lv_grad = curve->fill->grad;
     grad.count = lv_grad->stops_count;
     for (int_fast16_t i = 0; i < grad.count; i++) {
       lv_color_t color = lv_grad->stops[i].color;
@@ -727,24 +640,24 @@ lv_res_t gpu_draw_path(float* path, lv_coord_t length,
       vg_lite_update_grad(&grad);
       last_grad_hash = grad_hash;
     }
-    lv_area_t* grad_area = gpu_fill->grad->coords;
+
     vg_lite_identity(&grad.matrix);
-    vg_lite_translate(grad_area->x1, grad_area->y1, &grad.matrix);
+    vg_lite_translate(grad_area.x1, grad_area.y1, &grad.matrix);
     if (lv_grad->dir == LV_GRAD_DIR_VER) {
-      vg_lite_scale(1.0f, lv_area_get_height(grad_area) / 256.0f, &grad.matrix);
+      vg_lite_scale(1.0f, lv_area_get_height(&grad_area) / 256.0f, &grad.matrix);
       vg_lite_rotate(90.0f, &grad.matrix);
     } else {
-      vg_lite_scale(lv_area_get_width(grad_area) / 256.0f, 1.0f, &grad.matrix);
+      vg_lite_scale(lv_area_get_width(&grad_area) / 256.0f, 1.0f, &grad.matrix);
     }
-    vg_lite_draw_gradient(&dst_vgbuf, &vpath, fill, &gmat, &grad, blend);
+    vg_lite_draw_gradient(&dst_vgbuf, &vpath, fill, &imat, &grad, blend);
     CHECK_ERROR(vg_lite_finish());
 
   } else if (type == CURVE_FILL_RADIAL_GRADIENT) {
     GPU_ERROR("Radial gradient unsupported at the moment");
-    lv_mem_buf_release(path);
+    lv_mem_free(path);
     return LV_RES_INV;
   }
-  lv_mem_buf_release(path);
+  lv_mem_free(path);
   if (IS_CACHED(dst_vgbuf.memory)) {
     up_invalidate_dcache((uintptr_t)dst_vgbuf.memory,
         (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
@@ -847,7 +760,9 @@ bool lv_gpu_draw_mask_apply_path(void* vpath, lv_area_t* coords)
       if ((r->cfg.outer && !_lv_area_is_out(coords, &r->cfg.rect, r->cfg.radius))
           || !_lv_area_is_in(coords, &r->cfg.rect, r->cfg.radius)) {
         masked = true;
-        uint16_t length = GPU_POINT_PATH_LEN + r->cfg.outer * GPU_RECT_PATH_LEN;
+        /* 3(MOVE) + 3(LINE) * 3 + 7(CUBIC) * 4 + 1(CLOSE/END) = 41 *
+         * rect: 3(MOVE) + 3(LINE) * 3 + 1(CLOSE/END) = 13          */
+        uint16_t length = 41 + r->cfg.outer * 13;
         uint16_t path_length = length * sizeof(float);
         float* path = lv_mem_buf_get(path_length);
         if (!path) {
@@ -872,45 +787,4 @@ bool lv_gpu_draw_mask_apply_path(void* vpath, lv_area_t* coords)
     }
   }
   return masked;
-}
-
-/****************************************************************************
- * Name: gpu_fill_path
- *
- * Description:
- *   Fill in a float* buffer with VGLite commands. Currently supported types:
- *     GPU_LINE_PATH: draw a line with given endpoints and description
- *         points[2] = { start, end } , lv_draw_line_dsc_t* dsc     ______
- *     GPU_POINT_PATH: draw a circle or rounded hor/ver line like: (______)
- *         points[2] = { start, end } , gpu_point_dsc_t* dsc
- *         *dsc = { w, h }, where w/h is HALF of point hor/ver dimension
- *
- * Input Parameters:
- * @param type type of curve to fill
- * @param points array of points, see above for detailed info
- * @param dsc curve descriptor, see above for detailed info
- *
- * Returned Value:
- * @return offset of path after fill (1/sizeof(float) of filled bytes)
- *
- ****************************************************************************/
-LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
-    gpu_fill_path_type_t type, lv_point_t* points, void* dsc)
-{
-  int16_t len = 0;
-  if (type == GPU_POINT_PATH) {
-    gpu_point_dsc_t* point_dsc = (gpu_point_dsc_t*)dsc;
-    lv_coord_t dx = point_dsc->w;
-    lv_coord_t dy = point_dsc->h;
-    lv_area_t point_area = { points[0].x - dx, points[0].y - dy,
-      points[1].x + dx + 1, points[1].y + dy + 1 };
-    len = fill_round_rect_path(path, &point_area, LV_MIN(dx, dy));
-  } else if (type == GPU_LINE_PATH) {
-    lv_draw_line_dsc_t* line_dsc = (lv_draw_line_dsc_t*)dsc;
-    lv_fpoint_t fpoints[2] = { __PR(points, 0.5f, 0), __PR(points + 1, 0.5f, 0) };
-    len = fill_line_path(path, fpoints, line_dsc);
-  } else {
-    /* TODO: add other path type fill function as needed */
-  }
-  return len;
 }

@@ -32,13 +32,6 @@
  *      DEFINES
  *********************/
 
-#define MAX_PATH_LENGTH 32512 /* when GPU CMD_BUF_LEN == 32k */
-#define GPU_RECT_PATH_LEN 13 /* 3(MOVE) + 3(LINE) * 3 + 1(CLOSE/END) */
-#define GPU_POINT_PATH_LEN 41 /* 3(MOVE) + 3(LINE) * 3 + 7(CUBIC) * 4 + 1(CLOSE/END) */
-#define GPU_POINT_PATH_SIZE 164 /* GPU_POINT_PATH_LEN * sizeof(float) */
-#define GPU_LINE_PATH_SIZE 52 /* (3(LINE) * 4 + 1(CLOSE/END)) * sizeof(float) */
-#define GPU_LINE_PATH_ROUND_DELTA 44 /* (7(CUBIC) * 2 - 3(LINE)) * sizeof(float) */
-
 /**********************
  *      TYPEDEFS
  **********************/
@@ -80,16 +73,11 @@ typedef struct {
 } lv_gpu_image_dsc_t;
 
 typedef struct {
-  lv_grad_dsc_t* grad_dsc;
-  lv_area_t* coords;
-} lv_gpu_grad_dsc_t;
-
-typedef struct {
   lv_gpu_curve_fill_type_t type;
   lv_color_t color;
   lv_opa_t opa;
   lv_gpu_image_dsc_t* img;
-  lv_gpu_grad_dsc_t* grad;
+  lv_grad_dsc_t* grad;
 } lv_gpu_curve_fill_t;
 
 typedef struct {
@@ -104,21 +92,6 @@ typedef struct {
   lv_gpu_curve_op_t* op;
   lv_gpu_curve_fill_t* fill;
 } lv_gpu_curve_t;
-
-enum {
-  GPU_LINE_PATH,
-  GPU_RECT_PATH,
-  GPU_ARC_PATH,
-  GPU_POLYGON_PATH,
-  GPU_CIRCLE_PATH,
-  GPU_POINT_PATH
-};
-typedef uint8_t gpu_fill_path_type_t;
-
-typedef struct {
-  lv_coord_t w;
-  lv_coord_t h;
-} gpu_point_dsc_t;
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -245,48 +218,6 @@ void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor, int32_t frame_id)
  ****************************************************************************/
 
 bool lv_gpu_draw_mask_apply_path(void *vpath, lv_area_t* coords);
-
-/****************************************************************************
- * Name: gpu_draw_path
- *
- * Description:
- *   Draw a pre-computed path(use gpu_fill_path or refer to VGLite manuals).
- *
- * Input Parameters:
- * @param path address of path buffer (must be float*)
- * @param length length of path in bytes
- * @param fill gpu curve fill descriptor
- * @param gpu_buf GPU buffer descriptor
- *
- * Returned Value:
- * @return LV_RES_OK on success, LV_RES_INV on failure.
- *
- ****************************************************************************/
-lv_res_t gpu_draw_path(float* path, lv_coord_t length,
-    lv_gpu_curve_fill_t* fill, const lv_gpu_buffer_t* gpu_buf);
-
-/****************************************************************************
- * Name: gpu_fill_path
- *
- * Description:
- *   Fill in a float* buffer with VGLite commands. Currently supported types:
- *     GPU_LINE_PATH: draw a line with given endpoints and description
- *         points[2] = { start, end } , lv_draw_line_dsc_t* dsc     ______
- *     GPU_POINT_PATH: draw a circle or rounded hor/ver line like: (______)
- *         points[2] = { start, end } , gpu_point_dsc_t* dsc
- *         *dsc = { w, h }, where w/h is HALF of point hor/ver dimension
- *
- * Input Parameters:
- * @param type type of curve to fill
- * @param points array of points, see above for detailed info
- * @param dsc curve descriptor, see above for detailed info
- *
- * Returned Value:
- * @return offset of path after fill (1/sizeof(float) of filled bytes)
- *
- ****************************************************************************/
-LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
-    gpu_fill_path_type_t type, lv_point_t* points, void* dsc);
 
 #undef EXTERN
 #ifdef __cplusplus

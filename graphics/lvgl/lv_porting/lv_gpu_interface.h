@@ -168,7 +168,6 @@ typedef struct {
 
 typedef struct {
   void* buf;
-  lv_area_t *buf_area;
   lv_area_t *clip_area;
   lv_coord_t w;
   lv_coord_t h;

@@ -140,8 +140,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_polygon_gpu(
     vg_lite_update_grad(&grad);
 
     vg_lite_identity(&grad.matrix);
-    vg_lite_translate(poly_coords.x1 - disp_area->x1,
-        poly_coords.y1 - disp_area->y1, &grad.matrix);
+    vg_lite_translate(poly_coords.x1, poly_coords.y1, &grad.matrix);
     if (dsc->bg_grad.dir == LV_GRAD_DIR_VER) {
       vg_lite_scale(1.0f, poly_h / 256.0f, &grad.matrix);
       vg_lite_rotate(90.0f, &grad.matrix);
