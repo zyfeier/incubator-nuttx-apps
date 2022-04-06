@@ -105,6 +105,7 @@ BLACKSRCS += 25-1-buildonly.c
 BLACKSRCS += 27-1-buildonly.c
 BLACKSRCS += 35-1-buildonly.c
 BLACKSRCS += 35-2-buildonly.c
+BLACKSRCS += 27-2.c
 ifeq ($(CONFIG_PTHREAD_SPINLOCKS),)
 BLACKSRCS += 3-12-buildonly.c
 endif
