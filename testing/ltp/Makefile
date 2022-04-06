@@ -80,6 +80,7 @@ BLACKWORDS  += "SIGSTKSZ"
 BLACKWORDS  += "stack_t"
 BLACKWORDS  += "siginterrupt"
 BLACKWORDS  += "threads_scenarii.c"
+BLACKWORDS  += "PTHREAD_PRIO_PROTECT"
 
 BLACKWORDS  += "ILL_[A-Z]"
 BLACKWORDS  += "FPE_[A-Z]"
