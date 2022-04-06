@@ -38,8 +38,6 @@
 
 void lv_porting_init(void)
 {
-  lv_fs_interface_init();
-
 #if defined(CONFIG_LV_USE_LCDDEV_INTERFACE)
   lv_lcddev_interface_init(NULL, 0);
 #endif

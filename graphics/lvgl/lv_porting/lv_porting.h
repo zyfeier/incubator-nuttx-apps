@@ -28,7 +28,6 @@
 #include <lv_porting/lv_button_interface.h>
 #include <lv_porting/lv_encoder_interface.h>
 #include <lv_porting/lv_fbdev_interface.h>
-#include <lv_porting/lv_fs_interface.h>
 #include <lv_porting/lv_gpu_interface.h>
 #include <lv_porting/lv_lcddev_interface.h>
 #include <lv_porting/lv_keypad_interface.h>
