@@ -26,6 +26,7 @@
 #include "lv_assert.h"
 #include "lv_color.h"
 #include "lv_draw_img.h"
+#include "lv_gpu_draw_utils.h"
 #include "lv_gpu_evoreader.h"
 #include "lv_img_decoder.h"
 #include "lv_porting/lv_gpu_interface.h"
@@ -59,25 +60,6 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder,
 /**********************
  *   STATIC FUNCTIONS
  **********************/
-
-static uint32_t gpu_img_buf_get_img_size(lv_coord_t w, lv_coord_t h,
-    lv_img_cf_t cf)
-{
-  if (cf == LV_IMG_CF_EVO) {
-    return sizeof(gpu_data_header_t);
-  }
-  w = (cf == LV_IMG_CF_INDEXED_1BIT)   ? ALIGN_UP(w, 64)
-      : (cf == LV_IMG_CF_INDEXED_2BIT) ? ALIGN_UP(w, 32)
-                                       : ALIGN_UP(w, 16);
-  uint8_t px_size = lv_img_cf_get_px_size(cf);
-  bool indexed = cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT;
-  bool alpha = cf >= LV_IMG_CF_ALPHA_1BIT && cf <= LV_IMG_CF_ALPHA_8BIT;
-  uint32_t palette_size = indexed ? 1 << px_size : alpha ? 1
-                                                         : 0;
-  uint32_t data_size = w * h * px_size >> 3;
-  return sizeof(gpu_data_header_t) + data_size
-      + palette_size * sizeof(uint32_t);
-}
 
 LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp,
     const lv_color32_t* sp)
@@ -882,68 +864,4 @@ LV_ATTRIBUTE_FAST_MEM vg_lite_buffer_t* lv_gpu_get_vgbuf(void* data)
 {
   gpu_data_header_t* header = data;
   return header->magic == GPU_DATA_MAGIC ? &header->vgbuf : NULL;
-}
-
-/****************************************************************************
- * Name: gpu_img_buf_alloc
- *
- * Description:
- *   Allocate an image buffer in RAM
- *
- * @param w width of image
- * @param h height of image
- * @param cf a color format (`LV_IMG_CF_...`)
- *
- * @return an allocated image descriptor, or NULL on failure
- ****************************************************************************/
-lv_img_dsc_t* gpu_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
-{
-  /*Allocate image descriptor*/
-  lv_img_dsc_t* dsc = lv_mem_alloc(sizeof(lv_img_dsc_t));
-  if (dsc == NULL) {
-    return NULL;
-  }
-  lv_memset_00(dsc, sizeof(lv_img_dsc_t));
-
-  /*Get image data size*/
-  dsc->data_size = gpu_img_buf_get_img_size(w, h, cf);
-  if (dsc->data_size == 0) {
-    lv_mem_free(dsc);
-    return NULL;
-  }
-
-  /*Allocate raw buffer*/
-  dsc->data = aligned_alloc(8, dsc->data_size);
-  if (dsc->data == NULL) {
-    lv_mem_free(dsc);
-    return NULL;
-  }
-  lv_memset_00((uint8_t*)dsc->data, dsc->data_size);
-
-  /*Fill in header*/
-  dsc->header.always_zero = 0;
-  dsc->header.w = w;
-  dsc->header.h = h;
-  dsc->header.cf = cf;
-  return dsc;
-}
-
-/****************************************************************************
- * Name: gpu_data_update
- *
- * Description:
- *   Update gpu specific data after memory move
- *
- * @param data gpu decoded image data
- *
- * @return None
- *
- ****************************************************************************/
-void gpu_data_update(void* data)
-{
-  gpu_data_header_t* header = (gpu_data_header_t*)data;
-  if (header->magic == GPU_DATA_MAGIC) {
-    header->vgbuf.address = (uint32_t)data + sizeof(gpu_data_header_t);
-    header->vgbuf.memory = (void*)header->vgbuf.address;
-  }
 }

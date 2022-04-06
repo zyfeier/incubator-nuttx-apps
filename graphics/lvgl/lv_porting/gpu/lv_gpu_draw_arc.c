@@ -102,7 +102,6 @@ static inline lv_fpoint_t get_rotated(const lv_point_t* center,
  * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
-
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
     lv_draw_ctx_t* draw_ctx,
     const lv_draw_arc_dsc_t* dsc,
@@ -233,6 +232,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
   };
   lv_gpu_buffer_t gpu_buf = {
     .buf = draw_ctx->buf,
+    .buf_area = draw_ctx->buf_area,
     .clip_area = &clip_area,
     .w = lv_area_get_width(draw_ctx->buf_area),
     .h = lv_area_get_height(draw_ctx->buf_area),

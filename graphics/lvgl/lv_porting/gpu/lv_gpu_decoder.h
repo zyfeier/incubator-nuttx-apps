@@ -162,34 +162,6 @@ lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data, lv_img_header_t* header,
 
 vg_lite_buffer_t* lv_gpu_get_vgbuf(void* data);
 
-/****************************************************************************
- * Name: gpu_img_buf_alloc
- *
- * Description:
- *   Allocate an image buffer in RAM
- *
- * @param w width of image
- * @param h height of image
- * @param cf a color format (`LV_IMG_CF_...`)
- *
- * @return an allocated image descriptor, or NULL on failure
- ****************************************************************************/
-
-lv_img_dsc_t* gpu_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf);
-
-/****************************************************************************
- * Name: gpu_data_update
- *
- * Description:
- *   Update gpu specific data after memory move
- *
- * @param data gpu decoded image data
- *
- * @return None
- *
- ****************************************************************************/
-
-void gpu_data_update(void* data);
 #undef EXTERN
 #ifdef __cplusplus
 }

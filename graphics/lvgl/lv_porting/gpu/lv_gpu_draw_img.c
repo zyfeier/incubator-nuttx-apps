@@ -169,7 +169,6 @@ LV_ATTRIBUTE_FAST_MEM static void fill_rect_path(int16_t* path, lv_area_t* area)
  * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
-
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     lv_draw_ctx_t* draw_ctx, const lv_draw_img_dsc_t* dsc,
     const lv_area_t* coords, const uint8_t* map_p, lv_img_cf_t color_format)
