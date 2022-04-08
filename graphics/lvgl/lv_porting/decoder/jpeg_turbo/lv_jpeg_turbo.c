@@ -18,7 +18,7 @@
 /*********************
  *      DEFINES
  *********************/
-#define JPEG_DEC_PIXEL_SIZE 3
+#define JPEG_DEC_PIXEL_SIZE 3 /* RGB888 */
 
 /**********************
  *      TYPEDEFS
@@ -36,8 +36,11 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
 static void decoder_close(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc);
 static lv_color_t * open_jpeg_file(const char * filename);
 static bool get_jpeg_size(const char * filename, uint32_t * width, uint32_t * height);
-static void convert_color_depth(lv_color_t * dest_buf, const uint8_t * src_buf, uint32_t px_cnt);
 static void error_exit(j_common_ptr cinfo);
+
+#if ( LV_COLOR_DEPTH != 32 )
+static void convert_color_depth(lv_color_t * dest_buf, const uint8_t * src_buf, uint32_t px_cnt);
+#endif
 
 /**********************
  *  STATIC VARIABLES
@@ -246,6 +249,12 @@ static lv_color_t * open_jpeg_file(const char * filename)
 
     /* set parameters for decompression */
 
+#if ( LV_COLOR_DEPTH == 32 )
+    cinfo.out_color_space = JCS_EXT_BGRX;
+#else
+    cinfo.out_color_space = JCS_EXT_RGB;
+#endif
+
     /* In this example, we don't need to change any of the defaults set by
      * jpeg_read_header(), so we do nothing here.
      */
@@ -291,8 +300,11 @@ static lv_color_t * open_jpeg_file(const char * filename)
             jpeg_read_scanlines(&cinfo, buffer, 1);
 
             /* Assume put_scanline_someplace wants a pointer and sample count. */
-
+#if ( LV_COLOR_DEPTH == 32 )
+            lv_memcpy(cur_pos, buffer[0], cinfo.output_width * sizeof(lv_color_t));
+#else
             convert_color_depth(cur_pos, buffer[0], cinfo.output_width);
+#endif
             cur_pos += cinfo.output_width;
         }
     }
@@ -368,6 +380,14 @@ static bool get_jpeg_size(const char * filename, uint32_t * width, uint32_t * he
     return (ret == JPEG_HEADER_OK);
 }
 
+static void error_exit(j_common_ptr cinfo)
+{
+    error_mgr_t * myerr = (error_mgr_t *)cinfo->err;
+    (*cinfo->err->output_message)(cinfo);
+    longjmp(myerr->jb, 1);
+}
+
+#if ( LV_COLOR_DEPTH != 32 )
 static void convert_color_depth(lv_color_t * dest_buf, const uint8_t * src_buf, uint32_t px_cnt)
 {
     while(px_cnt--) {
@@ -376,10 +396,4 @@ static void convert_color_depth(lv_color_t * dest_buf, const uint8_t * src_buf, 
         src_buf += JPEG_DEC_PIXEL_SIZE;
     }
 }
-
-static void error_exit(j_common_ptr cinfo)
-{
-    error_mgr_t * myerr = (error_mgr_t *)cinfo->err;
-    (*cinfo->err->output_message)(cinfo);
-    longjmp(myerr->jb, 1);
-}
+#endif
