@@ -407,4 +407,10 @@ endif
 
 endmenu
 
+config LV_ATTRIBUTE_FAST_MEM_CUSTOM_SECTION_NAME
+	string "LV_ATTRIBUTE_FAST_MEM Section Name"
+	default ""
+	---help---
+		Set this option to configure custom memory as LV_ATTRIBUTE_FAST_MEM
+
 endif # GRAPHICS_LVGL
