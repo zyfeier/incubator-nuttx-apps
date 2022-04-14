@@ -118,10 +118,10 @@ static FAR lv_color_t *fbdev_get_buffer(int hor_res, int ver_res)
 #else
 
 /****************************************************************************
- * Name: fbdev_copy_area
+ * Name: fbdev_copy_areas
  ****************************************************************************/
 
-static void fbdev_copy_area(FAR lv_color_t *fb_dest,
+static void fbdev_copy_areas(FAR lv_color_t *fb_dest,
                             FAR const lv_color_t *fb_src,
                             FAR const lv_area_t *areas,
                             uint16_t len,
@@ -263,7 +263,8 @@ static void fbdev_flush_direct(FAR lv_disp_drv_t *disp_drv,
   lv_disp_flush_ready(disp_drv);
 }
 
-#if !defined(CONFIG_LV_USE_GPU_INTERFACE)
+#if !defined(CONFIG_LV_USE_GPU_INTERFACE) \
+ && !defined(CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER)
 
 /****************************************************************************
  * Name: fbdev_flush_convert
@@ -382,27 +383,60 @@ static bool fbdev_check_sync(FAR struct fbdev_obj_s *fbdev_obj)
 static void fbdev_disp_refr(FAR lv_timer_t *timer)
 {
   FAR struct fbdev_obj_s *fbdev_obj = timer->user_data;
-  FAR lv_disp_t *disp = fbdev_obj->disp;
 
   if (!fbdev_check_sync(fbdev_obj))
     {
       return;
     }
 
-  if (fbdev_obj->inv_areas_len != 0)
-    {
-      FAR lv_disp_draw_buf_t *draw_buf = lv_disp_get_draw_buf(disp);
-
-      fbdev_copy_area(draw_buf->buf_act, fbdev_obj->last_buffer,
-                      fbdev_obj->inv_areas, fbdev_obj->inv_areas_len,
-                      fbdev_obj->vinfo.xres);
-
-      fbdev_obj->inv_areas_len = 0;
-    }
-
   _lv_disp_refr_timer(NULL);
 }
 
+/****************************************************************************
+ * Name: fbdev_render_start
+ ****************************************************************************/
+
+static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
+{
+  FAR struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
+  FAR lv_disp_t *disp_refr = _lv_refr_get_disp_refreshing();
+  FAR lv_disp_draw_buf_t *draw_buf;
+  lv_coord_t hor_res = LV_HOR_RES;
+  lv_coord_t ver_res = LV_VER_RES;
+  int i;
+
+  if (fbdev_obj->inv_areas_len == 0)
+    {
+      return;
+    }
+
+  for (i = 0; i < disp_refr->inv_p; i++)
+    {
+      if (disp_refr->inv_area_joined[i] == 0)
+        {
+          FAR const lv_area_t *area_p = &disp_refr->inv_areas[i];
+
+          /* If a full screen redraw is detected, skip dirty areas sync */
+
+          if (lv_area_get_width(area_p) == hor_res
+           && lv_area_get_height(area_p) == ver_res)
+            {
+              LV_LOG_TRACE("Full screen redraw, skip dirty areas sync");
+              fbdev_obj->inv_areas_len = 0;
+              return;
+            }
+        }
+    }
+
+  /* Sync the dirty area of ​​the previous frame */
+
+  draw_buf = lv_disp_get_draw_buf(disp_refr);
+
+  fbdev_copy_areas(draw_buf->buf_act, fbdev_obj->last_buffer,
+                   fbdev_obj->inv_areas, fbdev_obj->inv_areas_len,
+                   fbdev_obj->vinfo.xres);
+  fbdev_obj->inv_areas_len = 0;
+}
 #endif /* CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER */
 
 /****************************************************************************
@@ -446,6 +480,7 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
 
   fbdev_obj->disp_drv.direct_mode = 1;
   fbdev_obj->disp_drv.flush_cb = fbdev_flush_direct;
+  fbdev_obj->disp_drv.render_start_cb = fbdev_render_start;
 
 #else
   buf = fbdev_get_buffer(hor_res, ver_res);
