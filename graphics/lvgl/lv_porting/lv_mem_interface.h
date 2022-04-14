@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/graphics/lvgl/lv_porting/lv_porting.h
+ * apps/graphics/lvgl/lv_porting/lv_mem_interface.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,28 +18,21 @@
  *
  ****************************************************************************/
 
-#ifndef __LV_PORTING_H__
-#define __LV_PORTING_H__
+#ifndef __LV_MEM_INTERFACE_H__
+#define __LV_MEM_INTERFACE_H__
 
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
-#include <lv_porting/lv_button_interface.h>
-#include <lv_porting/lv_encoder_interface.h>
-#include <lv_porting/lv_fbdev_interface.h>
-#include <lv_porting/lv_gpu_interface.h>
-#include <lv_porting/lv_lcddev_interface.h>
-#include <lv_porting/lv_mem_interface.h>
-#include <lv_porting/lv_keypad_interface.h>
-#include <lv_porting/lv_touchpad_interface.h>
-
-#include <lv_porting/decoder/jpeg_turbo/lv_jpeg_turbo.h>
-#include <lv_porting/decoder/lodepng/lv_lodepng.h>
+#include <nuttx/config.h>
+#include <lvgl/lvgl.h>
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
+
+#if CONFIG_LV_MEM_INTERFACE_CUSTOM_SIZE
 
 /****************************************************************************
  * Type Definitions
@@ -62,18 +55,34 @@ extern "C"
  ****************************************************************************/
 
 /****************************************************************************
- * Name: lv_porting_init
- *
- * Description:
- *   Initialize all porting.
- *
+ * Name: lv_mem_custom_alloc
  ****************************************************************************/
 
-void lv_porting_init(void);
+FAR void *lv_mem_custom_alloc(size_t size);
+
+/****************************************************************************
+ * Name: lv_mem_custom_free
+ ****************************************************************************/
+
+void lv_mem_custom_free(FAR void *mem);
+
+/****************************************************************************
+ * Name: lv_mem_custom_realloc
+ ****************************************************************************/
+
+FAR void *lv_mem_custom_realloc(FAR void *oldmem, size_t size);
+
+/****************************************************************************
+ * Name: lv_mem_custom_memalign
+ ****************************************************************************/
+
+FAR void *lv_mem_custom_memalign(size_t alignment, size_t size);
 
 #undef EXTERN
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __LV_PORTING_H__ */
+#endif /* CONFIG_LV_MEM_INTERFACE_CUSTOM_SIZE */
+
+#endif /* __LV_MEM_INTERFACE_H__ */

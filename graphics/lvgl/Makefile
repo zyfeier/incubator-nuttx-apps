@@ -109,4 +109,11 @@ CFLAGS   += "-DLV_ATTRIBUTE_FAST_MEM=__attribute__((section(CONFIG_LV_ATTRIBUTE_
 CXXFLAGS += "-DLV_ATTRIBUTE_FAST_MEM=__attribute__((section(CONFIG_LV_ATTRIBUTE_FAST_MEM_CUSTOM_SECTION_NAME)))"
 endif
 
+ifneq ($(CONFIG_LV_MEM_INTERFACE_CUSTOM_SIZE), 0)
+CFLAGS += "-DLV_MEM_CUSTOM_ALLOC=lv_mem_custom_alloc"
+CFLAGS += "-DLV_MEM_CUSTOM_FREE=lv_mem_custom_free"
+CFLAGS += "-DLV_MEM_CUSTOM_REALLOC=lv_mem_custom_realloc"
+CSRCS  += lv_porting/lv_mem_interface.c
+endif
+
 include $(APPDIR)/Application.mk

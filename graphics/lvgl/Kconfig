@@ -407,10 +407,30 @@ endif
 
 endmenu
 
+menu "Memory configuration"
+
 config LV_ATTRIBUTE_FAST_MEM_CUSTOM_SECTION_NAME
 	string "LV_ATTRIBUTE_FAST_MEM Section Name"
 	default ""
 	---help---
 		Set this option to configure custom memory as LV_ATTRIBUTE_FAST_MEM
+
+if LV_MEM_CUSTOM
+
+config LV_MEM_INTERFACE_CUSTOM_SIZE
+	int "Size of the custom memory used by `lv_mem_alloc` in kilobytes (>= 2kB)"
+	default 0
+
+if LV_MEM_INTERFACE_CUSTOM_SIZE != 0
+
+config LV_MEM_INTERFACE_CUSTOM_NAME
+	string "Name of the custom HEAP memory"
+	default "lvgl"
+
+endif # LV_MEM_INTERFACE_CUSTOM_SIZE
+
+endif # LV_MEM_CUSTOM
+
+endmenu # "Memory configuration"
 
 endif # GRAPHICS_LVGL
