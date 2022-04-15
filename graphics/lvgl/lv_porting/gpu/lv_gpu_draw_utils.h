@@ -38,7 +38,7 @@
 #define GPU_POINT_PATH_SIZE 164 /* GPU_POINT_PATH_LEN * sizeof(float) */
 #define GPU_LINE_PATH_SIZE 52 /* (3(LINE) * 4 + 1(CLOSE/END)) * sizeof(float) */
 #define GPU_LINE_PATH_ROUND_DELTA 44 /* (7(CUBIC) * 2 - 3(LINE)) * sizeof(float) */
-#define GPU_POLYGON_PATH_SIZE(n) (((n) * 3 + 1) * sizeof(float))
+#define GPU_POLYGON_PATH_SIZE(n) (((n)*3 + 1) * sizeof(float))
 
 /**********************
  *      TYPEDEFS
@@ -249,7 +249,7 @@ void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor, int32_t frame_id)
  *
  ****************************************************************************/
 
-bool lv_gpu_draw_mask_apply_path(void *vpath, lv_area_t* coords);
+bool lv_gpu_draw_mask_apply_path(void* vpath, lv_area_t* coords);
 
 /****************************************************************************
  * Name: gpu_draw_path
@@ -361,6 +361,22 @@ void* gpu_data_get_buf(lv_img_dsc_t* data);
  *
  ****************************************************************************/
 uint32_t gpu_data_get_buf_size(lv_img_dsc_t* dsc);
+
+/****************************************************************************
+ * Name: gpu_pre_multiply
+ *
+ * Description:
+ *   Pre-multiply alpha to RGB channels
+ *
+ * @param dst destination pixel buffer
+ * @param src source pixel buffer
+ * @param count num of pixels
+ *
+ * @return None
+ *
+ ****************************************************************************/
+LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
+    const lv_color32_t* src, uint32_t count);
 
 #undef EXTERN
 #ifdef __cplusplus

@@ -779,7 +779,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
             ? LV_COLOR_CHROMA_KEY.full
             : 0;
 #ifdef CONFIG_ARM_HAVE_MVE
-        if (!IS_ALIGNED(phwSource, 4)) {
+        while (!IS_ALIGNED(phwSource, 4)) {
           if (phwSource->full != chroma32) {
             pre_multiply((lv_color32_t*)pwTarget, phwSource);
           }
