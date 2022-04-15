@@ -240,21 +240,21 @@ void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx)
   /*Change some callbacks*/
   gpu_draw_ctx_t* gpu_draw_ctx = (gpu_draw_ctx_t*)draw_ctx;
 #ifdef CONFIG_LV_GPU_DRAW_LINE
-  gpu_draw_ctx->draw_line = gpu_draw_line;
+  gpu_draw_ctx->base_draw.draw_line = gpu_draw_line;
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_ARC
-  gpu_draw_ctx->draw_arc = gpu_draw_arc;
+  gpu_draw_ctx->base_draw.draw_arc = gpu_draw_arc;
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_POLYGON
-  gpu_draw_ctx->draw_polygon = gpu_draw_polygon;
+  gpu_draw_ctx->base_draw.draw_polygon = gpu_draw_polygon;
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_RECT
-  gpu_draw_ctx->draw_rect = gpu_draw_rect;
+  gpu_draw_ctx->base_draw.draw_rect = gpu_draw_rect;
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_IMG
-  gpu_draw_ctx->draw_img_decoded = gpu_draw_img_decoded;
+  gpu_draw_ctx->base_draw.draw_img_decoded = gpu_draw_img_decoded;
 #endif
-  gpu_draw_ctx->wait_for_finish = gpu_wait;
+  gpu_draw_ctx->base_draw.wait_for_finish = gpu_wait;
 }
 
 /****************************************************************************

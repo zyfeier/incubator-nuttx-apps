@@ -28,6 +28,8 @@
 #include <lvgl/lvgl.h>
 #include <nuttx/config.h>
 
+#include "src/draw/sw/lv_draw_sw.h"
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -176,7 +178,7 @@ typedef struct {
   bool premult;
 } lv_gpu_buffer_t;
 
-typedef lv_draw_ctx_t gpu_draw_ctx_t;
+typedef lv_draw_sw_ctx_t gpu_draw_ctx_t;
 
 /****************************************************************************
  * Public Data
