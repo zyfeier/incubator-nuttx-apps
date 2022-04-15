@@ -238,23 +238,23 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
     .h = lv_area_get_height(draw_ctx->buf_area),
     .cf = BPP_TO_LV_FMT(LV_COLOR_DEPTH)
   };
-  if (!dsc->img_src) {
-    fill.type |= CURVE_FILL_COLOR;
-    gpu_draw_curve(&curve, &gpu_buf);
-  } else {
-    lv_gpu_image_dsc_t gpu_img_dsc;
-    gpu_img_dsc.coords = &coords;
-    gpu_img_dsc.draw_dsc = NULL;
-    _lv_img_cache_entry_t* cdsc = _lv_img_cache_open(dsc->img_src, dsc->color, 0);
-    lv_img_dsc_t img_dsc = {
-      .header = cdsc->dec_dsc.header,
-      .data = cdsc->dec_dsc.img_data
-    };
-    gpu_img_dsc.img_dsc = &img_dsc;
+  lv_gpu_image_dsc_t gpu_img_dsc;
+  lv_img_dsc_t img_dsc;
+  gpu_img_dsc.coords = &coords;
+  gpu_img_dsc.draw_dsc = NULL;
+  _lv_img_cache_entry_t* cdsc = NULL;
+  if (dsc->img_src) {
+    cdsc = _lv_img_cache_open(dsc->img_src, dsc->color, 0);
+  }
+  if (cdsc) {
+    img_dsc.header = cdsc->dec_dsc.header;
+    img_dsc.data = cdsc->dec_dsc.img_data;
     fill.type |= CURVE_FILL_IMAGE;
     fill.img = &gpu_img_dsc;
-    gpu_draw_curve(&curve, &gpu_buf);
+    gpu_img_dsc.img_dsc = &img_dsc;
+  } else {
+    fill.type |= CURVE_FILL_COLOR;
   }
-
+  gpu_draw_curve(&curve, &gpu_buf);
   return LV_RES_OK;
 }
