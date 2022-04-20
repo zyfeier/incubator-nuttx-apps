@@ -231,7 +231,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_set_tf(void* matrix,
  *
  ****************************************************************************/
 
-void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor, int32_t frame_id);
+void* lv_gpu_get_buf_from_cache(void* src, lv_color32_t recolor,
+  int32_t frame_id);
 
 /****************************************************************************
  * Name: lv_gpu_draw_mask_apply_path
@@ -377,6 +378,9 @@ uint32_t gpu_data_get_buf_size(lv_img_dsc_t* dsc);
  ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
     const lv_color32_t* src, uint32_t count);
+
+LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
+    const lv_color32_t* src, uint16_t size, uint32_t recolor);
 
 #undef EXTERN
 #ifdef __cplusplus

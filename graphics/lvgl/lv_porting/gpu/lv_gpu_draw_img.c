@@ -64,90 +64,6 @@ static int16_t rect_path[] = {
  * Private Functions
  ****************************************************************************/
 
-LV_ATTRIBUTE_FAST_MEM static void recolor_palette(uint32_t* dst,
-    const uint32_t* src, uint16_t size, uint32_t recolor, lv_opa_t opa)
-{
-#ifdef CONFIG_ARM_HAVE_MVE
-  int32_t blkCnt = size;
-  uint32_t* pwTarget = dst;
-  uint32_t* phwSource = (uint32_t*)src;
-  if (src != NULL) {
-    __asm volatile(
-        "   .p2align 2                                                  \n"
-        "   vdup.32                 q0, %[recolor]                      \n"
-        "   vdup.8                  q1, %[opa]                          \n"
-        "   vrmulh.u8               q0, q0, q1                          \n"
-        "   vneg.s8                 q1, q1                              \n"
-        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-        "   2:                                                          \n"
-        "   vldrw.32                q2, [%[pSource]], #16               \n"
-        "   vsri.32                 q3, q2, #8                          \n"
-        "   vsri.32                 q3, q2, #16                         \n"
-        "   vsri.32                 q3, q2, #24                         \n"
-        "   vrmulh.u8               q2, q2, q1                          \n"
-        "   vadd.i8                 q2, q2, q0                          \n"
-        /* pre-multiply */
-        "   vrmulh.u8               q2, q2, q3                          \n"
-        "   vsli.32                 q2, q3, #24                         \n"
-        "   vstrw.32                q2, [%[pTarget]], #16               \n"
-        "   letp                    lr, 2b                              \n"
-        "   1:                                                          \n"
-        : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget),
-        [recolor] "+r"(recolor)
-        : [loopCnt] "r"(blkCnt), [opa] "r"(opa)
-        : "q0", "q1", "q2", "q3", "lr", "memory");
-  } else {
-    uint32_t inits[4] = { 0x0, 0x1010101, 0x2020202, 0x3030303 };
-    uint32_t step = 0x4;
-    if (size == 16) {
-      step = 0x44;
-      inits[1] = 0x11111111;
-      inits[2] = 0x22222222;
-      inits[3] = 0x33333333;
-    }
-    __asm volatile(
-        "   .p2align 2                                                  \n"
-        "   vdup.32                 q0, %[recolor]                      \n"
-        "   vldrw.32                q1, [%[pInit]]                      \n"
-        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-        "   2:                                                          \n"
-        "   vrmulh.u8               q2, q0, q1                          \n"
-        "   vstrw.32                q2, [%[pTarget]], #16               \n"
-        "   vadd.i8                 q1, q1, %[step]                     \n"
-        "   letp                    lr, 2b                              \n"
-        "   1:                                                          \n"
-        : [recolor] "+r"(recolor), [pTarget] "+r"(pwTarget)
-        : [loopCnt] "r"(blkCnt), [pInit] "r"(inits), [step] "r"(step)
-        : "q0", "q1", "q2", "lr", "memory");
-  }
-#else
-  uint16_t recolor_premult[3] = { (recolor >> 16 & 0xFF) * opa,
-    (recolor >> 8 & 0xFF) * opa, (recolor & 0xFF) * opa };
-  lv_opa_t mix = 255 - opa;
-  for (int_fast16_t i = 0; i < size; i++) {
-    if (src != NULL) {
-      /* index recolor */
-      if (src[i] >> 24 == 0) {
-        dst[i] = 0;
-      } else {
-        uint8_t src_coeff = (mix << 8) / (src[i] >> 24);
-        dst[i] = 0xFF000000 | /* A */
-            (((recolor_premult[0] << 8) + ((src[i] & 0xFF0000) * src_coeff >> 8)) & 0xFF0000) | /* R */
-            ((recolor_premult[1] + ((src[i] & 0xFF00) * src_coeff >> 8)) & 0xFF00) | /* G */
-            (recolor_premult[2] + (src[i] & 0xFF) * src_coeff) >> 8; /* B */
-      }
-    } else {
-      /* fill alpha palette */
-      uint32_t opa_i = (size == 256) ? i : i * 0x11;
-      dst[i] = opa_i << 24 | /* A */
-          ((uint32_t)recolor_premult[0] * opa_i & 0xFF0000) | /* R */
-          ((uint32_t)recolor_premult[1] * opa_i & 0xFF0000) >> 8 | /* G */
-          ((uint32_t)recolor_premult[2] * opa_i & 0xFF0000) >> 16; /* B */
-    }
-  }
-#endif
-}
-
 LV_ATTRIBUTE_FAST_MEM static void fill_rect_path(int16_t* path, lv_area_t* area)
 {
   path[1] = path[4] = area->x1;
@@ -191,8 +107,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   uint16_t zoom = dsc->zoom;
   lv_point_t pivot = dsc->pivot;
   lv_blend_mode_t blend_mode = dsc->blend_mode;
-  lv_color_t recolor = dsc->recolor;
-  lv_opa_t recolor_opa = dsc->recolor_opa;
   vg_lite_buffer_t src_vgbuf;
   bool transformed = (angle != 0) || (zoom != LV_IMG_ZOOM_NONE);
   const lv_area_t* disp_area = draw_ctx->buf_area;
@@ -273,14 +187,18 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     header.w = map_w;
     header.h = map_h;
     header.cf = color_format;
-    if (lv_gpu_load_vgbuf(map_p, &header, &src_vgbuf, NULL) != LV_RES_OK) {
+    lv_color32_t recolor = { .full = lv_color_to32(dsc->recolor) };
+    LV_COLOR_SET_A32(recolor, dsc->recolor_opa);
+    if (lv_gpu_load_vgbuf(map_p, &header, &src_vgbuf, NULL,
+            recolor)
+        != LV_RES_OK) {
       GPU_ERROR("load failed");
       goto Fallback;
     }
     allocated_src = true;
   }
 
-  const uint32_t* palette = (const uint32_t*)(map_p + sizeof(gpu_data_header_t)
+  uint32_t* palette = (uint32_t*)(map_p + sizeof(gpu_data_header_t)
       + src_vgbuf.stride * src_vgbuf.height);
 
   vg_lite_matrix_t matrix;
@@ -305,24 +223,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     uint8_t px_size = VG_FMT_TO_BPP(src_vgbuf.format);
     uint16_t palette_size = 1 << px_size;
     src_vgbuf.format = BPP_TO_VG_FMT(px_size);
-    if (alpha || recolor_opa != LV_OPA_TRANSP) {
-      uint32_t* palette_r = lv_mem_buf_get(palette_size * sizeof(lv_color32_t));
-      if (palette_r == NULL) {
-        goto Error_handler;
-      }
-      recolor_palette(palette_r, alpha ? NULL : palette, palette_size,
-          recolor_opa != LV_OPA_TRANSP ? lv_color_to32(recolor) : *palette,
-          recolor_opa);
-      vg_lite_set_CLUT(palette_size, palette_r);
-      lv_mem_buf_release(palette_r);
-    } else {
-      vg_lite_set_CLUT(palette_size, (uint32_t*)palette);
-    }
-  } else if (recolor_opa != LV_OPA_TRANSP) {
-    /* ARGB recolor, unsupported by GPU */
-    GPU_ERROR("ARGB recolor!");
-    vgerr = VG_LITE_NOT_SUPPORT;
-    goto Error_handler;
+    vg_lite_set_CLUT(palette_size, (uint32_t*)palette);
   }
   fill_rect_path(rect_path, &draw_area);
   vg_lite_path_t vpath;
@@ -367,7 +268,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
         (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
   }
 
-Error_handler:
   if (allocated_src) {
     GPU_WARN("freeing allocated vgbuf:(%ld,%ld)@%p", src_vgbuf.width,
         src_vgbuf.height, src_vgbuf.memory);

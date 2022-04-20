@@ -679,13 +679,18 @@ lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     CHECK_ERROR(vg_lite_finish());
 
   } else if (type == CURVE_FILL_IMAGE) {
-    const uint8_t* img_data = gpu_fill->img->img_dsc->data;
-    lv_img_header_t* img_header = &gpu_fill->img->img_dsc->header;
+    lv_gpu_image_dsc_t* img = gpu_fill->img;
+    const uint8_t* img_data = img->img_dsc->data;
+    lv_img_header_t* img_header = &img->img_dsc->header;
     vg_lite_buffer_t* vgbuf = lv_gpu_get_vgbuf((void*)img_data);
     vg_lite_buffer_t src_vgbuf;
     bool allocated_src = false;
     if (!vgbuf) {
-      if (lv_gpu_load_vgbuf(img_data, img_header, &src_vgbuf, NULL)
+      lv_color32_t recolor = {
+        .full = lv_color_to32(img->draw_dsc->recolor)
+      };
+      LV_COLOR_SET_A32(recolor, img->draw_dsc->recolor_opa);
+      if (lv_gpu_load_vgbuf(img_data, img_header, &src_vgbuf, NULL, recolor)
           != LV_RES_OK) {
         *p_lastop = original_op;
         return LV_RES_INV;
@@ -825,7 +830,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_set_tf(void* vg_matrix,
  * @return buf pointer on success, NULL on failure.
  *
  ****************************************************************************/
-void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor,
+void* lv_gpu_get_buf_from_cache(void* src, lv_color32_t recolor,
     int32_t frame_id)
 {
   _lv_img_cache_entry_t* cdsc = _lv_img_cache_open(src, recolor, frame_id);
@@ -1051,8 +1056,7 @@ uint32_t gpu_img_buf_get_img_size(lv_coord_t w, lv_coord_t h,
   uint8_t px_size = lv_img_cf_get_px_size(cf);
   bool indexed = cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT;
   bool alpha = cf >= LV_IMG_CF_ALPHA_1BIT && cf <= LV_IMG_CF_ALPHA_8BIT;
-  uint32_t palette_size = indexed ? 1 << px_size : alpha ? 1
-                                                         : 0;
+  uint32_t palette_size = indexed || alpha ? 1 << px_size : 0;
   uint32_t data_size = w * h * px_size >> 3;
   return sizeof(gpu_data_header_t) + data_size
       + palette_size * sizeof(uint32_t);
@@ -1146,5 +1150,106 @@ LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
     dst->ch.blue = LV_UDIV255(src->ch.blue * src->ch.alpha);
     (dst++)->ch.alpha = (src++)->ch.alpha;
   }
+#endif
+}
+
+LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
+    const lv_color32_t* src, uint16_t size, uint32_t recolor)
+{
+  lv_opa_t opa = recolor >> 24;
+  if (opa == LV_OPA_TRANSP) {
+    if (!src) {
+      GPU_ERROR("no src && no recolor");
+      lv_memset_00(dst, size * sizeof(lv_color32_t));
+      return;
+    }
+    gpu_pre_multiply(dst, src, size);
+    return;
+  }
+#ifdef CONFIG_ARM_HAVE_MVE
+  int32_t blkCnt = size;
+  uint32_t* pwTarget = (uint32_t*)dst;
+  uint32_t* phwSource = (uint32_t*)src;
+  lv_opa_t mix = 255 - opa;
+  if (src != NULL) {
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vdup.32                 q0, %[pRecolor]                     \n"
+        "   vdup.8                  q1, %[opa]                          \n"
+        "   vrmulh.u8               q0, q0, q1                          \n"
+        "   vdup.8                  q1, %[mix]                          \n"
+        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        "   vldrw.32                q2, [%[pSource]], #16               \n"
+        "   vsri.32                 q3, q2, #8                          \n"
+        "   vsri.32                 q3, q2, #16                         \n"
+        "   vsri.32                 q3, q2, #24                         \n"
+        "   vrmulh.u8               q2, q2, q1                          \n"
+        "   vadd.i8                 q2, q2, q0                          \n"
+        /* pre-multiply */
+        "   vrmulh.u8               q2, q2, q3                          \n"
+        "   vsli.32                 q2, q3, #24                         \n"
+        "   vstrw.32                q2, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   1:                                                          \n"
+        : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget),
+        [pRecolor] "+r"(recolor)
+        : [loopCnt] "r"(blkCnt), [opa] "r"(opa), [mix] "r"(mix)
+        : "q0", "q1", "q2", "q3", "lr", "memory");
+  } else {
+    uint32_t inits[4] = { 0x0, 0x1010101, 0x2020202, 0x3030303 };
+    uint32_t step = 4;
+    if (size == 16) {
+      step = 0x44;
+      inits[1] = 0x11111111;
+      inits[2] = 0x22222222;
+      inits[3] = 0x33333333;
+    }
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vdup.32                 q0, %[pSource]                      \n"
+        "   vdup.8                  q1, %[opa]                          \n"
+        "   vrmulh.u8               q0, q0, q1                          \n"
+        "   vldrw.32                q1, [%[init]]                       \n"
+        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        "   vrmulh.u8               q2, q0, q1                          \n"
+        "   vsli.32                 q2, q1, #24                         \n"
+        "   vstrw.32                q2, [%[pTarget]], #16               \n"
+        "   vadd.i8                 q1, q1, %[step]                     \n"
+        "   letp                    lr, 2b                              \n"
+        "   1:                                                          \n"
+        : [pSource] "+r"(recolor), [pTarget] "+r"(pwTarget), [opa] "+r"(opa)
+        : [loopCnt] "r"(blkCnt), [init] "r"(inits), [step] "r"(step)
+        : "q0", "q1", "q2", "lr", "memory");
+  }
+#else
+  uint16_t recolor_premult[3] = { (recolor >> 16 & 0xFF) * opa,
+    (recolor >> 8 & 0xFF) * opa, (recolor & 0xFF) * opa };
+  for (int_fast16_t i = 0; i < size; i++) {
+    if (src != NULL) {
+      lv_opa_t mix = 255 - opa;
+      /* index recolor */
+      if (src[i].ch.alpha == 0) {
+        dst[i].full = 0;
+      } else {
+        LV_COLOR_SET_R32(dst[i],
+            LV_UDIV255(recolor_premult[0] + LV_COLOR_GET_R32(src[i]) * mix));
+        LV_COLOR_SET_G32(dst[i],
+            LV_UDIV255(recolor_premult[1] + LV_COLOR_GET_G32(src[i]) * mix));
+        LV_COLOR_SET_B32(dst[i],
+            LV_UDIV255(recolor_premult[2] + LV_COLOR_GET_B32(src[i]) * mix));
+        LV_COLOR_SET_A32(dst[i], src[i].ch.alpha);
+      }
+    } else {
+      /* fill alpha palette */
+      uint32_t opa_i = (size == 256) ? i : i * 0x11;
+      LV_COLOR_SET_R32(dst[i], LV_UDIV255(recolor_premult[0]));
+      LV_COLOR_SET_G32(dst[i], LV_UDIV255(recolor_premult[1]));
+      LV_COLOR_SET_B32(dst[i], LV_UDIV255(recolor_premult[2]));
+      LV_COLOR_SET_A32(dst[i], opa_i);
+    }
+  }
+  gpu_pre_multiply(dst, dst, size);
 #endif
 }
