@@ -305,8 +305,22 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
  * @param cf a color format (`LV_IMG_CF_...`)
  *
  * @return an allocated image descriptor, or NULL on failure
+ *
  ****************************************************************************/
 lv_img_dsc_t* gpu_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf);
+
+/****************************************************************************
+ * Name: gpu_img_buf_free
+ *
+ * Description:
+ *   Free GPU image buf and descriptor allocated by gpu_img_buf_alloc
+ *
+ * @param dsc GPU image buf descriptor to free
+ *
+ * @return None
+ *
+ ****************************************************************************/
+void gpu_img_buf_free(lv_img_dsc_t* dsc);
 
 /****************************************************************************
  * Name: gpu_data_update
