@@ -249,7 +249,7 @@ void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor, int32_t frame_id)
  *
  ****************************************************************************/
 
-bool lv_gpu_draw_mask_apply_path(void* vpath, lv_area_t* coords);
+bool lv_gpu_draw_mask_apply_path(void* vpath, const lv_area_t* coords);
 
 /****************************************************************************
  * Name: gpu_draw_path

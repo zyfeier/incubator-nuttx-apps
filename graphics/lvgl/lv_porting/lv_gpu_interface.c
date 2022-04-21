@@ -23,12 +23,9 @@
  ****************************************************************************/
 #include "lv_gpu_interface.h"
 #include "gpu/lv_gpu_decoder.h"
-#include "gpu/lv_gpu_draw.h"
 #include "gpu/lv_gpu_draw_utils.h"
 #include "gpu_port.h"
-#include "lv_color.h"
 #include "lv_draw_sw.h"
-#include "src/lv_conf_internal.h"
 #include "vg_lite.h"
 #include <nuttx/cache.h>
 #include <stdio.h>

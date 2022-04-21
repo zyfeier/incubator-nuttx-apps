@@ -77,7 +77,6 @@ ifneq ($(CONFIG_LV_GPU_DRAW_POLYGON),)
 CSRCS += lv_porting/gpu/lv_gpu_draw_polygon.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_RECT),)
-CSRCS += lv_porting/gpu/lv_gpu_draw.c
 CSRCS += lv_porting/gpu/lv_gpu_draw_rect.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_IMG),)

@@ -25,12 +25,10 @@
 #include "lv_gpu_draw_utils.h"
 #include "lv_color.h"
 #include "lv_gpu_decoder.h"
-#include "src/lv_conf_internal.h"
 #include "src/misc/lv_gc.h"
 #include "vg_lite.h"
 #include <math.h>
 #include <nuttx/cache.h>
-#include <stdio.h>
 #include <stdlib.h>
 #ifdef CONFIG_ARM_HAVE_MVE
 #include "arm_mve.h"
@@ -397,7 +395,7 @@ LV_ATTRIBUTE_FAST_MEM static uint32_t calc_grad_hash(const lv_grad_dsc_t* grad)
 }
 
 LV_ATTRIBUTE_FAST_MEM static uint16_t fill_round_rect_path(float* path,
-    lv_area_t* rect, lv_coord_t radius)
+    const lv_area_t* rect, lv_coord_t radius)
 {
   if (!radius) {
     *(uint8_t*)path = VLC_OP_MOVE;
@@ -461,7 +459,7 @@ LV_ATTRIBUTE_FAST_MEM static uint16_t fill_round_rect_path(float* path,
 }
 
 LV_ATTRIBUTE_FAST_MEM static uint16_t fill_line_path(float* path,
-    lv_fpoint_t* points, lv_draw_line_dsc_t* dsc)
+    const lv_fpoint_t* points, const lv_draw_line_dsc_t* dsc)
 {
   float dx = points[1].x - points[0].x;
   float dy = points[1].y - points[0].y;
@@ -745,6 +743,9 @@ lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     lv_area_t* grad_area = gpu_fill->grad->coords;
     vg_lite_identity(&grad.matrix);
     vg_lite_translate(grad_area->x1, grad_area->y1, &grad.matrix);
+    if (disp_area) {
+      vg_lite_translate(-disp_area->x1, -disp_area->y1, &grad.matrix);
+    }
     if (lv_grad->dir == LV_GRAD_DIR_VER) {
       vg_lite_scale(1.0f, lv_area_get_height(grad_area) / 256.0f, &grad.matrix);
       vg_lite_rotate(90.0f, &grad.matrix);
@@ -847,7 +848,7 @@ void* lv_gpu_get_buf_from_cache(void* src, lv_color_t recolor,
  * @return true if supported mask is found, false otherwise
  *
  ****************************************************************************/
-bool lv_gpu_draw_mask_apply_path(void* vpath, lv_area_t* coords)
+bool lv_gpu_draw_mask_apply_path(void* vpath, const lv_area_t* coords)
 {
   bool masked = false;
   for (uint8_t i = 0; i < _LV_MASK_MAX_NUM; i++) {
@@ -872,7 +873,8 @@ bool lv_gpu_draw_mask_apply_path(void* vpath, lv_area_t* coords)
         vg_lite_path_t* v = vpath;
         v->path = path;
         v->path_length = path_length;
-        lv_coord_t radius = LV_MIN(r->cfg.radius, (LV_MIN(w, h) - 1) / 2);
+        lv_coord_t r_short = LV_MIN(w, h) >> 1;
+        lv_coord_t radius = LV_MIN(r->cfg.radius, r_short);
         uint16_t len = fill_round_rect_path(path, &r->cfg.rect, radius);
 
         if (r->cfg.outer) {
@@ -924,13 +926,19 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
       points[1].x + dx + 1, points[1].y + dy + 1 };
     len = fill_round_rect_path(path, &point_area, LV_MIN(dx, dy));
   } else if (type == GPU_LINE_PATH) {
-    lv_draw_line_dsc_t* line_dsc = (lv_draw_line_dsc_t*)dsc;
+    const lv_draw_line_dsc_t* line_dsc = dsc;
     lv_fpoint_t fpoints[2] = { __PR(points, 0.5f, 0), __PR(points + 1, 0.5f, 0) };
     len = fill_line_path(path, fpoints, line_dsc);
   } else if (type == GPU_RECT_PATH) {
-
+    const lv_draw_rect_dsc_t* rect_dsc = dsc;
+    lv_area_t* coords = (lv_area_t*)points;
+    lv_coord_t w = lv_area_get_width(coords);
+    lv_coord_t h = lv_area_get_height(coords);
+    lv_coord_t r_short = LV_MIN(w, h) >> 1;
+    lv_coord_t radius = LV_MIN(rect_dsc->radius, r_short);
+    len = fill_round_rect_path(path, coords, radius);
   } else if (type == GPU_POLYGON_PATH) {
-    gpu_polygon_dsc_t* poly_dsc = (gpu_polygon_dsc_t*)dsc;
+    const gpu_polygon_dsc_t* poly_dsc = dsc;
     len = fill_polygon_path(path, points, poly_dsc->num);
   } else {
     /* TODO: add other path type fill function as needed */
