@@ -26,10 +26,8 @@
 #include "lv_gpu_decoder.h"
 #include "lv_gpu_draw_utils.h"
 #include "lv_porting/lv_gpu_interface.h"
-#include "src/lv_conf_internal.h"
 #include "vg_lite.h"
 #include <nuttx/cache.h>
-#include <stdio.h>
 #include <stdlib.h>
 #ifdef CONFIG_ARM_HAVE_MVE
 #include "arm_mve.h"

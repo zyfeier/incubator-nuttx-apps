@@ -30,7 +30,6 @@
 #include "lv_gpu_evoreader.h"
 #include "lv_img_decoder.h"
 #include "lv_porting/lv_gpu_interface.h"
-#include <nuttx/cache.h>
 #include <stdio.h>
 #include <stdlib.h>
 
