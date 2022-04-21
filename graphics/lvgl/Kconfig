@@ -433,4 +433,8 @@ endif # LV_MEM_CUSTOM
 
 endmenu # "Memory configuration"
 
+config LV_USE_SCHED_NOTE
+	bool "Enable Sched Note"
+	default n
+
 endif # GRAPHICS_LVGL

@@ -37,6 +37,8 @@
 #include <lv_porting/decoder/jpeg_turbo/lv_jpeg_turbo.h>
 #include <lv_porting/decoder/lodepng/lv_lodepng.h>
 
+#include <lv_porting/lv_sched_note.h>
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
