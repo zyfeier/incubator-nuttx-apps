@@ -115,4 +115,8 @@ CFLAGS += "-DLV_MEM_CUSTOM_REALLOC=lv_mem_custom_realloc"
 CSRCS  += lv_porting/lv_mem_interface.c
 endif
 
+ifneq ($(CONFIG_LV_ASSERT_HANDLER_INCLUDE), "")
+CFLAGS += "-DLV_ASSERT_HANDLER=ASSERT(0);"
+endif
+
 include $(APPDIR)/Application.mk
