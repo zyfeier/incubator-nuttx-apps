@@ -32,8 +32,11 @@ LVGL_DIR_NAME = lvgl
 -include ./ext/Makefile
 
 CSRCS += lv_porting/lv_porting.c
-
 CSRCS += lv_porting/lv_tick_interface.c
+
+ifneq ($(CONFIG_LV_USE_SYSLOG_INTERFACE),)
+CSRCS += lv_porting/lv_syslog_interface.c
+endif
 
 ifneq ($(CONFIG_LV_USE_BUTTON_INTERFACE),)
 CSRCS += lv_porting/lv_button_interface.c

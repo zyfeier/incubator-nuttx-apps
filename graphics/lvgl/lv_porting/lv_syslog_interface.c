@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/graphics/lvgl/lv_porting/lv_porting.h
+ * apps/graphics/lvgl/lv_porting/lv_porting.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,65 +18,40 @@
  *
  ****************************************************************************/
 
-#ifndef __LV_PORTING_H__
-#define __LV_PORTING_H__
-
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
-#include <lv_porting/lv_button_interface.h>
-#include <lv_porting/lv_encoder_interface.h>
-#include <lv_porting/lv_fbdev_interface.h>
-#include <lv_porting/lv_gpu_interface.h>
-#include <lv_porting/lv_lcddev_interface.h>
-#include <lv_porting/lv_mem_interface.h>
-#include <lv_porting/lv_keypad_interface.h>
-#include <lv_porting/lv_syslog_interface.h>
-#include <lv_porting/lv_touchpad_interface.h>
-
-#include <lv_porting/decoder/jpeg_turbo/lv_jpeg_turbo.h>
-#include <lv_porting/decoder/lodepng/lv_lodepng.h>
-
-#include <lv_porting/lv_sched_note.h>
+#include "lv_syslog_interface.h"
+#include <lvgl/lvgl.h>
+#include <syslog.h>
 
 /****************************************************************************
- * Pre-processor Definitions
+ * Private Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Type Definitions
+ * Name: syslog_print_cb
  ****************************************************************************/
 
-/****************************************************************************
- * Public Data
- ****************************************************************************/
-
-#ifdef __cplusplus
-#define EXTERN extern "C"
-extern "C"
+static void syslog_print_cb(FAR const char *buf)
 {
-#else
-#define EXTERN extern
-#endif
+  syslog(LOG_INFO, "[LVGL] %s", buf);
+}
 
 /****************************************************************************
- * Public Function Prototypes
+ * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: lv_porting_init
+ * Name: lv_syslog_interface_init
  *
  * Description:
- *   Initialize all porting.
+ *   Syslog interface initialization.
  *
  ****************************************************************************/
 
-void lv_porting_init(void);
-
-#undef EXTERN
-#ifdef __cplusplus
+void lv_syslog_interface_init(void)
+{
+  lv_log_register_print_cb(syslog_print_cb);
 }
-#endif
-
-#endif /* __LV_PORTING_H__ */

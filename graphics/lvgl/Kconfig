@@ -17,6 +17,11 @@ config LVGL_VERSION
 
 source "$APPSDIR/graphics/lvgl/lvgl/Kconfig"
 
+config LV_USE_SYSLOG_INTERFACE
+	bool "Syslog interface"
+	depends on LV_USE_LOG
+	default y
+
 config LV_USE_LCDDEV_INTERFACE
 	bool "LCD device interface"
 	default n

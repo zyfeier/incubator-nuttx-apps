@@ -38,6 +38,10 @@
 
 void lv_porting_init(void)
 {
+#if defined(CONFIG_LV_USE_SYSLOG_INTERFACE)
+  lv_syslog_interface_init();
+#endif
+
 #if defined(CONFIG_LV_USE_LCDDEV_INTERFACE)
   lv_lcddev_interface_init(NULL, 0);
 #endif
