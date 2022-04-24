@@ -73,17 +73,17 @@ LV_ATTRIBUTE_FAST_MEM static void draw_bg(lv_draw_ctx_t* draw_ctx,
 
   uint16_t len = gpu_fill_path(rect_path, GPU_RECT_PATH,
       (const lv_point_t*)coords, dsc);
-  lv_gpu_grad_dsc_t grad = {
-    .coords = (lv_area_t*)coords,
-    .grad_dsc = (lv_grad_dsc_t*)&dsc->bg_grad
-  };
   lv_gpu_curve_fill_t fill = {
     .color = dsc->bg_color,
     .opa = dsc->bg_opa,
-    .grad = &grad,
-    .type = dsc->bg_grad.dir == LV_GRAD_DIR_NONE
-        ? CURVE_FILL_COLOR
-        : CURVE_FILL_LINEAR_GRADIENT
+    .type = CURVE_FILL_COLOR
+  };
+  lv_gpu_grad_dsc_t grad;
+  if (dsc->bg_grad.dir != LV_GRAD_DIR_NONE) {
+    grad.coords = (lv_area_t*)coords;
+    grad.grad_dsc = (lv_grad_dsc_t*)&dsc->bg_grad;
+    fill.type = CURVE_FILL_LINEAR_GRADIENT;
+    fill.grad = &grad;
   };
   lv_gpu_buffer_t gpu_buf = {
     .buf = draw_ctx->buf,
@@ -193,14 +193,12 @@ LV_ATTRIBUTE_FAST_MEM static void draw_border(lv_draw_ctx_t* draw_ctx,
   lv_area_t draw_area;
   if (!_lv_area_intersect(&draw_area, coords, draw_ctx->clip_area))
     return;
-  /*Get the inner area*/
-  lv_area_t area_inner;
-  lv_area_copy(&area_inner, coords);
-  area_inner.x1 += ((dsc->border_side & LV_BORDER_SIDE_LEFT) ? dsc->border_width : -(dsc->border_width + rout));
-  area_inner.x2 -= ((dsc->border_side & LV_BORDER_SIDE_RIGHT) ? dsc->border_width : -(dsc->border_width + rout));
-  area_inner.y1 += ((dsc->border_side & LV_BORDER_SIDE_TOP) ? dsc->border_width : -(dsc->border_width + rout));
-  area_inner.y2 -= ((dsc->border_side & LV_BORDER_SIDE_BOTTOM) ? dsc->border_width : -(dsc->border_width + rout));
-
+  lv_area_t area_inner = {
+    .x1 = coords->x1 + dsc->border_width,
+    .y1 = coords->y1 + dsc->border_width,
+    .x2 = coords->x2 - dsc->border_width,
+    .y2 = coords->y2 - dsc->border_width
+  };
   uint16_t len = gpu_fill_path(rect_path, GPU_RECT_PATH,
       (const lv_point_t*)coords, dsc);
   lv_draw_rect_dsc_t inner_dsc = { .radius = rin };
@@ -214,7 +212,7 @@ LV_ATTRIBUTE_FAST_MEM static void draw_border(lv_draw_ctx_t* draw_ctx,
   lv_gpu_buffer_t gpu_buf = {
     .buf = draw_ctx->buf,
     .buf_area = draw_ctx->buf_area,
-    .clip_area = (lv_area_t*)draw_ctx->clip_area,
+    .clip_area = &draw_area,
     .w = lv_area_get_width(draw_ctx->buf_area),
     .h = lv_area_get_height(draw_ctx->buf_area),
     .cf = LV_IMG_CF_TRUE_COLOR_ALPHA
@@ -273,7 +271,7 @@ LV_ATTRIBUTE_FAST_MEM static void draw_outline(lv_draw_ctx_t* draw_ctx,
   lv_gpu_buffer_t gpu_buf = {
     .buf = draw_ctx->buf,
     .buf_area = draw_ctx->buf_area,
-    .clip_area = (lv_area_t*)draw_ctx->clip_area,
+    .clip_area = &draw_area,
     .w = lv_area_get_width(draw_ctx->buf_area),
     .h = lv_area_get_height(draw_ctx->buf_area),
     .cf = LV_IMG_CF_TRUE_COLOR_ALPHA
@@ -309,9 +307,14 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(
     struct _lv_draw_ctx_t* draw_ctx, const lv_draw_rect_dsc_t* dsc,
     const lv_area_t* coords)
 {
+  if (lv_area_get_size(coords) <= GPU_SIZE_LIMIT)
+    return LV_RES_INV;
   if (draw_shadow(draw_ctx, dsc, coords))
     return LV_RES_INV;
-
+  if (dsc->border_opa > LV_OPA_MIN
+      && dsc->border_width > 0 && dsc->border_side != LV_BORDER_SIDE_NONE
+      && dsc->border_side != LV_BORDER_SIDE_FULL && !dsc->border_post)
+    return LV_RES_INV;
   draw_bg(draw_ctx, dsc, coords);
   draw_bg_img(draw_ctx, dsc, coords);
 

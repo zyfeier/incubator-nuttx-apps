@@ -919,6 +919,7 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
   }
   int16_t len = 0;
   if (type == GPU_POINT_PATH) {
+    /* point path */
     gpu_point_dsc_t* point_dsc = (gpu_point_dsc_t*)dsc;
     lv_coord_t dx = point_dsc->w;
     lv_coord_t dy = point_dsc->h;
@@ -926,10 +927,12 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
       points[1].x + dx + 1, points[1].y + dy + 1 };
     len = fill_round_rect_path(path, &point_area, LV_MIN(dx, dy));
   } else if (type == GPU_LINE_PATH) {
+    /* line path */
     const lv_draw_line_dsc_t* line_dsc = dsc;
     lv_fpoint_t fpoints[2] = { __PR(points, 0.5f, 0), __PR(points + 1, 0.5f, 0) };
     len = fill_line_path(path, fpoints, line_dsc);
   } else if (type == GPU_RECT_PATH) {
+    /* rect path */
     const lv_draw_rect_dsc_t* rect_dsc = dsc;
     lv_area_t* coords = (lv_area_t*)points;
     lv_coord_t w = lv_area_get_width(coords);
@@ -938,6 +941,7 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
     lv_coord_t radius = LV_MIN(rect_dsc->radius, r_short);
     len = fill_round_rect_path(path, coords, radius);
   } else if (type == GPU_POLYGON_PATH) {
+    /* polygon path */
     const gpu_polygon_dsc_t* poly_dsc = dsc;
     len = fill_polygon_path(path, points, poly_dsc->num);
   } else {

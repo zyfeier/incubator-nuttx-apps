@@ -74,20 +74,29 @@ LV_ATTRIBUTE_FAST_MEM static void recolor_palette(uint32_t* dst,
   if (src != NULL) {
     __asm volatile(
         "   .p2align 2                                                  \n"
-        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-        "   2:                                                          \n"
-        "   vldrw.32                q0, [%[pSource]], #16               \n"
+        "   vdup.32                 q0, %[recolor]                      \n"
         "   vdup.8                  q1, %[opa]                          \n"
         "   vrmulh.u8               q0, q0, q1                          \n"
-        "   vstrw.32                q0, [%[pTarget]], #16               \n"
+        "   vneg.s8                 q1, q1                              \n"
+        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        "   vldrw.32                q2, [%[pSource]], #16               \n"
+        "   vsri.32                 q3, q2, #8                          \n"
+        "   vsri.32                 q3, q2, #16                         \n"
+        "   vsri.32                 q3, q2, #24                         \n"
+        "   vrmulh.u8               q2, q2, q1                          \n"
+        "   vadd.i8                 q2, q2, q0                          \n"
+        "   vsli.32                 q2, q3, #24                         \n"
+        "   vstrw.32                q2, [%[pTarget]], #16               \n"
         "   letp                    lr, 2b                              \n"
         "   1:                                                          \n"
-        : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+        : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget),
+        [recolor] "+r"(recolor)
         : [loopCnt] "r"(blkCnt), [opa] "r"(opa)
-        : "q0", "q1", "lr", "memory");
+        : "q0", "q1", "q2", "q3", "lr", "memory");
   } else {
     uint32_t inits[4] = { 0x0, 0x1010101, 0x2020202, 0x3030303 };
-    uint32_t step = 4;
+    uint32_t step = 0x4;
     if (size == 16) {
       step = 0x44;
       inits[1] = 0x11111111;
@@ -96,8 +105,8 @@ LV_ATTRIBUTE_FAST_MEM static void recolor_palette(uint32_t* dst,
     }
     __asm volatile(
         "   .p2align 2                                                  \n"
-        "   vdup.32                 q0, %[pSource]                      \n"
-        "   vldrw.32                q1, [%[init]]                       \n"
+        "   vdup.32                 q0, %[recolor]                      \n"
+        "   vldrw.32                q1, [%[pInit]]                      \n"
         "   wlstp.32                lr, %[loopCnt], 1f                  \n"
         "   2:                                                          \n"
         "   vrmulh.u8               q2, q0, q1                          \n"
@@ -105,8 +114,8 @@ LV_ATTRIBUTE_FAST_MEM static void recolor_palette(uint32_t* dst,
         "   vadd.i8                 q1, q1, %[step]                     \n"
         "   letp                    lr, 2b                              \n"
         "   1:                                                          \n"
-        : [pSource] "+r"(recolor), [pTarget] "+r"(pwTarget)
-        : [loopCnt] "r"(blkCnt), [init] "r"(inits), [step] "r"(step)
+        : [recolor] "+r"(recolor), [pTarget] "+r"(pwTarget)
+        : [loopCnt] "r"(blkCnt), [pInit] "r"(inits), [step] "r"(step)
         : "q0", "q1", "q2", "lr", "memory");
   }
 #else
