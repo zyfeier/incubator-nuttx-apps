@@ -95,8 +95,8 @@ endif # LV_FBDEV_USE_STATIC_BUFFER
 
 endif # LV_USE_FBDEV_INTERFACE
 
-config LV_USE_GPU_INTERFACE
-	bool "Use GPU acceleration"
+menuconfig LV_USE_GPU_INTERFACE
+	bool "GPU acceleration interface"
 	default n
 
 if LV_USE_GPU_INTERFACE
