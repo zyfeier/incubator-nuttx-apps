@@ -114,7 +114,7 @@ errout:
       free(buf);
     }
 
-  if (fd > 0)
+  if (fd >= 0)
     {
       close(fd);
     }
@@ -509,7 +509,7 @@ errout:
       free(buf);
     }
 
-  if (fd > 0)
+  if (fd >= 0)
     {
       close(fd);
     }
