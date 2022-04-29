@@ -856,8 +856,15 @@ bool lv_gpu_draw_mask_apply_path(void* vpath, const lv_area_t* coords)
     if (!comm) {
       continue;
     }
+    vg_lite_path_t* v = vpath;
     if (comm->type == LV_DRAW_MASK_TYPE_RADIUS) {
-      lv_draw_mask_radius_param_t* r = LV_GC_ROOT(_lv_draw_mask_list[i]).param;
+      if (masked) {
+        GPU_WARN("multiple mask unsupported");
+        lv_mem_buf_release(v->path);
+        v->path = NULL;
+        break;
+      }
+      lv_draw_mask_radius_param_t* r = (lv_draw_mask_radius_param_t*)comm;
       lv_coord_t w = lv_area_get_width(&r->cfg.rect);
       lv_coord_t h = lv_area_get_height(&r->cfg.rect);
       if ((r->cfg.outer && !_lv_area_is_out(coords, &r->cfg.rect, r->cfg.radius))
@@ -870,7 +877,6 @@ bool lv_gpu_draw_mask_apply_path(void* vpath, const lv_area_t* coords)
           GPU_ERROR("out of memory");
           return false;
         }
-        vg_lite_path_t* v = vpath;
         v->path = path;
         v->path_length = path_length;
         lv_coord_t r_short = LV_MIN(w, h) >> 1;
@@ -882,10 +888,10 @@ bool lv_gpu_draw_mask_apply_path(void* vpath, const lv_area_t* coords)
         }
         *(uint8_t*)(path + length - 1) = VLC_OP_END;
       }
-      /* TODO: support multiple masks */
-      break;
     } else {
       GPU_WARN("mask type %d unsupported", comm->type);
+      masked = true;
+      v->path = NULL;
     }
   }
   return masked;

@@ -44,32 +44,33 @@ static float rect_path[GPU_POINT_PATH_SIZE << 1];
  * Private Functions
  ****************************************************************************/
 
-LV_ATTRIBUTE_FAST_MEM static bool draw_shadow(lv_draw_ctx_t* draw_ctx,
+LV_ATTRIBUTE_FAST_MEM static lv_res_t draw_shadow(lv_draw_ctx_t* draw_ctx,
     const lv_draw_rect_dsc_t* dsc, const lv_area_t* coords)
 {
   /*Check whether the shadow is visible*/
   if (dsc->shadow_width == 0)
-    return false;
+    return LV_RES_OK;
+
   if (dsc->shadow_opa <= LV_OPA_MIN)
-    return false;
+    return LV_RES_OK;
 
   if (dsc->shadow_width == 1 && dsc->shadow_spread <= 0
       && dsc->shadow_ofs_x == 0 && dsc->shadow_ofs_y == 0)
-    return false;
+    return LV_RES_OK;
 
   GPU_WARN("Draw shadow unsupported, fallback to SW");
-  return true;
+  return LV_RES_INV;
 }
 
-LV_ATTRIBUTE_FAST_MEM static void draw_bg(lv_draw_ctx_t* draw_ctx,
+LV_ATTRIBUTE_FAST_MEM static lv_res_t draw_bg(lv_draw_ctx_t* draw_ctx,
     const lv_draw_rect_dsc_t* dsc, const lv_area_t* coords)
 {
   if (dsc->bg_opa <= LV_OPA_MIN)
-    return;
+    return LV_RES_OK;
 
   lv_area_t draw_area;
   if (!_lv_area_intersect(&draw_area, coords, draw_ctx->clip_area))
-    return;
+    return LV_RES_OK;
 
   uint16_t len = gpu_fill_path(rect_path, GPU_RECT_PATH,
       (const lv_point_t*)coords, dsc);
@@ -88,7 +89,7 @@ LV_ATTRIBUTE_FAST_MEM static void draw_bg(lv_draw_ctx_t* draw_ctx,
   lv_gpu_buffer_t gpu_buf = {
     .buf = draw_ctx->buf,
     .buf_area = draw_ctx->buf_area,
-    .clip_area = (lv_area_t*)draw_ctx->clip_area,
+    .clip_area = &draw_area,
     .w = lv_area_get_width(draw_ctx->buf_area),
     .h = lv_area_get_height(draw_ctx->buf_area),
     .cf = LV_IMG_CF_TRUE_COLOR_ALPHA
@@ -98,11 +99,16 @@ LV_ATTRIBUTE_FAST_MEM static void draw_bg(lv_draw_ctx_t* draw_ctx,
     .path_length = len * sizeof(float)
   };
   bool masked = lv_gpu_draw_mask_apply_path(&vpath, coords);
+  if (!vpath.path) {
+    return LV_RES_INV;
+  }
   gpu_draw_path(vpath.path, vpath.path_length, &fill, &gpu_buf);
   if (masked) {
     lv_mem_buf_release(vpath.path);
   }
+  return LV_RES_OK;
 }
+
 LV_ATTRIBUTE_FAST_MEM static void draw_bg_img(lv_draw_ctx_t* draw_ctx,
     const lv_draw_rect_dsc_t* dsc, const lv_area_t* coords)
 {
@@ -219,7 +225,7 @@ LV_ATTRIBUTE_FAST_MEM static void draw_border(lv_draw_ctx_t* draw_ctx,
   };
 #ifdef CONFIG_LV_GPU_USE_LOG
   if (lv_draw_mask_is_any(coords)) {
-    GPU_WARN("Mask detected, output may be wrong");
+    GPU_WARN("Mask detected, output may be incorrect");
   }
 #endif
   gpu_draw_path(rect_path, len * sizeof(float), &fill, &gpu_buf);
@@ -278,7 +284,7 @@ LV_ATTRIBUTE_FAST_MEM static void draw_outline(lv_draw_ctx_t* draw_ctx,
   };
 #ifdef CONFIG_LV_GPU_USE_LOG
   if (lv_draw_mask_is_any(coords)) {
-    GPU_WARN("Mask detected, output may be wrong");
+    GPU_WARN("Mask detected, output may be incorrect");
   }
 #endif
   gpu_draw_path(rect_path, len * sizeof(float), &fill, &gpu_buf);
@@ -309,13 +315,18 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(
 {
   if (lv_area_get_size(coords) <= GPU_SIZE_LIMIT)
     return LV_RES_INV;
-  if (draw_shadow(draw_ctx, dsc, coords))
+
+  if (draw_shadow(draw_ctx, dsc, coords) != LV_RES_OK)
     return LV_RES_INV;
+
   if (dsc->border_opa > LV_OPA_MIN
       && dsc->border_width > 0 && dsc->border_side != LV_BORDER_SIDE_NONE
       && dsc->border_side != LV_BORDER_SIDE_FULL && !dsc->border_post)
     return LV_RES_INV;
-  draw_bg(draw_ctx, dsc, coords);
+
+  if (draw_bg(draw_ctx, dsc, coords) != LV_RES_OK) {
+    return LV_RES_INV;
+  }
   draw_bg_img(draw_ctx, dsc, coords);
 
   draw_border(draw_ctx, dsc, coords);

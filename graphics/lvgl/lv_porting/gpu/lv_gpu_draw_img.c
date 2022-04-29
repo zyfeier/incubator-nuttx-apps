@@ -328,6 +328,10 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
       sizeof(rect_path), rect_path, draw_area.x1, draw_area.y1,
       draw_area.x2 + 1, draw_area.y2 + 1));
   bool masked = lv_gpu_draw_mask_apply_path(&vpath, &draw_area);
+  if (!vpath.path) {
+    GPU_WARN("draw img multiple mask unsupported");
+    return LV_RES_INV;
+  }
   if (masked) {
     /* masked, have to use draw_pattern */
     vpath.format = VG_LITE_FP32;
