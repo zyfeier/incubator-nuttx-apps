@@ -25,7 +25,7 @@
 #include "gpu/lv_gpu_decoder.h"
 #include "gpu/lv_gpu_draw_utils.h"
 #include "gpu_port.h"
-#include "lv_draw_sw.h"
+#include "sw/lv_draw_sw.h"
 #include "vg_lite.h"
 #include <nuttx/cache.h>
 #include <stdio.h>
