@@ -86,6 +86,8 @@ LV_ATTRIBUTE_FAST_MEM static void recolor_palette(uint32_t* dst,
         "   vsri.32                 q3, q2, #24                         \n"
         "   vrmulh.u8               q2, q2, q1                          \n"
         "   vadd.i8                 q2, q2, q0                          \n"
+        /* pre-multiply */
+        "   vrmulh.u8               q2, q2, q3                          \n"
         "   vsli.32                 q2, q3, #24                         \n"
         "   vstrw.32                q2, [%[pTarget]], #16               \n"
         "   letp                    lr, 2b                              \n"
