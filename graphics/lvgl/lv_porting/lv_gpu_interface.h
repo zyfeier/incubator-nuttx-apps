@@ -25,10 +25,9 @@
  * Included Files
  ****************************************************************************/
 
-#include <lvgl/lvgl.h>
 #include <nuttx/config.h>
-
-#include "src/draw/sw/lv_draw_sw.h"
+#include <lvgl/lvgl.h>
+#include <lvgl/src/draw/sw/lv_draw_sw.h>
 
 /****************************************************************************
  * Pre-processor Definitions
