@@ -70,7 +70,6 @@ int nsh_session(FAR struct console_stdio_s *pstate,
 {
   FAR struct nsh_vtbl_s *vtbl;
   int ret = EXIT_FAILURE;
-  int i;
 
   DEBUGASSERT(pstate);
   vtbl = &pstate->cn_vtbl;
