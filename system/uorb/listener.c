@@ -504,7 +504,7 @@ static void listener_monitor(FAR struct list_node *objlist, int nb_objects,
       return;
     }
 
-  recv_msgs = malloc(nb_objects * sizeof(int));
+  recv_msgs = calloc(nb_objects, sizeof(int));
   if (!recv_msgs)
     {
       free(fds);
@@ -549,8 +549,6 @@ static void listener_monitor(FAR struct list_node *objlist, int nb_objects,
       free(recv_msgs);
       return;
     }
-
-  memset(recv_msgs, 0, sizeof(recv_msgs));
 
   /* Loop poll and print recieved messages */
 
