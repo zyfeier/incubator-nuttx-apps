@@ -181,6 +181,7 @@ int cmd_pmconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
   if (argc <= 2)
     {
       int next_state;
+      int last_state;
       int normal_count;
       int idle_count;
       int standby_count;
@@ -190,6 +191,10 @@ int cmd_pmconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
         {
           ctrl.domain = atoi(argv[1]);
         }
+
+      ctrl.action = BOARDIOC_PM_QUERYSTATE;
+      boardctl(BOARDIOC_PM_CONTROL, (uintptr_t)&ctrl);
+      last_state = ctrl.state;
 
       ctrl.action = BOARDIOC_PM_CHECKSTATE;
       boardctl(BOARDIOC_PM_CONTROL, (uintptr_t)&ctrl);
@@ -212,8 +217,9 @@ int cmd_pmconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
       boardctl(BOARDIOC_PM_CONTROL, (uintptr_t)&ctrl);
       sleep_count = ctrl.count;
 
-      nsh_output(vtbl, "Next state %d, PM stay [%d, %d, %d, %d]\n",
-        next_state, normal_count, idle_count, standby_count, sleep_count);
+      nsh_output(vtbl, "Last state %d, Next state %d, PM stay [%d, %d, %d, %d]\n",
+                 last_state, next_state, normal_count, idle_count,
+                 standby_count, sleep_count);
     }
   else if (argc <= 4)
     {
