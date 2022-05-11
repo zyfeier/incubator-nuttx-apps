@@ -321,6 +321,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   } else if (recolor_opa != LV_OPA_TRANSP) {
     /* ARGB recolor, unsupported by GPU */
     GPU_ERROR("ARGB recolor!");
+    vgerr = VG_LITE_NOT_SUPPORT;
     goto Error_handler;
   }
   fill_rect_path(rect_path, &draw_area);

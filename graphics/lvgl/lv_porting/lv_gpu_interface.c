@@ -151,8 +151,20 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(
   if (lv_draw_img_decoded_gpu(draw_ctx, dsc, coords, map_p,
           color_format)
       != LV_RES_OK) {
-    lv_draw_sw_img_decoded(draw_ctx, dsc, coords,
+    lv_area_t coords_aligned16 = *coords;
+    const lv_area_t *clip_area_ori = draw_ctx->clip_area;
+    lv_area_t clip_area;
+    if (!_lv_area_intersect(&clip_area, coords, draw_ctx->clip_area))
+      return;
+
+    lv_coord_t unaligned = lv_area_get_width(coords) & 0xF;
+    if (unaligned) {
+      coords_aligned16.x2 += 16 - unaligned;
+      draw_ctx->clip_area = &clip_area;
+    }
+    lv_draw_sw_img_decoded(draw_ctx, dsc, &coords_aligned16,
         map_p + sizeof(gpu_data_header_t), color_format);
+    draw_ctx->clip_area = clip_area_ori;
   }
 }
 #endif
