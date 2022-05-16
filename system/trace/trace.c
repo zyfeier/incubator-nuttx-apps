@@ -497,29 +497,30 @@ static int trace_cmd_switch(int index, int argc, FAR char **argv,
 
   /* Parse the setting parameters */
 
-  if (argv[index][0] == '-' || argv[index][0] == '+')
+  if (index < argc)
     {
-      enable = (argv[index][0] == '+');
-      if (enable ==
-          ((mode.flag & NOTE_FILTER_MODE_FLAG_SWITCH) != 0))
+      if (argv[index][0] == '-' || argv[index][0] == '+')
         {
-          /* Already set */
+          enable = (argv[index++][0] == '+');
+          if (enable ==
+              ((mode.flag & NOTE_FILTER_MODE_FLAG_SWITCH) != 0))
+            {
+              /* Already set */
 
-          return false;
+              return index;
+            }
+
+          if (enable)
+            {
+              mode.flag |= NOTE_FILTER_MODE_FLAG_SWITCH;
+            }
+          else
+            {
+              mode.flag &= ~NOTE_FILTER_MODE_FLAG_SWITCH;
+            }
+
+          ioctl(notectlfd, NOTECTL_SETMODE, (unsigned long)&mode);
         }
-
-      if (enable)
-        {
-          mode.flag |= NOTE_FILTER_MODE_FLAG_SWITCH;
-        }
-      else
-        {
-          mode.flag &= ~NOTE_FILTER_MODE_FLAG_SWITCH;
-        }
-
-      ioctl(notectlfd, NOTECTL_SETMODE, (unsigned long)&mode);
-
-      index++;
     }
 
   return index;
@@ -747,17 +748,17 @@ static int trace_cmd_print(int index, int argc, FAR char **argv,
 
   /* Parse the setting parameters */
 
-  while (argv[index])
+  if (index < argc)
     {
       if (argv[index][0] == '-' || argv[index][0] == '+')
         {
-          enable = (argv[index][0] == '+');
+          enable = (argv[index++][0] == '+');
           if (enable ==
               ((mode.flag & NOTE_FILTER_MODE_FLAG_DUMP) != 0))
             {
               /* Already set */
 
-              return false;
+              return index;
             }
 
           if (enable)
@@ -771,8 +772,6 @@ static int trace_cmd_print(int index, int argc, FAR char **argv,
 
           ioctl(notectlfd, NOTECTL_SETMODE, (unsigned long)&mode);
         }
-
-      index++;
     }
 
   return index;
