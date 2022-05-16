@@ -56,14 +56,29 @@ void lv_porting_init(void)
 
 #if defined(CONFIG_LV_USE_BUTTON_INTERFACE)
   lv_button_interface_init(NULL);
+
+#if defined(CONFIG_UINPUT_BUTTON)
+  lv_button_interface_init("/dev/ubutton");
+#endif
+
 #endif
 
 #if defined(CONFIG_LV_USE_KEYPAD_INTERFACE)
   lv_keypad_interface_init(NULL);
+
+#if defined(CONFIG_UINPUT_BUTTON)
+  lv_keypad_interface_init("/dev/ubutton");
+#endif
+
 #endif
 
 #if defined(CONFIG_LV_USE_TOUCHPAD_INTERFACE)
   lv_touchpad_interface_init(NULL);
+
+#if defined(CONFIG_UINPUT_TOUCH)
+  lv_touchpad_interface_init("/dev/utouch");
+#endif
+
 #endif
 
 #if defined(CONFIG_LV_USE_ENCODER_INTERFACE)
