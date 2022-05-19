@@ -1119,36 +1119,33 @@ LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
     const lv_color32_t* src, uint32_t count)
 {
 #ifdef CONFIG_ARM_HAVE_MVE
-  while (!IS_ALIGNED(src, 4)) {
-    dst->ch.red = src->ch.red * src->ch.alpha >> 8;
-    dst->ch.green = src->ch.green * src->ch.alpha >> 8;
-    dst->ch.blue = src->ch.blue * src->ch.alpha >> 8;
-    (dst++)->ch.alpha = (src++)->ch.alpha;
-    count--;
-  }
-  __asm volatile(
-      "   .p2align 2                                                  \n"
-      "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-      "   2:                                                          \n"
-      "   vldrw.32                q0, [%[pSource]], #16               \n"
-      "   vsri.32                 q1, q0, #8                          \n"
-      "   vsri.32                 q1, q0, #16                         \n"
-      "   vsri.32                 q1, q0, #24                         \n"
-      /* pre-multiply alpha to all channels */
-      "   vrmulh.u8               q0, q0, q1                          \n"
-      "   vsli.32                 q0, q1, #24                         \n"
-      "   vstrw.32                q0, [%[pTarget]], #16               \n"
-      "   letp                    lr, 2b                              \n"
-      "   1:                                                          \n"
-      : [pSource] "+r"(src), [pTarget] "+r"(dst)
-      : [loopCnt] "r"(count)
-      : "q0", "q1", "lr", "memory");
-#else
+  if (IS_ALIGNED(src, 4)) {
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        "   vldrw.32                q0, [%[pSource]], #16               \n"
+        "   vsri.32                 q1, q0, #8                          \n"
+        "   vsri.32                 q1, q0, #16                         \n"
+        "   vsri.32                 q1, q0, #24                         \n"
+        /* pre-multiply alpha to all channels */
+        "   vrmulh.u8               q0, q0, q1                          \n"
+        "   vsli.32                 q0, q1, #24                         \n"
+        "   vstrw.32                q0, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   1:                                                          \n"
+        : [pSource] "+r"(src), [pTarget] "+r"(dst)
+        : [loopCnt] "r"(count)
+        : "q0", "q1", "lr", "memory");
+  } else {
+#endif
   while (count--) {
     dst->ch.red = LV_UDIV255(src->ch.red * src->ch.alpha);
     dst->ch.green = LV_UDIV255(src->ch.green * src->ch.alpha);
     dst->ch.blue = LV_UDIV255(src->ch.blue * src->ch.alpha);
     (dst++)->ch.alpha = (src++)->ch.alpha;
+  }
+#ifdef CONFIG_ARM_HAVE_MVE
   }
 #endif
 }

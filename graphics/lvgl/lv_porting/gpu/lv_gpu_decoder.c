@@ -791,24 +791,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           ? LV_COLOR_CHROMA_KEY.full
           : 0;
 #ifdef CONFIG_ARM_HAVE_MVE
-      while (!IS_ALIGNED(phwSource, 4)) {
-        const lv_color32_t* sp = (const lv_color32_t*)phwSource;
-        lv_color32_t* dp = (lv_color32_t*)pwTarget;
-        if (sp->full != chroma32) {
-          if (sp->ch.alpha != LV_OPA_TRANSP && sp->full != chroma32) {
-            if (opa != LV_OPA_TRANSP) {
-              dp->ch.red = LV_UDIV255(recolor_premult[0] + sp->ch.red * mix);
-              dp->ch.green = LV_UDIV255(recolor_premult[1] + sp->ch.green * mix);
-              dp->ch.blue = LV_UDIV255(recolor_premult[2] + sp->ch.blue * mix);
-              dp->ch.alpha = noalpha ? 0xFF : sp->ch.alpha;
-            }
-          }
-          pre_multiply(dp, sp);
-        }
-        phwSource++;
-        pwTarget++;
-        blkCnt--;
-      }
+      if (IS_ALIGNED(phwSource, 4)) {
       __asm volatile(
           "   .p2align 2                                                  \n"
           "   vdup.32                 q0, %[pRecolor]                     \n"
@@ -836,7 +819,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa), [mix] "r"(mix),
             [noalpha] "r"(noalpha)
           : "q0", "q1", "q2", "q3", "lr", "memory");
-#else
+      } else {
+#endif /* CONFIG_ARM_HAVE_MVE */
       const lv_color32_t* sp = (const lv_color32_t*)phwSource;
       lv_color32_t* dp = (lv_color32_t*)pwTarget;
       for (; blkCnt--; sp++, dp++) {
@@ -849,6 +833,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           }
           pre_multiply(dp, sp);
         }
+      }
+#ifdef CONFIG_ARM_HAVE_MVE
       }
 #endif /* CONFIG_ARM_HAVE_MVE */
 #endif /* LV_COLOR_DEPTH == 16 */
