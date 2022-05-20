@@ -295,6 +295,33 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
     gpu_fill_path_type_t type, const lv_point_t* points, const void* dsc);
 
 /****************************************************************************
+ * Name: gpu_img_alloc
+ *
+ * Description:
+ *   Allocate memory for an image with specified size and color format
+ *
+ * @param w width of image
+ * @param h height of image
+ * @param cf a color format (`LV_IMG_CF_...`)
+ * @param len pointer to save allocated buffer length
+ *
+ * @return pointer to the memory, which should free using gpu_img_free
+ *
+ ****************************************************************************/
+void* gpu_img_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf, uint32_t *len);
+
+/****************************************************************************
+ * Name: gpu_img_free
+ *
+ * Description:
+ *   Free image memory allocated using gpu_img_alloc
+ *
+ * @param img pointer to the memory
+ *
+ ****************************************************************************/
+void gpu_img_free(void* img);
+
+/****************************************************************************
  * Name: gpu_img_buf_alloc
  *
  * Description:

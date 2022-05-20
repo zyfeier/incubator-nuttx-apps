@@ -962,6 +962,60 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
 }
 
 /****************************************************************************
+ * Name: gpu_img_alloc
+ *
+ * Description:
+ *   Allocate memory for an image with specified size and color format
+ *
+ * @param w width of image
+ * @param h height of image
+ * @param cf a color format (`LV_IMG_CF_...`)
+ * @param len pointer to save allocated buffer length
+ *
+ * @return pointer to the memory, which should free using gpu_img_free
+ *
+ ****************************************************************************/
+void* gpu_img_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf, uint32_t *len)
+{
+  /*Get image data size*/
+  uint32_t data_size = gpu_img_buf_get_img_size(w, h, cf);
+  if (data_size == 0) {
+    return NULL;
+  }
+
+  /*Allocate raw buffer*/
+  void* data = aligned_alloc(8, data_size);
+  if (data == NULL) {
+    return NULL;
+  }
+
+#if 1
+  /* @todo double-check if we need this. */
+  lv_memset_00((uint8_t*)data, data_size);
+#endif
+
+  if (len) {
+    *len = data_size;
+  }
+
+  return data;
+}
+
+/****************************************************************************
+ * Name: gpu_img_free
+ *
+ * Description:
+ *   Free image memory allocated using gpu_img_alloc
+ *
+ * @param img pointer to the memory
+ *
+ ****************************************************************************/
+void gpu_img_free(void* img)
+{
+  free(img);
+}
+
+/****************************************************************************
  * Name: gpu_img_buf_alloc
  *
  * Description:
@@ -983,14 +1037,8 @@ lv_img_dsc_t* gpu_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
   }
   lv_memset_00(dsc, sizeof(lv_img_dsc_t));
 
-  /*Get image data size*/
-  dsc->data_size = gpu_img_buf_get_img_size(w, h, cf);
-  if (dsc->data_size == 0) {
-    goto Error_handler;
-  }
-
   /*Allocate raw buffer*/
-  dsc->data = aligned_alloc(8, dsc->data_size);
+  dsc->data = gpu_img_alloc(w, h, cf, &dsc->data_size);
   if (dsc->data == NULL) {
     goto Error_handler;
   }
