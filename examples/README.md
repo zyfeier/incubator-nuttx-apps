@@ -317,8 +317,7 @@ options:
    LDELFFLAGS = -r -e main
    ```
 
-   If you use GCC to link, you make also need to include `-nostdlib` or
-   `-nostartfiles` and `-nodefaultlibs`.
+   If you use GCC to link, you make also need to include `-nostdlib`.
 
 3. This example also requires `genromfs`. `genromfs` can be build as part of the
    nuttx toolchain. Or can built from the `genromfs` sources that can be found
@@ -723,8 +722,7 @@ configuration options:
    LDMODULEFLAGS = -r -e module_initialize
    ```
 
-   If you use GCC to link, you make also need to include `-nostdlib` or
-   `-nostartfiles` and `-nodefaultlibs`.
+   If you use GCC to link, you make also need to include `-nostdlib`.
 
 3. This example also requires `genromfs`. `genromfs` can be build as part of the
    nuttx toolchain. Or can built from the `genromfs` sources that can be found
@@ -1265,8 +1263,7 @@ Test-specific configuration options:
    LDELFFLAGS = -r -e main
    ```
 
-   If you use GCC to link, you make also need to include `-nostdlib` or
-   `-nostartfiles` and `-nodefaultlibs`.
+   If you use GCC to link, you make also need to include `-nostdlib`.
 
 3. This example also requires `genromfs`. `genromfs` can be build as part of the
    nuttx toolchain. Or can built from the `genromfs` sources that can be found
@@ -1537,8 +1534,7 @@ system. At run time, the shared library is installed and exercised. Requires
    LDMODULEFLAGS = -r -e module_initialize
    ```
 
-   If you use GCC to link, you make also need to include `-nostdlib` or
-   `-nostartfiles` and `-nodefaultlibs`.
+   If you use GCC to link, you make also need to include `-nostdlib`.
 
 3. This example also requires `genromfs`. `genromfs` can be build as part of the
    nuttx toolchain. Or can built from the `genromfs` sources that can be found
