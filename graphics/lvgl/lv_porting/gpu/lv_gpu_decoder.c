@@ -226,6 +226,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
       GPU_WARN("can't open %s", (const char*)dsc->src);
       return LV_RES_INV;
     }
+
     lv_fs_res_t res = lv_fs_open(&f, dsc->src, LV_FS_MODE_RD);
     if (res != LV_FS_RES_OK) {
       GPU_WARN("gpu_decoder can't open the file");
@@ -240,13 +241,15 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
       return LV_RES_INV;
     }
   }
-  uint32_t gpu_data_size = gpu_img_buf_get_img_size(dsc->header.w,
-      dsc->header.h, cf);
-  uint8_t* gpu_data = aligned_alloc(8, gpu_data_size);
+
+  uint32_t gpu_data_size;
+  uint8_t* gpu_data;
+  gpu_data = gpu_img_alloc(dsc->header.w, dsc->header.h, dsc->header.cf, &gpu_data_size);
   if (gpu_data == NULL) {
     GPU_ERROR("out of memory");
     return LV_RES_INV;
   }
+
   gpu_data_header_t* header = (gpu_data_header_t*)gpu_data;
   header->magic = GPU_DATA_MAGIC;
   dsc->img_data = gpu_data;
@@ -518,6 +521,42 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder,
           header->vgbuf.memory, header);
       dsc->img_data = img_dsc->data;
       dsc->user_data = NULL;
+      return LV_RES_OK;
+    }
+  } else if (dsc->src_type == LV_IMG_SRC_FILE) {
+    /* let's process "gpu" file firstly. */
+    const char *ext = lv_fs_get_ext(dsc->src);
+    if (strcmp(ext, "gpu") == 0) {
+      /* No need to decode gpu file, simply load it to ram */
+      lv_fs_file_t f;
+      lv_fs_res_t res = lv_fs_open(&f, dsc->src, LV_FS_MODE_RD);
+      if (res != LV_FS_RES_OK) {
+        GPU_WARN("gpu_decoder can't open the file");
+        return LV_RES_INV;
+      }
+
+      /* alloc new buffer that meets GPU requirements(width, alignment) */
+      lv_img_dsc_t* gpu_dsc = gpu_img_buf_alloc(dsc->header.w, dsc->header.h, dsc->header.cf);
+      if (gpu_dsc == NULL) {
+        GPU_ERROR("out of memory");
+        return LV_RES_INV;
+      }
+      uint8_t* gpu_data = (uint8_t*)gpu_dsc->data;
+
+      lv_fs_seek(&f, 4, LV_FS_SEEK_SET); /* skip file header. */
+      res = lv_fs_read(&f, gpu_data, gpu_dsc->data_size, NULL);
+      lv_fs_close(&f);
+      if (res != LV_FS_RES_OK) {
+        gpu_img_free(gpu_data);
+        GPU_ERROR("file read failed");
+        return LV_RES_INV;
+      }
+      dsc->img_data = gpu_data;
+      dsc->user_data = (void*)GPU_DATA_MAGIC;
+
+      gpu_data_update(gpu_dsc);
+      lv_mem_free(gpu_dsc);
+
       return LV_RES_OK;
     }
   }

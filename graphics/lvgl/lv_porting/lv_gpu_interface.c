@@ -219,7 +219,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width,
   lv_memset_00(&dst->yuv, sizeof(dst->yuv));
 
   dst->memory = ptr;
-  dst->address = (uint32_t)dst->memory;
+  dst->address = (uint32_t)(uintptr_t)ptr;
   dst->handle = NULL;
 
   return LV_RES_OK;
