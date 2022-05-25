@@ -157,10 +157,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_polygon_gpu(
     vg_lite_draw(&dst_vgbuf, &vpath, fill, &matrix, blend, color);
   }
   CHECK_ERROR(vg_lite_finish());
-  if (IS_CACHED(dst_vgbuf.memory)) {
-    up_invalidate_dcache((uintptr_t)dst_vgbuf.memory,
-        (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
-  }
+
 cleanup:
   lv_mem_buf_release(poly_path);
   return LV_RES_OK;

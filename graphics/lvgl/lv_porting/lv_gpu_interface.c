@@ -366,13 +366,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(
     GPU_ERROR("GPU convert failed.");
     return LV_RES_INV;
   }
-  TC_INIT
-  if (IS_CACHED(dst.memory)) {
-    TC_START
-    up_invalidate_dcache((uintptr_t)dst.memory,
-        (uintptr_t)dst.memory + h * dst.stride);
-    TC_END
-    TC_REP(dst_cache_invalid)
-  }
+
   return LV_RES_OK;
 }

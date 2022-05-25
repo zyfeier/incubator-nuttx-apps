@@ -765,10 +765,7 @@ lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     *p_lastop = original_op;
     return LV_RES_INV;
   }
-  if (IS_CACHED(dst_vgbuf.memory)) {
-    up_invalidate_dcache((uintptr_t)dst_vgbuf.memory,
-        (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
-  }
+
   *p_lastop = original_op;
   return LV_RES_OK;
 }
@@ -984,7 +981,7 @@ void* gpu_img_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf, uint32_t *len)
   }
 
   /*Allocate raw buffer*/
-  void* data = aligned_alloc(8, data_size);
+  void* data = aligned_alloc(64, data_size);
   if (data == NULL) {
     return NULL;
   }

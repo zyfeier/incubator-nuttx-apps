@@ -263,10 +263,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   if (masked) {
     lv_mem_buf_release(vpath.path);
   }
-  if (IS_CACHED(dst_vgbuf.memory)) {
-    up_invalidate_dcache((uintptr_t)dst_vgbuf.memory,
-        (uintptr_t)dst_vgbuf.memory + dst_vgbuf.height * dst_vgbuf.stride);
-  }
 
   if (allocated_src) {
     GPU_WARN("freeing allocated vgbuf:(%ld,%ld)@%p", src_vgbuf.width,
