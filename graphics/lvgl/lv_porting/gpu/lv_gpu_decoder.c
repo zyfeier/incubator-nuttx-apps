@@ -200,9 +200,10 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
   /* add gpu header right at beginning of gpu image buffer */
   gpu_data_header_t* header = (gpu_data_header_t*)gpu_data;
   header->magic = GPU_DATA_MAGIC;
+  header->recolor = dsc->color.full;
   dsc->img_data = gpu_data;
   lv_res_t ret = lv_gpu_load_vgbuf(img_data, &dsc->header, &header->vgbuf,
-      gpu_data + sizeof(gpu_data_header_t), dsc->color);
+      gpu_data + sizeof(gpu_data_header_t), dsc->color, false);
 
   if (dsc->src_type == LV_IMG_SRC_FILE) {
     /* file cache is no longger needed. */
@@ -252,6 +253,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
 
   gpu_data_header_t* header = (gpu_data_header_t*)gpu_data;
   header->magic = GPU_DATA_MAGIC;
+  header->recolor = dsc->color.full;
   dsc->img_data = gpu_data;
 
   bool indexed = (cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT);
@@ -632,13 +634,14 @@ void lv_gpu_decoder_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
  * @param buf_p buffer address to be used as vgbuf.memory, will allocate a
  *   new buffer if buf_p == NULL
  * @param recolor recolor (ARGB) to apply. recolor_opa is in the A channel
+ * @param premult the source has been pre-multiplied. used in draw_img only
  *
  * @return LV_RES_OK: ok; LV_RES_INV: failed
  *
  ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
     lv_img_header_t* header, vg_lite_buffer_t* vgbuf_p, uint8_t* buf_p,
-    lv_color32_t recolor)
+    lv_color32_t recolor, bool premult)
 {
   vg_lite_buffer_t vgbuf;
 
@@ -653,6 +656,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
     vgbuf_stride = vgbuf_w * sizeof(lv_color32_t);
     vgbuf_format = VG_LITE_BGRA8888;
     map_stride = header->w * LV_IMG_PX_SIZE_ALPHA_BYTE;
+  }
+  if (premult) {
+    map_stride = vgbuf_stride;
   }
 #else
   bool noalpha = header->cf == LV_IMG_CF_TRUE_COLOR
@@ -674,7 +680,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
   const uint8_t* px_map = img_data;
   lv_opa_t opa = recolor.ch.alpha;
   lv_opa_t mix = 255 - opa;
-  uint16_t recolor_premult[3] = { recolor.ch.red * opa,
+  uint32_t recolor_premult[3] = { recolor.ch.red * opa,
     recolor.ch.green * opa, recolor.ch.blue * opa };
   TC_INIT
 #if LV_COLOR_DEPTH == 16
@@ -743,7 +749,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
         blkCnt -= 4;
       } while (blkCnt > 0);
 #else
-      uint32_t carry = 0;
       __asm volatile(
           "   .p2align 2                                                  \n"
           "   wlstp.32                lr, %[loopCnt], 1f                  \n"
@@ -751,7 +756,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           /* load a vector of 4 bgra5658 pixels */
           "   vldrw.32                q0, [%[pSource]], #12               \n"
           /* q0 => |****|AQPA|QPAQ|PAQP| */
-          "   vshlc                   q0, %[pCarry], #8                   \n"
+          "   vshlc                   q0, r0, #8                          \n"
           /* q0 => |***A|QPAQ|PAQP|AQP0| */
           "   vldrw.32                q1, [%[maskA]]                      \n"
           "   vand                    q2, q0, q1                          \n"
@@ -759,7 +764,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           "   vldrw.32                q4, [%[shiftC]]                     \n"
           "   vmul.i32                q1, q2, q4                          \n"
           /* q1 => |A000|A000|A000|A000|, use q1 as final output */
-          "   vshlc                   q0, %[pCarry], #8                   \n"
+          "   vshlc                   q0, r0, #8                          \n"
           /* q0 => |**AQ|PAQP|AQPA|QP**| */
           "   vldrw.32                q3, [%[maskRB]]                     \n"
           "   vand                    q2, q0, q3                          \n"
@@ -770,7 +775,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           /* q1 => |Ar00|Ar00|Ar00|Ar00| */
           "   vsri.32                 q1, q3, #13                         \n"
           /* q1 => |AR*0|AR*0|AR*0|AR*0| */
-          "   vshlc                   q0, %[pCarry], #5                   \n"
+          "   vshlc                   q0, r0, #5                          \n"
           /* Similar operation on G channel */
           "   vldrw.32                q3, [%[maskG]]                      \n"
           "   vand                    q2, q0, q3                          \n"
@@ -781,7 +786,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           /* q1 => |ARg0|ARg0|ARg0|ARg0| */
           "   vsri.32                 q1, q3, #22                         \n"
           /* q1 => |ARG*|ARG*|ARG*|ARG*| */
-          "   vshlc                   q0, %[pCarry], #6                   \n"
+          "   vshlc                   q0, r0, #6                          \n"
           /* Similar operation on B channel */
           "   vldrw.32                q3, [%[maskRB]]                     \n"
           "   vand                    q2, q0, q3                          \n"
@@ -805,8 +810,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
 
           : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
           : [loopCnt] "r"(blkCnt), [maskA] "r"(_maskA), [shiftC] "r"(_shiftC),
-          [maskRB] "r"(_maskRB), [maskG] "r"(_maskG), [pCarry] "r"(carry)
-          : "q0", "q1", "q2", "q3", "q4", "lr", "memory");
+          [maskRB] "r"(_maskRB), [maskG] "r"(_maskG)
+          : "q0", "q1", "q2", "q3", "q4", "r0", "lr", "memory");
 #endif
       px_map += map_stride;
       px_buf += vgbuf_stride;
@@ -856,7 +861,34 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           : 0;
 #ifdef CONFIG_ARM_HAVE_MVE
       if (IS_ALIGNED(phwSource, 4)) {
-      __asm volatile(
+        if (noalpha) {
+          __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   vdup.32                 q0, %[pRecolor]                     \n"
+          "   vdup.8                  q1, %[opa]                          \n"
+          "   vrmulh.u8               q0, q0, q1                          \n"
+          "   vdup.8                  q1, %[mix]                          \n"
+          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   "
+          "   vldrw.32                q2, [%[pSource]], #16               \n"
+          "   mov                     r0, 0xFF000000                      \n"
+          "   vdup.32                 q3, r0                              \n"
+          "   vorr                    q2, q2, q3                          \n"
+          "   vcmp.i32                ne, q2, %[chroma]                   \n"
+          "   vrmulh.u8               q2, q2, q1                          \n"
+          "   vadd.i8                 q2, q2, q0                          \n"
+          /* pre-multiply alpha to all channels */
+          "   vorr                    q2, q2, q3                          \n"
+          "   vpst                                                        \n"
+          "   vstrwt.32               q2, [%[pTarget]], #16               \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget), [pRecolor] "+r"(recolor)
+          : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa), [mix] "r"(mix)
+          : "q0", "q1", "q2", "q3", "r0", "lr", "memory");
+        } else if (!premult) {
+          __asm volatile(
           "   .p2align 2                                                  \n"
           "   vdup.32                 q0, %[pRecolor]                     \n"
           "   vdup.8                  q1, %[opa]                          \n"
@@ -880,22 +912,60 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
           : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget), [pRecolor] "+r"(recolor)
-          : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa), [mix] "r"(mix),
-            [noalpha] "r"(noalpha)
+          : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa), [mix] "r"(mix)
           : "q0", "q1", "q2", "q3", "lr", "memory");
+        } else {
+          __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   vdup.32                 q0, %[pRecolor]                     \n"
+          "   vdup.8                  q1, %[opa]                          \n"
+          "   vrmulh.u8               q0, q0, q1                          \n"
+          "   vdup.8                  q1, %[mix]                          \n"
+          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   "
+          "   vldrw.32                q2, [%[pSource]], #16               \n"
+          "   vsri.32                 q3, q2, #8                          \n"
+          "   vsri.32                 q3, q2, #16                         \n"
+          "   vsri.32                 q3, q2, #24                         \n"
+          /* pre-multiply source alpha to recolor_premult */
+          "   vrmulh.u8               q4, q0, q3                          \n"
+          "   vcmp.i32                ne, q2, %[chroma]                   \n"
+          "   vrmulh.u8               q2, q2, q1                          \n"
+          "   vadd.i8                 q2, q2, q4                          \n"
+          "   vsli.32                 q2, q3, #24                         \n"
+          "   vpst                                                        \n"
+          "   vstrwt.32               q2, [%[pTarget]], #16               \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget), [pRecolor] "+r"(recolor)
+          : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa), [mix] "r"(mix)
+          : "q0", "q1", "q2", "q3", "q4", "lr", "memory");
+      }
       } else {
 #endif /* CONFIG_ARM_HAVE_MVE */
       const lv_color32_t* sp = (const lv_color32_t*)phwSource;
       lv_color32_t* dp = (lv_color32_t*)pwTarget;
       for (; blkCnt--; sp++, dp++) {
         if (sp->ch.alpha != LV_OPA_TRANSP && sp->full != chroma32) {
-          if (opa != LV_OPA_TRANSP) {
-            dp->ch.red = LV_UDIV255(recolor_premult[0] + sp->ch.red * mix);
-            dp->ch.green = LV_UDIV255(recolor_premult[1] + sp->ch.green * mix);
-            dp->ch.blue = LV_UDIV255(recolor_premult[2] + sp->ch.blue * mix);
-            dp->ch.alpha = sp->ch.alpha;
+          if (premult) {
+            if (opa != LV_OPA_TRANSP) {
+              dp->ch.red = LV_UDIV255(recolor_premult[0] * sp->ch.alpha / 255 + sp->ch.red * mix);
+              dp->ch.green = LV_UDIV255(recolor_premult[1] * sp->ch.alpha / 255 + sp->ch.green * mix);
+              dp->ch.blue = LV_UDIV255(recolor_premult[2] * sp->ch.alpha / 255 + sp->ch.blue * mix);
+              dp->ch.alpha = sp->ch.alpha;
+            } else {
+            *dp = *sp;
+            }
+          } else {
+            if (opa != LV_OPA_TRANSP) {
+              dp->ch.red = LV_UDIV255(recolor_premult[0] + sp->ch.red * mix);
+              dp->ch.green = LV_UDIV255(recolor_premult[1] + sp->ch.green * mix);
+              dp->ch.blue = LV_UDIV255(recolor_premult[2] + sp->ch.blue * mix);
+              dp->ch.alpha = sp->ch.alpha;
+            }
+            pre_multiply(dp, sp);
           }
-          pre_multiply(dp, sp);
         }
       }
 #ifdef CONFIG_ARM_HAVE_MVE

@@ -111,6 +111,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   uint16_t zoom = dsc->zoom;
   lv_point_t pivot = dsc->pivot;
   lv_blend_mode_t blend_mode = dsc->blend_mode;
+  lv_color32_t recolor = { .full = lv_color_to32(dsc->recolor) };
+  LV_COLOR_SET_A32(recolor, dsc->recolor_opa);
   vg_lite_buffer_t src_vgbuf;
   bool transformed = (angle != 0) || (zoom != LV_IMG_ZOOM_NONE);
   const lv_area_t* disp_area = draw_ctx->buf_area;
@@ -171,19 +173,39 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     return LV_RES_OK;
   }
 
-  GPU_INFO("fmt:%d map_tf: (%d %d)[%d,%d] draw_area:(%d %d)[%d,%d] zoom:%d\n",
-      color_format, map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf),
-      lv_area_get_height(&map_tf), draw_area.x1, draw_area.y1,
-      lv_area_get_width(&draw_area), lv_area_get_height(&draw_area), zoom);
+  // GPU_WARN("fmt:%d map_tf: (%d %d)[%d,%d] draw_area:(%d %d)[%d,%d] zoom:%d recolor:%lx\n",
+  //     color_format, map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf),
+  //     lv_area_get_height(&map_tf), draw_area.x1, draw_area.y1,
+  //     lv_area_get_width(&draw_area), lv_area_get_height(&draw_area), zoom, recolor.full);
 
   bool indexed = false, alpha = false;
   bool allocated_src = false;
+  lv_color32_t pre_recolor;
   vgbuf = lv_gpu_get_vgbuf((void*)map_p);
   if (vgbuf) {
     indexed = (vgbuf->format >= VG_LITE_INDEX_1)
         && (vgbuf->format <= VG_LITE_INDEX_8);
     alpha = (vgbuf->format == VG_LITE_A4) || (vgbuf->format == VG_LITE_A8);
-    lv_memcpy_small(&src_vgbuf, vgbuf, sizeof(src_vgbuf));
+    pre_recolor.full = ((gpu_data_header_t*)map_p)->recolor;
+    if (!indexed && !alpha && dsc->recolor_opa != LV_OPA_TRANSP
+        && pre_recolor.ch.alpha == LV_OPA_TRANSP) {
+      GPU_WARN("allocating new vgbuf:(%ld,%ld)", vgbuf->width, vgbuf->height);
+      lv_img_header_t header;
+      header.w = vgbuf->width;
+      header.h = vgbuf->height;
+      header.cf = color_format;
+      if (lv_gpu_load_vgbuf(vgbuf->memory, &header, &src_vgbuf, NULL,
+              recolor, true)
+          != LV_RES_OK) {
+        GPU_ERROR("load failed");
+        goto Fallback;
+      }
+      vgbuf = NULL;
+      allocated_src = true;
+      pre_recolor = recolor;
+    } else {
+      lv_memcpy_small(&src_vgbuf, vgbuf, sizeof(src_vgbuf));
+    }
   } else {
     vgbuf = NULL;
     GPU_WARN("allocating new vgbuf:(%ld,%ld)", map_w, map_h);
@@ -191,16 +213,16 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     header.w = map_w;
     header.h = map_h;
     header.cf = color_format;
-    lv_color32_t recolor = { .full = lv_color_to32(dsc->recolor) };
-    LV_COLOR_SET_A32(recolor, dsc->recolor_opa);
     if (lv_gpu_load_vgbuf(map_p, &header, &src_vgbuf, NULL,
-            recolor)
+            recolor, false)
         != LV_RES_OK) {
       GPU_ERROR("load failed");
       goto Fallback;
     }
     allocated_src = true;
+    pre_recolor.full = ((gpu_data_header_t*)map_p)->recolor;
   }
+
   if (zoom == IMG_ZOOM_BLUR && src_vgbuf.format == VGLITE_PX_FMT
       && src_vgbuf.width * src_vgbuf.height <= IMG_BLUR_SIZE_LIMIT) {
     lv_area_t map_area = { 0, 0, src_vgbuf.width - 1, src_vgbuf.height - 1 };
@@ -245,14 +267,31 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     src_vgbuf.image_mode = VG_LITE_MULTIPLY_IMAGE_MODE;
   }
 
-  vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR
-                                        : VG_LITE_FILTER_POINT;
   if (indexed || alpha) {
     uint8_t px_size = VG_FMT_TO_BPP(src_vgbuf.format);
     uint16_t palette_size = 1 << px_size;
     src_vgbuf.format = BPP_TO_VG_FMT(px_size);
-    vg_lite_set_CLUT(palette_size, (uint32_t*)palette);
+    if (dsc->recolor_opa != LV_OPA_TRANSP && recolor.full != pre_recolor.full) {
+      if (pre_recolor.ch.alpha != LV_OPA_TRANSP) {
+        GPU_ERROR("Recolor diff! get:%lx expected:%lx",
+            recolor.full, pre_recolor.full);
+      }
+      uint32_t* palette_r = lv_mem_buf_get(palette_size * sizeof(lv_color32_t));
+      if (palette_r == NULL) {
+        goto Error_handler;
+      }
+      GPU_WARN("%lx recolor now", recolor.full);
+      recolor_palette((lv_color32_t*)palette_r, alpha ? NULL : (lv_color32_t*)palette,
+          palette_size, dsc->recolor_opa != LV_OPA_TRANSP ? recolor.full : *palette);
+      vg_lite_set_CLUT(palette_size, palette_r);
+      lv_mem_buf_release(palette_r);
+    } else {
+      vg_lite_set_CLUT(palette_size, (uint32_t*)palette);
+    }
   }
+
+  vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR
+                                        : VG_LITE_FILTER_POINT;
   fill_rect_path(rect_path, &draw_area);
   vg_lite_path_t vpath;
   lv_memset_00(&vpath, sizeof(vg_lite_path_t));
@@ -261,7 +300,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
       draw_area.x2 + 1, draw_area.y2 + 1));
   bool masked = lv_gpu_draw_mask_apply_path(&vpath, &draw_area);
   if (!vpath.path) {
-    GPU_WARN("draw img multiple mask unsupported");
+    GPU_WARN("draw img unsupported mask found");
     return LV_RES_INV;
   }
   if (masked) {
@@ -292,6 +331,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     lv_mem_buf_release(vpath.path);
   }
 
+Error_handler:
   if (allocated_src) {
     GPU_WARN("freeing allocated vgbuf:(%ld,%ld)@%p", src_vgbuf.width,
         src_vgbuf.height, src_vgbuf.memory);

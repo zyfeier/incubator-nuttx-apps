@@ -48,6 +48,7 @@ typedef struct {
     vg_lite_buffer_t vgbuf;
     evo_fcontent_t evocontent;
   };
+  uint32_t recolor;
 } __attribute__((aligned(8))) gpu_data_header_t;
 
 /**********************
@@ -142,13 +143,14 @@ void lv_gpu_decoder_close(lv_img_decoder_t* decoder,
  * @param buf_p buffer address to be used as vgbuf.memory, will allocate a
  *   new buffer if buf_p == NULL
  * @param recolor recolor (ARGB) to apply. recolor_opa is in the A channel
+ * @param premult the source has been pre-multiplied. used in draw_img only
  *
  * @return LV_RES_OK: ok; LV_RES_INV: failed
  *
  ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
     lv_img_header_t* header, vg_lite_buffer_t* vgbuf_p, uint8_t* buf_p,
-    lv_color32_t recolor);
+    lv_color32_t recolor, bool premult);
 
 /****************************************************************************
  * Name: lv_gpu_get_vgbuf

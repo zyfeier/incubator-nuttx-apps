@@ -690,7 +690,7 @@ lv_res_t gpu_draw_path(float* path, lv_coord_t length,
         .full = lv_color_to32(img->draw_dsc->recolor)
       };
       LV_COLOR_SET_A32(recolor, img->draw_dsc->recolor_opa);
-      if (lv_gpu_load_vgbuf(img_data, img_header, &src_vgbuf, NULL, recolor)
+      if (lv_gpu_load_vgbuf(img_data, img_header, &src_vgbuf, NULL, recolor, false)
           != LV_RES_OK) {
         *p_lastop = original_op;
         return LV_RES_INV;
