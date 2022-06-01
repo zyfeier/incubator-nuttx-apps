@@ -316,25 +316,52 @@ config LVGL_EXTENSION
 
 if LVGL_EXTENSION
 
-menu "font manager config"
-
-config LVX_USE_FONT_MANAGER
+menuconfig LVX_USE_FONT_MANAGER
 	bool "LVX_USE_FONT_MANAGER"
 	default y
 	depends on LV_USE_FREETYPE
 	---help---
 		Enable font-manager for freetype fonts.
 
+if LVX_USE_FONT_MANAGER
+
 config FONT_LIB_PATH
-	string "The path of the font library"
-	depends on LVX_USE_FONT_MANAGER
+	string "Font library path"
 	default "/data/"
 	help
 		The path of the font library. eg:
 		/data/	, /data/font/xxxxx
 		Note: '/' is required at the end of the string.
 
-endmenu
+menuconfig FONT_USE_EMOJI
+	bool "Enable Emoji support"
+	default y
+
+if FONT_USE_EMOJI
+
+config FONT_EMOJI_PATH
+	string "Emoji resource path"
+	default "/resource/system/emoji"
+
+config FONT_EMOJI_EXT_NAME
+	string "Emoji file extension name"
+	default "bin"
+
+config FONT_EMOJI_SIZE_DEFAULT
+	int "Emoji default size"
+	default 50
+
+config FONT_EMOJI_UNICODE_START
+	int "Emoji unicode start"
+	default 40960
+
+config FONT_EMOJI_UNICODE_TOTAL
+	int "Emoji unicode total"
+	default 100
+
+endif # FONT_USE_EMOJI
+
+endif # LVX_USE_FONT_MANAGER
 
 config LVX_USE_WIDGETS
 	bool "Enable widgets extension"
