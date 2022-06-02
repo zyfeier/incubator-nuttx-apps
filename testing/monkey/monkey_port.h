@@ -36,7 +36,6 @@ struct monkey_port_dev_s
   int fd;
   enum monkey_dev_type_e type;
   union monkey_dev_state_u state;
-  union monkey_dev_state_u last_state;
 };
 
 /****************************************************************************

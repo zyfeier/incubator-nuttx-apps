@@ -27,6 +27,7 @@
 #include <inttypes.h>
 #include <nuttx/input/buttons.h>
 #include <nuttx/input/touchscreen.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -130,6 +131,26 @@ static bool button_read(int fd, FAR uint32_t *value)
     }
 
   *value = buttonset;
+  return true;
+}
+
+/****************************************************************************
+ * Name: wait_fd_data_available
+ ****************************************************************************/
+
+static bool wait_fd_data_available(int fd)
+{
+  struct pollfd fds[1];
+  fds[0].fd = fd;
+  fds[0].events = POLLIN | POLLPRI;
+  fds[0].revents = 0;
+
+  if (poll(fds, 1, -1) < 0)
+    {
+      MONKEY_LOG_WARN("failed: %d", errno);
+      return false;
+    }
+
   return true;
 }
 
@@ -255,6 +276,11 @@ bool monkey_port_get_state(FAR struct monkey_port_dev_s *dev,
 
   retval = false;
 
+  if (!wait_fd_data_available(dev->fd))
+    {
+      return false;
+    }
+
   switch (dev->type)
     {
     case MONKEY_DEV_TYPE_TOUCH:
@@ -266,19 +292,11 @@ bool monkey_port_get_state(FAR struct monkey_port_dev_s *dev,
 
     case MONKEY_DEV_TYPE_BUTTON:
       retval = button_read(dev->fd, &state->button.value);
-      if (dev->last_state.button.value == state->button.value)
-        {
-          /* Do not report if the status has not changed */
-
-          retval = false;
-        }
       break;
 
     default:
       break;
     }
-
-  dev->last_state = *state;
 
   return retval;
 }

@@ -181,7 +181,7 @@ static bool monkey_update_uinput(FAR struct monkey_s *monkey)
  * Name: monkey_update_input
  ****************************************************************************/
 
-static void monkey_update_input(FAR struct monkey_s *monkey)
+static bool monkey_update_input(FAR struct monkey_s *monkey)
 {
   union monkey_dev_state_u state;
   enum monkey_dev_type_e type;
@@ -207,7 +207,11 @@ static void monkey_update_input(FAR struct monkey_s *monkey)
         {
           monkey_recorder_write(monkey->recorder, &state);
         }
+
+      return true;
     }
+
+  return false;
 }
 
 /****************************************************************************
@@ -237,7 +241,16 @@ int monkey_update(FAR struct monkey_s *monkey)
     }
   else
     {
-      monkey_update_input(monkey);
+      if (monkey_update_input(monkey))
+        {
+          /* no need for sleep */
+
+          return 0;
+        }
+      else
+        {
+          return -1;
+        }
     }
 
   next_period = monkey_random(monkey->config.period.min,

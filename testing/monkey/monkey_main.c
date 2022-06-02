@@ -273,6 +273,11 @@ static enum monkey_wait_res_e monkey_wait(uint32_t ms)
 
   enum monkey_wait_res_e res = MONKEY_WAIT_RES_ERROR;
 
+  if (ms == 0)
+    {
+      return MONKEY_WAIT_RES_AGAIN;
+    }
+
   timeout.tv_sec = ms / 1000;
   timeout.tv_nsec = (ms % 1000) * 1000000;
 
