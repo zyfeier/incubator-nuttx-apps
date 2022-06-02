@@ -22,9 +22,11 @@
  * Included Files
  ****************************************************************************/
 
+#include <nuttx/config.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "monkey.h"
 #include "monkey_assert.h"
 #include "monkey_log.h"
@@ -64,20 +66,33 @@ static bool monkey_update_uinput(FAR struct monkey_s *monkey)
           state.touch.x = monkey_random(0, x_max);
           state.touch.y = monkey_random(0, y_max);
           state.touch.is_pressed = monkey_get_random_press(50);
+          monkey_port_set_state(monkey->dev, &state);
         }
       else
         {
-          int shift = 0;
-          uint32_t value = 0;
-          for (; shift < 32; shift++)
+          const int btn_num = CONFIG_TESTING_MONKEY_BUTTON_NUM;
+          int btn_bits;
+          if (!btn_num)
             {
-              value |= (monkey_get_random_press(30) << shift);
+              MONKEY_LOG_ERROR("Button test number is 0");
+              return false;
             }
 
-          state.button.value = value;
+          btn_bits = monkey_random(0, btn_num - 1);
+
+          /* press button */
+
+          state.button.value = 1 << btn_bits;
+          monkey_port_set_state(monkey->dev, &state);
+
+          usleep(CONFIG_TESTING_MONKEY_BUTTON_CLICK_TIME * 1000);
+
+          /* release button */
+
+          state.button.value = 0;
+          monkey_port_set_state(monkey->dev, &state);
         }
 
-      monkey_port_set_state(monkey->dev, &state);
       return true;
     }
 

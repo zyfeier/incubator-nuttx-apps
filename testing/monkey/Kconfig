@@ -56,4 +56,13 @@ config TESTING_MONKEY_SCREEN_IS_ROUND
 	bool "Round screen"
 	default n
 
+config TESTING_MONKEY_BUTTON_NUM
+	int "Button test number"
+	range 0 32
+	default 1
+
+config TESTING_MONKEY_BUTTON_CLICK_TIME
+	int "Button click hold time[ms]"
+	default 100
+
 endif

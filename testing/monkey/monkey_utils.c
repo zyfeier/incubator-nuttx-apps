@@ -69,8 +69,8 @@ int monkey_random(int min, int max)
       return min;
     }
 
-  long diff = max - min;
-  return rand() % diff + 1 + min;
+  long diff = max - min + 1;
+  return rand() % diff + min;
 }
 
 /****************************************************************************
