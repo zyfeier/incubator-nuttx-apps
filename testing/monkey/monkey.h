@@ -44,8 +44,7 @@ extern "C"
  * Name: monkey_create
  ****************************************************************************/
 
-FAR struct monkey_s *monkey_create(FAR const char *dev_path,
-                                   enum monkey_dev_type_e type);
+FAR struct monkey_s *monkey_create(int dev_type_mask);
 
 /****************************************************************************
  * Name: monkey_update
@@ -76,8 +75,7 @@ void monkey_set_config(FAR struct monkey_s *monkey,
  * Name: monkey_set_mode
  ****************************************************************************/
 
-void monkey_set_mode(FAR struct monkey_s *monkey,
-                     enum monkey_mode_type_e mode);
+void monkey_set_mode(FAR struct monkey_s *monkey, enum monkey_mode_e mode);
 
 /****************************************************************************
  * Name: monkey_set_period

@@ -32,7 +32,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include "monkey.h"
-#include "monkey_utils.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -40,14 +39,25 @@
 
 #define MONKEY_PREFIX "monkey"
 
+#define OPTARG_TO_VALUE(value, type, base)                             \
+  do                                                                   \
+  {                                                                    \
+    FAR char *ptr;                                                     \
+    value = (type)strtoul(optarg, &ptr, base);                         \
+    if (*ptr != '\0')                                                  \
+      {                                                                \
+        printf(MONKEY_PREFIX "Parameter error: -%c %s\n", ch, optarg); \
+        show_usage(argv[0], EXIT_FAILURE);                             \
+      }                                                                \
+  } while (0)
+
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
 
 struct monkey_param_s
 {
-  FAR const char *dev_path;
-  FAR const char *dev_type;
+  int dev_type_mask;
   FAR const char *file_path;
   int hor_res;
   int ver_res;
@@ -74,11 +84,14 @@ enum monkey_wait_res_e
 static void show_usage(FAR const char *progname, int exitcode)
 {
   printf("\nUsage: %s"
-         " -d <string> -t <string> -f <string> -p <string> -s <string>\n",
+         " -t <hex-value> -f <string> -p <string> -s <string>\n",
          progname);
   printf("\nWhere:\n");
-  printf("  -d <string> Device path.\n");
-  printf("  -t <string> Device type: touch; button; utouch; ubutton.\n");
+  printf("  -t <hex-value> Device type mask: uinput = 0x%02X;"
+         " touch = 0x%02X; button = 0x%02X.\n",
+         MONKEY_UINPUT_TYPE_MASK,
+         MONKEY_DEV_TYPE_TOUCH,
+         MONKEY_DEV_TYPE_BUTTON);
   printf("  -f <string> Recorder playback file path.\n");
   printf("  -p <string> Period(ms) range: "
          "<decimal-value min>-<decimal-value max>\n");
@@ -95,27 +108,15 @@ static void show_usage(FAR const char *progname, int exitcode)
 static FAR struct monkey_s *monkey_init(
                             FAR const struct monkey_param_s *param)
 {
-  enum monkey_dev_type_e type;
   FAR struct monkey_s *monkey;
   struct monkey_config_s config;
 
-  if (!param->dev_path)
+  if (!param->dev_type_mask)
     {
-      printf(MONKEY_PREFIX ": NO device path\n");
       show_usage(MONKEY_PREFIX, EXIT_FAILURE);
-      return NULL;
     }
 
-  type = monkey_dev_name2type(param->dev_type);
-
-  if (type == MONKEY_DEV_TYPE_UNKNOW)
-    {
-      printf(MONKEY_PREFIX ": Unknow device type\n");
-      show_usage(MONKEY_PREFIX, EXIT_FAILURE);
-      return NULL;
-    }
-
-  monkey = monkey_create(param->dev_path, type);
+  monkey = monkey_create(param->dev_type_mask);
 
   if (!monkey)
     {
@@ -132,21 +133,21 @@ static FAR struct monkey_s *monkey_init(
   config.period.max = param->period_max;
   monkey_set_config(monkey, &config);
 
-  printf(MONKEY_PREFIX ": screen: %dx%d %s\n",
+  printf(MONKEY_PREFIX ": Screen: %dx%d %s\n",
          config.screen.hor_res,
          config.screen.ver_res,
          (config.screen.type == MONKEY_SCREEN_TYPE_ROUND)
          ? "ROUND" : "RECT");
 
-  printf(MONKEY_PREFIX ": period: %" PRIu32 " ~ %" PRIu32 "ms\n",
+  printf(MONKEY_PREFIX ": Period: %" PRIu32 " ~ %" PRIu32 "ms\n",
          config.period.min,
          config.period.max);
 
-  if (MONKEY_IS_UINPUT_TYPE(type))
+  if (MONKEY_IS_UINPUT_TYPE(param->dev_type_mask))
     {
       if (param->file_path)
         {
-          monkey_set_mode(monkey, MONKEY_MODE_ORDER);
+          monkey_set_mode(monkey, MONKEY_MODE_PLAYBACK);
           if (!monkey_set_recorder_path(monkey, param->file_path))
             {
               goto failed;
@@ -159,6 +160,7 @@ static FAR struct monkey_s *monkey_init(
     }
   else
     {
+      monkey_set_mode(monkey, MONKEY_MODE_RECORD);
       if (!monkey_set_recorder_path(monkey,
                                     CONFIG_TESTING_MONKEY_REC_DIR_PATH))
         {
@@ -199,15 +201,12 @@ static void parse_commandline(int argc, FAR char **argv,
   param->period_min = CONFIG_TESTING_MONKEY_PERIOD_MIN_DEFAULT;
   param->period_max = CONFIG_TESTING_MONKEY_PERIOD_MAX_DEFAULT;
 
-  while ((ch = getopt(argc, argv, "d:t:f:p:s:")) != ERROR)
+  while ((ch = getopt(argc, argv, "t:f:p:s:")) != ERROR)
     {
       switch (ch)
         {
-          case 'd':
-            param->dev_path = optarg;
-            break;
           case 't':
-            param->dev_type = optarg;
+            OPTARG_TO_VALUE(param->dev_type_mask, int, 16);
             break;
           case 'f':
             param->file_path = optarg;

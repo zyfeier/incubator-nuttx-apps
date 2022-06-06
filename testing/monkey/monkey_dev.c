@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/testing/monkey/monkey_port.c
+ * apps/testing/monkey/monkey_dev.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -35,7 +35,7 @@
 #include <unistd.h>
 #include "monkey_assert.h"
 #include "monkey_log.h"
-#include "monkey_port.h"
+#include "monkey_dev.h"
 #include "monkey_utils.h"
 
 /****************************************************************************
@@ -135,41 +135,21 @@ static bool button_read(int fd, FAR uint32_t *value)
 }
 
 /****************************************************************************
- * Name: wait_fd_data_available
+ * Name: monkey_dev_create
  ****************************************************************************/
 
-static bool wait_fd_data_available(int fd)
+FAR struct monkey_dev_s *monkey_dev_create(FAR const char *dev_path,
+                                           enum monkey_dev_type_e type)
 {
-  struct pollfd fds[1];
-  fds[0].fd = fd;
-  fds[0].events = POLLIN | POLLPRI;
-  fds[0].revents = 0;
-
-  if (poll(fds, 1, -1) < 0)
-    {
-      MONKEY_LOG_WARN("failed: %d", errno);
-      return false;
-    }
-
-  return true;
-}
-
-/****************************************************************************
- * Name: monkey_port_create
- ****************************************************************************/
-
-FAR struct monkey_port_dev_s *monkey_port_create(FAR const char *dev_path,
-                                              enum monkey_dev_type_e type)
-{
-  FAR struct monkey_port_dev_s *dev;
+  FAR struct monkey_dev_s *dev;
   int oflag;
   int fd;
 
   MONKEY_ASSERT_NULL(dev_path);
 
-  dev = malloc(sizeof(struct monkey_port_dev_s));
+  dev = malloc(sizeof(struct monkey_dev_s));
   MONKEY_ASSERT_NULL(dev);
-  memset(dev, 0, sizeof(struct monkey_port_dev_s));
+  memset(dev, 0, sizeof(struct monkey_dev_s));
 
   if (MONKEY_IS_UINPUT_TYPE(type))
     {
@@ -214,10 +194,10 @@ failed:
  ****************************************************************************/
 
 /****************************************************************************
- * Name: monkey_port_delete
+ * Name: monkey_dev_delete
  ****************************************************************************/
 
-void monkey_port_delete(FAR struct monkey_port_dev_s *dev)
+void monkey_dev_delete(FAR struct monkey_dev_s *dev)
 {
   MONKEY_ASSERT_NULL(dev);
 
@@ -225,9 +205,10 @@ void monkey_port_delete(FAR struct monkey_port_dev_s *dev)
     {
       /* Reset input state */
 
-      union monkey_dev_state_u state;
+      struct monkey_dev_state_s state;
       memset(&state, 0, sizeof(state));
-      monkey_port_set_state(dev, &state);
+      state.type = dev->type;
+      monkey_dev_set_state(dev, &state);
 
       MONKEY_LOG_NOTICE("close fd: %d", dev->fd);
       close(dev->fd);
@@ -238,25 +219,25 @@ void monkey_port_delete(FAR struct monkey_port_dev_s *dev)
 }
 
 /****************************************************************************
- * Name: monkey_port_set_state
+ * Name: monkey_dev_set_state
  ****************************************************************************/
 
-void monkey_port_set_state(FAR struct monkey_port_dev_s *dev,
-                           FAR const union monkey_dev_state_u *state)
+void monkey_dev_set_state(FAR struct monkey_dev_s *dev,
+                           FAR const struct monkey_dev_state_s *state)
 {
   MONKEY_ASSERT_NULL(dev);
 
-  switch (dev->type)
+  switch (MONKEY_GET_DEV_TYPE(dev->type))
     {
-    case MONKEY_DEV_TYPE_UTOUCH:
+    case MONKEY_DEV_TYPE_TOUCH:
       utouch_write(dev->fd,
-                   state->touch.x,
-                  state->touch.y,
-                  state->touch.is_pressed);
+                   state->data.touch.x,
+                   state->data.touch.y,
+                   state->data.touch.is_pressed);
       break;
 
-    case MONKEY_DEV_TYPE_UBUTTON:
-      ubutton_write(dev->fd, state->button.value);
+    case MONKEY_DEV_TYPE_BUTTON:
+      ubutton_write(dev->fd, state->data.button.value);
       break;
 
     default:
@@ -265,33 +246,30 @@ void monkey_port_set_state(FAR struct monkey_port_dev_s *dev,
 }
 
 /****************************************************************************
- * Name: monkey_port_get_state
+ * Name: monkey_dev_get_state
  ****************************************************************************/
 
-bool monkey_port_get_state(FAR struct monkey_port_dev_s *dev,
-                           FAR union monkey_dev_state_u *state)
+bool monkey_dev_get_state(FAR struct monkey_dev_s *dev,
+                          FAR struct monkey_dev_state_s *state)
 {
   bool retval;
   MONKEY_ASSERT_NULL(dev);
 
   retval = false;
 
-  if (!wait_fd_data_available(dev->fd))
-    {
-      return false;
-    }
+  state->type = dev->type;
 
   switch (dev->type)
     {
     case MONKEY_DEV_TYPE_TOUCH:
       retval = touch_read(dev->fd,
-                          &state->touch.x,
-                          &state->touch.y,
-                          &state->touch.is_pressed);
+                          &state->data.touch.x,
+                          &state->data.touch.y,
+                          &state->data.touch.is_pressed);
       break;
 
     case MONKEY_DEV_TYPE_BUTTON:
-      retval = button_read(dev->fd, &state->button.value);
+      retval = button_read(dev->fd, &state->data.button.value);
       break;
 
     default:
@@ -302,12 +280,48 @@ bool monkey_port_get_state(FAR struct monkey_port_dev_s *dev,
 }
 
 /****************************************************************************
- * Name: monkey_port_get_state
+ * Name: monkey_dev_get_state
  ****************************************************************************/
 
-enum monkey_dev_type_e monkey_port_get_type(
-                       FAR struct monkey_port_dev_s *dev)
+enum monkey_dev_type_e monkey_dev_get_type(
+                       FAR struct monkey_dev_s *dev)
 {
   MONKEY_ASSERT_NULL(dev);
   return dev->type;
+}
+
+/****************************************************************************
+ * Name: monkey_dev_get_available
+ ****************************************************************************/
+
+int monkey_dev_get_available(FAR struct monkey_dev_s *devs[], int dev_num)
+{
+  int i;
+  int available = 0;
+  struct pollfd fds[MONKEY_DEV_MAX_NUM];
+
+  for (i = 0; i < dev_num; i++)
+    {
+      devs[i]->is_available = false;
+      fds[i].fd = devs[i]->fd;
+      fds[i].events = POLLIN | POLLPRI;
+      fds[i].revents = 0;
+    }
+
+  if (poll(fds, dev_num, -1) < 0)
+    {
+      MONKEY_LOG_WARN("stop: %d", errno);
+      return -1;
+    }
+
+  for (i = 0; i < dev_num; i++)
+    {
+      if (fds[i].revents & (POLLIN | POLLPRI))
+        {
+          devs[i]->is_available = true;
+          available++;
+        }
+    }
+
+  return available;
 }

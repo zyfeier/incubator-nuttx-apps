@@ -32,15 +32,16 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define MONKEY_FLAG_UINPUT_TYPE     (0x10)
-#define MONKEY_IS_UINPUT_TYPE(type) (!!((type) & MONKEY_FLAG_UINPUT_TYPE))
-#define MONKEY_GET_DEV_TYPE(type)   (type & ~MONKEY_FLAG_UINPUT_TYPE)
+#define MONKEY_UINPUT_TYPE_MASK     (0x10)
+#define MONKEY_IS_UINPUT_TYPE(type) (!!((type) & MONKEY_UINPUT_TYPE_MASK))
+#define MONKEY_GET_DEV_TYPE(type)   (type & ~MONKEY_UINPUT_TYPE_MASK)
+#define MONKEY_DEV_MAX_NUM          2
 
 /****************************************************************************
  * Public Types
  ****************************************************************************/
 
-struct monkey_port_dev_s;
+struct monkey_dev_s;
 struct monkey_recorder_s;
 
 enum monkey_screen_type_e
@@ -49,46 +50,50 @@ enum monkey_screen_type_e
   MONKEY_SCREEN_TYPE_ROUND
 };
 
-enum monkey_mode_type_e
+enum monkey_mode_e
 {
   MONKEY_MODE_RANDOM,
-  MONKEY_MODE_ORDER,
+  MONKEY_MODE_RECORD,
+  MONKEY_MODE_PLAYBACK,
 };
 
 enum monkey_dev_type_e
 {
-  MONKEY_DEV_TYPE_UNKNOW,
-  MONKEY_DEV_TYPE_TOUCH = 1,
-  MONKEY_DEV_TYPE_BUTTON = 2,
-  MONKEY_DEV_TYPE_UTOUCH = MONKEY_DEV_TYPE_TOUCH | MONKEY_FLAG_UINPUT_TYPE,
-  MONKEY_DEV_TYPE_UBUTTON = MONKEY_DEV_TYPE_BUTTON | MONKEY_FLAG_UINPUT_TYPE,
+  MONKEY_DEV_TYPE_UNKNOW  = 0x00,
+  MONKEY_DEV_TYPE_TOUCH   = 0x01,
+  MONKEY_DEV_TYPE_BUTTON  = 0x02,
+  MONKEY_DEV_TYPE_UTOUCH  = MONKEY_UINPUT_TYPE_MASK | MONKEY_DEV_TYPE_TOUCH,
+  MONKEY_DEV_TYPE_UBUTTON = MONKEY_UINPUT_TYPE_MASK | MONKEY_DEV_TYPE_BUTTON,
 };
 
-union monkey_dev_state_u
+struct monkey_dev_state_s
 {
-  struct
+  enum monkey_dev_type_e type;
+  union
   {
-    int x;
-    int y;
-    int is_pressed;
-  } touch;
+    struct
+    {
+      int x;
+      int y;
+      int is_pressed;
+    } touch;
 
-  struct
-  {
-    uint32_t value;
-  } button;
-};
-
-struct monkey_screen_s
-{
-  int hor_res;
-  int ver_res;
-  enum monkey_screen_type_e type;
+    struct
+    {
+      uint32_t value;
+    } button;
+  } data;
 };
 
 struct monkey_config_s
 {
-  struct monkey_screen_s screen;
+  struct
+  {
+    enum monkey_screen_type_e type;
+    int hor_res;
+    int ver_res;
+  } screen;
+
   struct
   {
     uint32_t min;
@@ -99,14 +104,14 @@ struct monkey_config_s
 struct monkey_s
 {
   struct monkey_config_s config;
-  enum monkey_mode_type_e mode;
-  FAR struct monkey_port_dev_s *dev;
+  enum monkey_mode_e mode;
+  FAR struct monkey_dev_s *devs[MONKEY_DEV_MAX_NUM];
+  int dev_num;
   FAR struct monkey_recorder_s *recorder;
   struct
   {
-      bool not_first;
-      union monkey_dev_state_u last_state;
-      uint32_t last_time_stamp;
+      struct monkey_dev_state_s state;
+      uint32_t time_stamp;
   } playback_ctx;
 };
 

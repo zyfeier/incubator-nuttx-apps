@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/testing/monkey/monkey_port.h
+ * apps/testing/monkey/monkey_dev.h
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,8 +18,8 @@
  *
  ****************************************************************************/
 
-#ifndef __MONKEY_PORT_H__
-#define __MONKEY_PORT_H__
+#ifndef __MONKEY_DEV_H__
+#define __MONKEY_DEV_H__
 
 /****************************************************************************
  * Included Files
@@ -31,11 +31,11 @@
  * Public Types
  ****************************************************************************/
 
-struct monkey_port_dev_s
+struct monkey_dev_s
 {
   int fd;
   enum monkey_dev_type_e type;
-  union monkey_dev_state_u state;
+  bool is_available;
 };
 
 /****************************************************************************
@@ -51,48 +51,47 @@ extern "C"
 #endif
 
 /****************************************************************************
- * Name: monkey_port_create
+ * Name: monkey_dev_create
  ****************************************************************************/
 
-FAR struct monkey_port_dev_s *monkey_port_create(FAR const char *dev_path,
-                                              enum monkey_dev_type_e type);
+FAR struct monkey_dev_s *monkey_dev_create(FAR const char *dev_path,
+                                           enum monkey_dev_type_e type);
 
 /****************************************************************************
- * Name: monkey_port_delete
+ * Name: monkey_dev_delete
  ****************************************************************************/
 
-void monkey_port_delete(FAR struct monkey_port_dev_s *dev);
+void monkey_dev_delete(FAR struct monkey_dev_s *dev);
 
 /****************************************************************************
- * Name: monkey_port_set_state
+ * Name: monkey_dev_set_state
  ****************************************************************************/
 
-void monkey_port_set_state(FAR struct monkey_port_dev_s *dev,
-                           FAR const union monkey_dev_state_u *state);
+void monkey_dev_set_state(FAR struct monkey_dev_s *dev,
+                          FAR const struct monkey_dev_state_s *state);
 
 /****************************************************************************
- * Name: monkey_port_get_state
+ * Name: monkey_dev_get_state
  ****************************************************************************/
 
-bool monkey_port_get_state(FAR struct monkey_port_dev_s *dev,
-                           FAR union monkey_dev_state_u *state);
+bool monkey_dev_get_state(FAR struct monkey_dev_s *dev,
+                          FAR struct monkey_dev_state_s *state);
 
 /****************************************************************************
- * Name: monkey_port_get_type
+ * Name: monkey_dev_get_type
  ****************************************************************************/
 
-enum monkey_dev_type_e monkey_port_get_type(
-                       FAR struct monkey_port_dev_s *dev);
+enum monkey_dev_type_e monkey_dev_get_type(FAR struct monkey_dev_s *dev);
 
 /****************************************************************************
- * Name: monkey_port_get_type_name
+ * Name: monkey_dev_get_available
  ****************************************************************************/
 
-FAR const char *monkey_port_get_type_name(enum monkey_dev_type_e type);
+int monkey_dev_get_available(FAR struct monkey_dev_s *devs[], int dev_num);
 
 #undef EXTERN
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __MONKEY_PORT_H__ */
+#endif /* __MONKEY_DEV_H__ */

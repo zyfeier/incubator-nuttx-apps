@@ -159,10 +159,10 @@ bool monkey_dir_check(FAR const char *dir_path)
 
 FAR const char *monkey_dev_type2name(enum monkey_dev_type_e type)
 {
-  int i = 0;
+  int i;
   const int grp_len = sizeof(g_type_name_grp)
                     / sizeof(struct monkey_port_dev_type_name_s);
-  for (; i < grp_len; i++)
+  for (i = 0; i < grp_len; i++)
     {
       if (type == g_type_name_grp[i].type)
         {
@@ -179,12 +179,12 @@ FAR const char *monkey_dev_type2name(enum monkey_dev_type_e type)
 
 enum monkey_dev_type_e monkey_dev_name2type(FAR const char *name)
 {
-  int i = 0;
+  int i;
   const int grp_len = sizeof(g_type_name_grp)
                     / sizeof(struct monkey_port_dev_type_name_s);
   if (name)
     {
-      for (; i < grp_len; i++)
+      for (i = 0; i < grp_len; i++)
         {
           if (strcmp(name, g_type_name_grp[i].name) == 0)
             {

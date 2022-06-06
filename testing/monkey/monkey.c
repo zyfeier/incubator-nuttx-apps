@@ -30,8 +30,28 @@
 #include "monkey_recorder.h"
 #include "monkey_assert.h"
 #include "monkey_log.h"
-#include "monkey_port.h"
+#include "monkey_dev.h"
 #include "monkey_utils.h"
+
+/****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+#define MONKEY_DEV_CREATE_MATCH(monkey, type_mask, type)                  \
+do {                                                                      \
+  if ((type_mask & MONKEY_DEV_TYPE_##type) == MONKEY_DEV_TYPE_##type)     \
+    {                                                                     \
+      FAR struct monkey_dev_s *dev;                                       \
+      dev = monkey_dev_create(CONFIG_TESTING_MONKEY_DEV_PATH_##type,      \
+                              MONKEY_DEV_TYPE_##type);                    \
+      if (!dev)                                                           \
+        {                                                                 \
+          goto failed;                                                    \
+        }                                                                 \
+      monkey->devs[monkey->dev_num] = dev;                                \
+      monkey->dev_num++;                                                  \
+    }                                                                     \
+} while (0)
 
 /****************************************************************************
  * Public Functions
@@ -41,23 +61,38 @@
  * Name: monkey_create
  ****************************************************************************/
 
-FAR struct monkey_s *monkey_create(FAR const char *dev_path,
-                                   enum monkey_dev_type_e type)
+FAR struct monkey_s *monkey_create(int dev_type_mask)
 {
   FAR struct monkey_s *monkey = malloc(sizeof(struct monkey_s));
   MONKEY_ASSERT_NULL(monkey);
   memset(monkey, 0, sizeof(struct monkey_s));
 
-  monkey->dev = monkey_port_create(dev_path, type);
-  if (!monkey->dev)
+  if (MONKEY_IS_UINPUT_TYPE(dev_type_mask))
     {
-      free(monkey);
-      return NULL;
+      MONKEY_DEV_CREATE_MATCH(monkey, dev_type_mask, UTOUCH);
+      MONKEY_DEV_CREATE_MATCH(monkey, dev_type_mask, UBUTTON);
     }
+  else
+    {
+      MONKEY_DEV_CREATE_MATCH(monkey, dev_type_mask, TOUCH);
+      MONKEY_DEV_CREATE_MATCH(monkey, dev_type_mask, BUTTON);
+    }
+
+  if (monkey->dev_num == 0)
+    {
+      MONKEY_LOG_ERROR("NO enabled device detected");
+      goto failed;
+    }
+
+  MONKEY_ASSERT(monkey->dev_num <= MONKEY_DEV_MAX_NUM);
 
   MONKEY_LOG_NOTICE("OK");
 
   return monkey;
+
+failed:
+  monkey_delete(monkey);
+  return NULL;
 }
 
 /****************************************************************************
@@ -66,8 +101,13 @@ FAR struct monkey_s *monkey_create(FAR const char *dev_path,
 
 void monkey_delete(FAR struct monkey_s *monkey)
 {
+  int i;
   MONKEY_ASSERT_NULL(monkey);
-  monkey_port_delete(monkey->dev);
+
+  for (i = 0; i < monkey->dev_num; i++)
+    {
+        monkey_dev_delete(monkey->devs[i]);
+    }
 
   if (monkey->recorder)
     {
@@ -111,10 +151,9 @@ void monkey_set_config(FAR struct monkey_s *monkey,
  ****************************************************************************/
 
 void monkey_set_mode(FAR struct monkey_s *monkey,
-                     enum monkey_mode_type_e mode)
+                     enum monkey_mode_e mode)
 {
   MONKEY_ASSERT_NULL(monkey);
-  MONKEY_LOG_NOTICE("%s", mode == MONKEY_MODE_RANDOM ? "random" : "order");
   monkey->mode = mode;
 }
 
@@ -136,21 +175,21 @@ void monkey_set_period(FAR struct monkey_s *monkey, uint32_t period)
 bool monkey_set_recorder_path(FAR struct monkey_s *monkey,
                               FAR const char *path)
 {
-  enum monkey_dev_type_e type;
-
   MONKEY_ASSERT_NULL(monkey);
 
-  type = monkey_port_get_type(monkey->dev);
-
-  if (MONKEY_IS_UINPUT_TYPE(type))
+  if (monkey->mode == MONKEY_MODE_RECORD)
     {
       monkey->recorder = monkey_recorder_create(path,
-                         type, MONKEY_RECORDER_MODE_PLAYBACK);
+                          MONKEY_RECORDER_MODE_RECORD);
+    }
+  else if (monkey->mode == MONKEY_MODE_PLAYBACK)
+    {
+      monkey->recorder = monkey_recorder_create(path,
+                          MONKEY_RECORDER_MODE_PLAYBACK);
     }
   else
     {
-      monkey->recorder = monkey_recorder_create(path,
-                         type, MONKEY_RECORDER_MODE_RECORD);
+      MONKEY_LOG_WARN("mismatched mode: %d", monkey->mode);
     }
 
   return (monkey->recorder != NULL);

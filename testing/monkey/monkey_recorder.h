@@ -40,7 +40,6 @@ enum monkey_recorder_mode_e
 struct monkey_recorder_s
 {
   int fd;
-  enum monkey_dev_type_e type;
   enum monkey_recorder_mode_e mode;
 };
 
@@ -51,7 +50,6 @@ enum monkey_recorder_res_e
   MONKEY_RECORDER_RES_DEV_TYPE_ERROR,
   MONKEY_RECORDER_RES_WRITE_ERROR,
   MONKEY_RECORDER_RES_READ_ERROR,
-  MONKEY_RECORDER_RES_DIR_ERROR,
   MONKEY_RECORDER_RES_PARSER_ERROR
 };
 
@@ -71,9 +69,7 @@ extern "C"
  * Name: monkey_recorder_create
  ****************************************************************************/
 
-FAR struct monkey_recorder_s *monkey_recorder_create(
-                                          FAR const char *path,
-                                          enum monkey_dev_type_e type,
+FAR struct monkey_recorder_s *monkey_recorder_create(FAR const char *path,
                                           enum monkey_recorder_mode_e mode);
 
 /****************************************************************************
@@ -88,7 +84,7 @@ void monkey_recorder_delete(FAR struct monkey_recorder_s *recorder);
 
 enum monkey_recorder_res_e monkey_recorder_write(
                                   FAR struct monkey_recorder_s *recorder,
-                                  FAR const union monkey_dev_state_u *state);
+                                  FAR const struct monkey_dev_state_s *state);
 
 /****************************************************************************
  * Name: monkey_recorder_read
@@ -96,7 +92,7 @@ enum monkey_recorder_res_e monkey_recorder_write(
 
 enum monkey_recorder_res_e monkey_recorder_read(
                                     FAR struct monkey_recorder_s *recorder,
-                                    FAR union monkey_dev_state_u *state,
+                                    FAR struct monkey_dev_state_s *state,
                                     FAR uint32_t *time_stamp);
 
 /****************************************************************************

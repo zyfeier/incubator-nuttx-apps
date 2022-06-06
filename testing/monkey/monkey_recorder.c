@@ -34,7 +34,7 @@
 #include <unistd.h>
 #include "monkey_assert.h"
 #include "monkey_log.h"
-#include "monkey_port.h"
+#include "monkey_dev.h"
 #include "monkey_recorder.h"
 #include "monkey_utils.h"
 
@@ -42,8 +42,9 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define MONKEY_REC_TOUCH_FMT "T%" PRIu32 ",X%d,Y%d,PR%d\n"
-#define MONKEY_REC_BTN_FMT   "T%" PRIu32 ",BTN%" PRIu32 "\n"
+#define MONKEY_REC_HEAD_FMT  "T%" PRIu32 ",D%X,"
+#define MONKEY_REC_TOUCH_FMT MONKEY_REC_HEAD_FMT "X%d,Y%d,PR%d\n"
+#define MONKEY_REC_BTN_FMT   MONKEY_REC_HEAD_FMT "V%" PRIu32 "\n"
 #define MONKEY_REC_FILE_EXT  ".csv"
 #define MONKEY_REC_FILE_HEAD "rec_"
 
@@ -56,18 +57,16 @@
  ****************************************************************************/
 
 static void monkey_recorder_gen_file_path(FAR char *path_buf,
-                                      size_t buf_size,
-                                      FAR const char *dir_path,
-                                      enum monkey_dev_type_e type)
+                                          size_t buf_size,
+                                          FAR const char *dir_path)
 {
   char localtime_str_buf[64];
 
   monkey_get_localtime_str(localtime_str_buf, sizeof(localtime_str_buf));
 
   snprintf(path_buf, buf_size,
-           "%s/" MONKEY_REC_FILE_HEAD "%s_%s" MONKEY_REC_FILE_EXT,
+           "%s/" MONKEY_REC_FILE_HEAD "%s" MONKEY_REC_FILE_EXT,
            dir_path,
-           monkey_dev_type2name(type),
            localtime_str_buf);
 }
 
@@ -118,18 +117,6 @@ static int monkey_readline(int fd, FAR char *ptr, int maxlen)
 }
 
 /****************************************************************************
- * Name: monkey_recorder_write_timestamp
- ****************************************************************************/
-
-static void monkey_recorder_write_timestamp(
-                                  FAR struct monkey_recorder_s *recorder)
-{
-  union monkey_dev_state_u state;
-  memset(&state, 0, sizeof(state));
-  monkey_recorder_write(recorder, &state);
-}
-
-/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -138,7 +125,6 @@ static void monkey_recorder_write_timestamp(
  ****************************************************************************/
 
 FAR struct monkey_recorder_s *monkey_recorder_create(FAR const char *path,
-                                            enum monkey_dev_type_e type,
                                             enum monkey_recorder_mode_e mode)
 {
   char file_path[PATH_MAX];
@@ -160,8 +146,9 @@ FAR struct monkey_recorder_s *monkey_recorder_create(FAR const char *path,
           goto failed;
         }
 
-      monkey_recorder_gen_file_path(file_path, sizeof(file_path),
-                                    path, type);
+      monkey_recorder_gen_file_path(file_path,
+                                    sizeof(file_path),
+                                    path);
       path_ptr = file_path;
       oflag = O_WRONLY | O_CREAT;
     }
@@ -178,17 +165,11 @@ FAR struct monkey_recorder_s *monkey_recorder_create(FAR const char *path,
       goto failed;
     }
 
-  recorder->type = type;
   recorder->fd = fd;
   recorder->mode = mode;
 
-  MONKEY_LOG_NOTICE("open %s success, fd = %d, type = %s, mode = %d",
-                    path_ptr, fd, monkey_dev_type2name(type), mode);
-
-  if (mode == MONKEY_RECORDER_MODE_RECORD)
-    {
-      monkey_recorder_write_timestamp(recorder);
-    }
+  MONKEY_LOG_NOTICE("open %s success, fd = %d, mode = %d",
+                    path_ptr, fd, mode);
 
   return recorder;
 
@@ -215,11 +196,6 @@ void monkey_recorder_delete(FAR struct monkey_recorder_s *recorder)
   MONKEY_ASSERT_NULL(recorder);
   if (recorder->fd > 0)
     {
-      if (recorder->mode == MONKEY_RECORDER_MODE_RECORD)
-        {
-          monkey_recorder_write_timestamp(recorder);
-        }
-
       MONKEY_LOG_NOTICE("close fd: %d", recorder->fd);
       close(recorder->fd);
       recorder->fd = -1;
@@ -234,27 +210,33 @@ void monkey_recorder_delete(FAR struct monkey_recorder_s *recorder)
 
 enum monkey_recorder_res_e monkey_recorder_write(
                                   FAR struct monkey_recorder_s *recorder,
-                                  FAR const union monkey_dev_state_u *state)
+                                  FAR const struct monkey_dev_state_s *state)
 {
-  MONKEY_ASSERT_NULL(recorder);
-  MONKEY_ASSERT(recorder->mode == MONKEY_RECORDER_MODE_RECORD);
-  char buffer[64];
+  char buffer[128];
   int len = -1;
   int ret;
+  uint32_t cur_tick;
 
-  switch (MONKEY_GET_DEV_TYPE(recorder->type))
+  MONKEY_ASSERT_NULL(recorder);
+  MONKEY_ASSERT(recorder->mode == MONKEY_RECORDER_MODE_RECORD);
+
+  cur_tick = monkey_tick_get();
+
+  switch (MONKEY_GET_DEV_TYPE(state->type))
   {
     case MONKEY_DEV_TYPE_TOUCH:
       len = snprintf(buffer, sizeof(buffer), MONKEY_REC_TOUCH_FMT,
-                     monkey_tick_get(),
-                     state->touch.x,
-                     state->touch.y,
-                     state->touch.is_pressed);
+                     cur_tick,
+                     state->type,
+                     state->data.touch.x,
+                     state->data.touch.y,
+                     state->data.touch.is_pressed);
       break;
     case MONKEY_DEV_TYPE_BUTTON:
       len = snprintf(buffer, sizeof(buffer), MONKEY_REC_BTN_FMT,
-                     monkey_tick_get(),
-                     state->button.value);
+                     cur_tick,
+                     state->type,
+                     state->data.button.value);
       break;
     default:
       return MONKEY_RECORDER_RES_DEV_TYPE_ERROR;
@@ -280,10 +262,11 @@ enum monkey_recorder_res_e monkey_recorder_write(
 
 enum monkey_recorder_res_e monkey_recorder_read(
                                       FAR struct monkey_recorder_s *recorder,
-                                      FAR union monkey_dev_state_u *state,
+                                      FAR struct monkey_dev_state_s *state,
                                       FAR uint32_t *time_stamp)
 {
-  char buffer[64];
+  char buffer[128];
+  int dev_type;
   int converted;
   int ret;
 
@@ -302,16 +285,30 @@ enum monkey_recorder_res_e monkey_recorder_read(
       return MONKEY_RECORDER_RES_END_OF_FILE;
     }
 
-  switch (MONKEY_GET_DEV_TYPE(recorder->type))
+  /* Read head to get device type */
+
+  converted = sscanf(buffer, MONKEY_REC_HEAD_FMT, time_stamp, &dev_type);
+
+  if (converted != 2)
+    {
+      return MONKEY_RECORDER_RES_PARSER_ERROR;
+    }
+
+  state->type = dev_type;
+
+  /* Get data */
+
+  switch (MONKEY_GET_DEV_TYPE(state->type))
     {
     case MONKEY_DEV_TYPE_TOUCH:
       converted = sscanf(buffer,
                          MONKEY_REC_TOUCH_FMT,
                          time_stamp,
-                         &state->touch.x,
-                         &state->touch.y,
-                         &state->touch.is_pressed);
-      if (converted != 4)
+                         &dev_type,
+                         &state->data.touch.x,
+                         &state->data.touch.y,
+                         &state->data.touch.is_pressed);
+      if (converted != 5)
         {
           return MONKEY_RECORDER_RES_PARSER_ERROR;
         }
@@ -320,8 +317,9 @@ enum monkey_recorder_res_e monkey_recorder_read(
       converted = sscanf(buffer,
                         MONKEY_REC_BTN_FMT,
                         time_stamp,
-                        &state->button.value);
-      if (converted != 2)
+                        &dev_type,
+                        &state->data.button.value);
+      if (converted != 3)
         {
           return MONKEY_RECORDER_RES_PARSER_ERROR;
         }

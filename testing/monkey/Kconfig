@@ -65,4 +65,20 @@ config TESTING_MONKEY_BUTTON_CLICK_TIME
 	int "Button click hold time[ms]"
 	default 100
 
+config TESTING_MONKEY_DEV_PATH_TOUCH
+	string "input device path - touch"
+	default "/dev/input0"
+
+config TESTING_MONKEY_DEV_PATH_BUTTON
+	string "input device path - button"
+	default "/dev/buttons"
+
+config TESTING_MONKEY_DEV_PATH_UTOUCH
+	string "uinput device path - utouch"
+	default "/dev/utouch"
+
+config TESTING_MONKEY_DEV_PATH_UBUTTON
+	string "uinput device path - ubutton"
+	default "/dev/ubutton"
+
 endif

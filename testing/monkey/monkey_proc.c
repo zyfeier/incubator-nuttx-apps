@@ -30,7 +30,7 @@
 #include "monkey.h"
 #include "monkey_assert.h"
 #include "monkey_log.h"
-#include "monkey_port.h"
+#include "monkey_dev.h"
 #include "monkey_recorder.h"
 #include "monkey_utils.h"
 
@@ -48,29 +48,31 @@ static int monkey_get_random_press(int probability)
 }
 
 /****************************************************************************
- * Name: monkey_update_uinput
+ * Name: monkey_update_uinput_ramdom
  ****************************************************************************/
 
-static bool monkey_update_uinput(FAR struct monkey_s *monkey)
+static bool monkey_update_uinput_ramdom(FAR struct monkey_s *monkey)
 {
-  enum monkey_dev_type_e type;
-  type = MONKEY_GET_DEV_TYPE(monkey_port_get_type(monkey->dev));
-
-  if (monkey->mode == MONKEY_MODE_RANDOM)
+  int i;
+  for (i = 0; i < monkey->dev_num; i++)
     {
-      union monkey_dev_state_u state;
-      if (type == MONKEY_DEV_TYPE_TOUCH)
+      struct monkey_dev_state_s state;
+      FAR struct monkey_dev_s *dev = monkey->devs[i];
+      state.type = monkey_dev_get_type(dev);
+
+      if (state.type & MONKEY_DEV_TYPE_TOUCH)
         {
           int x_max = monkey->config.screen.hor_res - 1;
           int y_max = monkey->config.screen.ver_res - 1;
-          state.touch.x = monkey_random(0, x_max);
-          state.touch.y = monkey_random(0, y_max);
-          state.touch.is_pressed = monkey_get_random_press(50);
-          monkey_port_set_state(monkey->dev, &state);
+          state.data.touch.x = monkey_random(0, x_max);
+          state.data.touch.y = monkey_random(0, y_max);
+          state.data.touch.is_pressed = monkey_get_random_press(50);
+          monkey_dev_set_state(dev, &state);
         }
-      else
+      else if (state.type & MONKEY_DEV_TYPE_BUTTON)
         {
           const int btn_num = CONFIG_TESTING_MONKEY_BUTTON_NUM;
+          int usleep_ret;
           int btn_bits;
           if (!btn_num)
             {
@@ -78,103 +80,190 @@ static bool monkey_update_uinput(FAR struct monkey_s *monkey)
               return false;
             }
 
+          /* select a button to click */
+
           btn_bits = monkey_random(0, btn_num - 1);
 
           /* press button */
 
-          state.button.value = 1 << btn_bits;
-          monkey_port_set_state(monkey->dev, &state);
+          state.data.button.value = 1 << btn_bits;
+          monkey_dev_set_state(dev, &state);
 
-          usleep(CONFIG_TESTING_MONKEY_BUTTON_CLICK_TIME * 1000);
+          usleep_ret = usleep(CONFIG_TESTING_MONKEY_BUTTON_CLICK_TIME
+                              * 1000);
 
           /* release button */
 
-          state.button.value = 0;
-          monkey_port_set_state(monkey->dev, &state);
-        }
+          state.data.button.value = 0;
+          monkey_dev_set_state(dev, &state);
 
-      return true;
-    }
+          /* detect monkey killed */
 
-  if (monkey->mode == MONKEY_MODE_ORDER)
-    {
-      uint32_t next_time_stamp;
-      uint32_t tick_elaps;
-      FAR uint32_t *last_time_stamp_p;
-      union monkey_dev_state_u next_state;
-      FAR union monkey_dev_state_u *last_state_p;
-      enum monkey_recorder_res_e res;
-
-      MONKEY_ASSERT_NULL(monkey->recorder);
-
-      last_time_stamp_p = &monkey->playback_ctx.last_time_stamp;
-      last_state_p = &monkey->playback_ctx.last_state;
-
-      if (!monkey->playback_ctx.not_first)
-        {
-          res = monkey_recorder_read(monkey->recorder,
-                                     last_state_p,
-                                     last_time_stamp_p);
-
-          if (res != MONKEY_RECORDER_RES_OK)
+          if (usleep_ret < 0)
             {
-              MONKEY_LOG_ERROR("read first line error: %d", res);
+              MONKEY_LOG_NOTICE("detect monkey killed");
               return false;
             }
-
-          res = monkey_recorder_read(monkey->recorder,
-                                     &next_state,
-                                     &next_time_stamp);
-
-          if (res != MONKEY_RECORDER_RES_OK)
-            {
-              MONKEY_LOG_ERROR("read second line error: %d", res);
-              return false;
-            }
-
-          monkey_port_set_state(monkey->dev, last_state_p);
-
-          tick_elaps = monkey_tick_elaps(next_time_stamp,
-                                         *last_time_stamp_p);
-          monkey_set_period(monkey, tick_elaps);
-
-          monkey->playback_ctx.not_first = true;
-          *last_time_stamp_p = next_time_stamp;
-          *last_state_p = next_state;
-          return true;
         }
-
-      res = monkey_recorder_read(monkey->recorder,
-                                 &next_state,
-                                 &next_time_stamp);
-      if (res != MONKEY_RECORDER_RES_OK)
+      else
         {
-          if (res == MONKEY_RECORDER_RES_END_OF_FILE)
-            {
-              MONKEY_LOG_WARN("end of file, reset recorder...");
-              monkey_recorder_reset(monkey->recorder);
-
-              monkey_port_set_state(monkey->dev, last_state_p);
-              monkey_set_period(monkey, 100);
-
-              monkey->playback_ctx.not_first = false;
-              return true;
-            }
-
-          MONKEY_LOG_ERROR("read error: %d", res);
-          return false;
+          MONKEY_LOG_WARN("unsupport device type: %d", state.type);
         }
-
-      monkey_port_set_state(monkey->dev, last_state_p);
-
-      tick_elaps = monkey_tick_elaps(next_time_stamp, *last_time_stamp_p);
-      monkey_set_period(monkey, tick_elaps);
-
-      *last_time_stamp_p = next_time_stamp;
-      *last_state_p = next_state;
     }
 
   return true;
+}
+
+/****************************************************************************
+ * Name: monkey_search_dev
+ ****************************************************************************/
+
+static FAR struct monkey_dev_s *monkey_search_dev(
+                                              FAR struct monkey_s *monkey,
+                                              enum monkey_dev_type_e type)
+{
+  int i;
+  for (i = 0; i < monkey->dev_num; i++)
+    {
+      FAR struct monkey_dev_s *dev = monkey->devs[i];
+      if (type == dev->type)
+        {
+          return dev;
+        }
+    }
+
+  return NULL;
+}
+
+/****************************************************************************
+ * Name: monkey_recorder_get_next
+ ****************************************************************************/
+
+static int monkey_recorder_get_next(FAR struct monkey_s *monkey,
+                                FAR uint32_t *cur_time_stamp_p,
+                                FAR struct monkey_dev_state_s *cur_state_p,
+                                FAR uint32_t *next_time_stamp_p,
+                                FAR struct monkey_dev_state_s *next_state_p)
+{
+  enum monkey_recorder_res_e res;
+
+  if (monkey->playback_ctx.time_stamp == 0)
+    {
+      res = monkey_recorder_read(monkey->recorder,
+                                 cur_state_p,
+                                 cur_time_stamp_p);
+
+      if (res != MONKEY_RECORDER_RES_OK)
+        {
+          MONKEY_LOG_ERROR("read first line failed: %d", res);
+          return 0;
+        }
+    }
+  else
+    {
+      *cur_time_stamp_p = monkey->playback_ctx.time_stamp;
+      *cur_state_p = monkey->playback_ctx.state;
+    }
+
+  res = monkey_recorder_read(monkey->recorder,
+                             next_state_p,
+                             next_time_stamp_p);
+
+  if (res != MONKEY_RECORDER_RES_OK)
+    {
+      if (res == MONKEY_RECORDER_RES_END_OF_FILE)
+        {
+          MONKEY_LOG_WARN("end of file");
+          return 1;
+        }
+
+      MONKEY_LOG_ERROR("read error: %d", res);
+      return 0;
+    }
+
+  monkey->playback_ctx.time_stamp = *next_time_stamp_p;
+  monkey->playback_ctx.state = *next_state_p;
+  return 2;
+}
+
+/****************************************************************************
+ * Name: monkey_update_uinput_playback
+ ****************************************************************************/
+
+static bool monkey_update_uinput_playback(FAR struct monkey_s *monkey)
+{
+  FAR uint32_t cur_time_stamp;
+  struct monkey_dev_state_s cur_state;
+  FAR uint32_t next_time_stamp;
+  struct monkey_dev_state_s next_state;
+
+  uint32_t tick_elaps;
+  FAR struct monkey_dev_s *dev;
+
+  int num_of_get;
+
+  MONKEY_ASSERT_NULL(monkey->recorder);
+
+  num_of_get = monkey_recorder_get_next(monkey,
+                                        &cur_time_stamp,
+                                        &cur_state,
+                                        &next_time_stamp,
+                                        &next_state);
+
+  switch (num_of_get)
+    {
+      case 1:
+        next_time_stamp = cur_time_stamp;
+        memset(&monkey->playback_ctx, 0, sizeof(monkey->playback_ctx));
+        monkey_recorder_reset(monkey->recorder);
+      case 2:
+        dev = monkey_search_dev(monkey,
+                                MONKEY_UINPUT_TYPE_MASK | cur_state.type);
+
+        if (dev)
+          {
+            monkey_dev_set_state(dev, &cur_state);
+          }
+        else
+          {
+            MONKEY_LOG_WARN("unsupport device type: %d", cur_state.type);
+          }
+
+        tick_elaps = monkey_tick_elaps(next_time_stamp, cur_time_stamp);
+        monkey_set_period(monkey, tick_elaps);
+        break;
+
+      default:
+        MONKEY_LOG_ERROR("error num_of_get = %d", num_of_get);
+        return false;
+    }
+
+  return true;
+}
+
+/****************************************************************************
+ * Name: monkey_update_uinput
+ ****************************************************************************/
+
+static bool monkey_update_uinput(FAR struct monkey_s *monkey)
+{
+  bool retval = false;
+  MONKEY_ASSERT_NULL(monkey);
+
+  if (monkey->mode == MONKEY_MODE_RANDOM)
+    {
+      retval = monkey_update_uinput_ramdom(monkey);
+    }
+  else if(monkey->mode == MONKEY_MODE_PLAYBACK)
+    {
+      retval = monkey_update_uinput_playback(monkey);
+    }
+  else
+    {
+      MONKEY_LOG_ERROR("error mode: %d", monkey->mode);
+    }
+
+  return retval;
 }
 
 /****************************************************************************
@@ -183,35 +272,55 @@ static bool monkey_update_uinput(FAR struct monkey_s *monkey)
 
 static bool monkey_update_input(FAR struct monkey_s *monkey)
 {
-  union monkey_dev_state_u state;
-  enum monkey_dev_type_e type;
+  struct monkey_dev_state_s state;
+  int available;
+  int i;
 
   MONKEY_ASSERT_NULL(monkey);
 
-  type = monkey_port_get_type(monkey->dev);
+  available = monkey_dev_get_available(monkey->devs, monkey->dev_num);
 
-  if (monkey_port_get_state(monkey->dev, &state))
+  if (available <= 0)
     {
-      if (type == MONKEY_DEV_TYPE_TOUCH)
-        {
-          MONKEY_LOG_INFO("touch %s at x = %d, y = %d",
-                          state.touch.is_pressed ? "PRESS  " : "RELEASE",
-                          state.touch.x, state.touch.y);
-        }
-      else if (type == MONKEY_DEV_TYPE_BUTTON)
-        {
-          MONKEY_LOG_INFO("btn = 0x%08X", state.button.value);
-        }
-
-      if (monkey->recorder)
-        {
-          monkey_recorder_write(monkey->recorder, &state);
-        }
-
-      return true;
+      MONKEY_LOG_WARN("no available device");
+      return false;
     }
 
-  return false;
+  for (i = 0; i < monkey->dev_num; i++)
+    {
+      FAR struct monkey_dev_s *dev = monkey->devs[i];
+      if (dev->is_available)
+        {
+          /* try to get device state */
+
+          if (!monkey_dev_get_state(dev, &state))
+            {
+              MONKEY_LOG_ERROR("can't get state");
+              return false;
+            }
+
+          if (dev->type == MONKEY_DEV_TYPE_TOUCH)
+            {
+              MONKEY_LOG_INFO("touch %s at x = %d, y = %d",
+                              state.data.touch.is_pressed
+                              ? "PRESS  " : "RELEASE",
+                              state.data.touch.x, state.data.touch.y);
+            }
+          else if (dev->type == MONKEY_DEV_TYPE_BUTTON)
+            {
+              MONKEY_LOG_INFO("btn = 0x%08X", state.data.button.value);
+            }
+
+          /* record state */
+
+          if (monkey->recorder)
+            {
+              monkey_recorder_write(monkey->recorder, &state);
+            }
+        }
+    }
+
+  return true;
 }
 
 /****************************************************************************
@@ -224,22 +333,12 @@ static bool monkey_update_input(FAR struct monkey_s *monkey)
 
 int monkey_update(FAR struct monkey_s *monkey)
 {
-  enum monkey_dev_type_e type;
-  int next_period;
+  int wait_time;
   MONKEY_ASSERT_NULL(monkey);
 
   srand(monkey_tick_get());
 
-  type = monkey_port_get_type(monkey->dev);
-
-  if (MONKEY_IS_UINPUT_TYPE(type))
-    {
-      if (!monkey_update_uinput(monkey))
-        {
-          return -1;
-        }
-    }
-  else
+  if (monkey->mode == MONKEY_MODE_RECORD)
     {
       if (monkey_update_input(monkey))
         {
@@ -252,9 +351,16 @@ int monkey_update(FAR struct monkey_s *monkey)
           return -1;
         }
     }
+  else
+    {
+      if (!monkey_update_uinput(monkey))
+        {
+          return -1;
+        }
+    }
 
-  next_period = monkey_random(monkey->config.period.min,
-                              monkey->config.period.max);
+  wait_time = monkey_random(monkey->config.period.min,
+                            monkey->config.period.max);
 
-  return next_period;
+  return wait_time;
 }
