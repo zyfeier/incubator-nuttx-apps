@@ -72,7 +72,7 @@ enum {
 };
 #define CURVE_FILL_RULE(x) ((x)&1)
 #define CURVE_FILL_PATTERN(x) (((x)&2) >> 1)
-#define CURVE_FILL_TYPE(x) ((x) & ~3)
+#define CURVE_FILL_TYPE(x) ((x) & ~1)
 
 typedef struct {
   lv_img_dsc_t* img_dsc;
@@ -124,6 +124,11 @@ typedef struct {
 typedef struct {
   lv_coord_t num;
 } gpu_polygon_dsc_t;
+
+typedef struct {
+  lv_draw_arc_dsc_t dsc;
+  uint16_t radius;
+} gpu_arc_dsc_t;
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -232,7 +237,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_set_tf(void* matrix,
  ****************************************************************************/
 
 void* lv_gpu_get_buf_from_cache(void* src, lv_color32_t recolor,
-  int32_t frame_id);
+    int32_t frame_id);
 
 /****************************************************************************
  * Name: lv_gpu_draw_mask_apply_path
@@ -268,7 +273,7 @@ bool lv_gpu_draw_mask_apply_path(void* vpath, const lv_area_t* coords);
  * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
-lv_res_t gpu_draw_path(float* path, lv_coord_t length,
+LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     lv_gpu_curve_fill_t* fill, const lv_gpu_buffer_t* gpu_buf);
 
 /****************************************************************************
@@ -295,6 +300,23 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
     gpu_fill_path_type_t type, const lv_point_t* points, const void* dsc);
 
 /****************************************************************************
+ * Name: gpu_calc_path_len
+ *
+ * Description:
+ *   Calculate path length needed. Currently only support GPU_ARC_PATH.
+ *
+ * Input Parameters:
+ * @param type type of curve
+ * @param dsc curve descriptor
+ *
+ * Returned Value:
+ * @return path length needed in bytes
+ *
+ ****************************************************************************/
+LV_ATTRIBUTE_FAST_MEM uint16_t gpu_calc_path_len(gpu_fill_path_type_t type,
+    const void* dsc);
+
+/****************************************************************************
  * Name: gpu_img_alloc
  *
  * Description:
@@ -308,7 +330,7 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
  * @return pointer to the memory, which should free using gpu_img_free
  *
  ****************************************************************************/
-void* gpu_img_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf, uint32_t *len);
+void* gpu_img_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf, uint32_t* len);
 
 /****************************************************************************
  * Name: gpu_img_free

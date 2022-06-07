@@ -31,50 +31,13 @@
  * Preprocessor Definitions
  ****************************************************************************/
 
-#define ARC_MAX_NUM 25
-
-/****************************************************************************
- * Macros
- ****************************************************************************/
-
-#define P(x, y) ((lv_fpoint_t) { (x), (y) })
-#define PR(p, r, c, s) P((p)->x + (r) * (c), (p)->y + (r) * (s))
-#define P_OFS(p, dx, dy) P((p)->x + dx, (p)->y + dy)
-#define SINF(deg) ((deg) == 90       ? 1  \
-        : (deg) == 0 || (deg) == 180 ? 0  \
-        : (deg) == 270               ? -1 \
-                                     : sinf((deg)*M_PI / 180))
-#define COSF(deg) ((deg) == 0         ? 1  \
-        : (deg) == 90 || (deg) == 270 ? 0  \
-        : (deg) == 180                ? -1 \
-                                      : cosf((deg)*M_PI / 180))
+#define ARC_MAX_PATH_LEN 88
 
 /****************************************************************************
  * Private Data
  ****************************************************************************/
 
-static lv_fpoint_t g_points[ARC_MAX_NUM];
-static lv_gpu_curve_op_t g_op[ARC_MAX_NUM];
-
-/****************************************************************************
- * Private Functions
- ****************************************************************************/
-
-static inline lv_fpoint_t get_rotated(const lv_point_t* center,
-    uint16_t radius, float cos, float sin, uint8_t j)
-{
-  switch (j & 3) {
-  case 3:
-    return PR(center, radius, sin, -cos);
-  case 2:
-    return PR(center, radius, -cos, -sin);
-  case 1:
-    return PR(center, radius, -sin, cos);
-  case 0:
-  default:
-    return PR(center, radius, cos, sin);
-  }
-}
+static float g_path[ARC_MAX_PATH_LEN];
 
 /****************************************************************************
  * Global Functions
@@ -111,119 +74,26 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
   lv_area_t coords;
   coords.x1 = center->x - radius;
   coords.y1 = center->y - radius;
-  coords.x2 = center->x + radius - 1; /*-1 because the center already belongs to the left/bottom part*/
+  /* -1 because the center already belongs to the left/bottom part */
+  coords.x2 = center->x + radius - 1;
   coords.y2 = center->y + radius - 1;
   lv_area_t clip_area;
   if (_lv_area_intersect(&clip_area, &coords, draw_ctx->clip_area) == false) {
     return LV_RES_OK;
   }
 
-  lv_fpoint_t* points = g_points;
-  lv_gpu_curve_op_t* op = g_op;
-  lv_memset_00(g_op, sizeof(g_op));
-  uint32_t num;
-
-  end_angle %= 360;
-  start_angle %= 360;
-  if (end_angle == start_angle) {
-    op[0] = CURVE_ARC_90;
-    points[0] = P(center->x + radius, center->y);
-    points[1] = P(center->x, center->y);
-    op[2] = CURVE_ARC_90;
-    points[2] = P(center->x, center->y + radius);
-    points[3] = points[1];
-    op[4] = CURVE_ARC_90;
-    points[4] = P(center->x - radius, center->y);
-    points[5] = points[1];
-    op[6] = CURVE_ARC_90;
-    points[6] = P(center->x, center->y - radius);
-    points[7] = points[1];
-    op[8] = CURVE_CLOSE;
-    points[8] = points[0];
-    num = 8;
-    if (dsc->width < radius) {
-      lv_coord_t inner_radius = radius - dsc->width;
-      op[9] = CURVE_ARC_90;
-      points[9] = P(center->x + inner_radius, center->y);
-      points[10] = points[1];
-      op[11] = CURVE_ARC_90;
-      points[11] = P(center->x, center->y + inner_radius);
-      points[12] = points[1];
-      op[13] = CURVE_ARC_90;
-      points[13] = P(center->x - inner_radius, center->y);
-      points[14] = points[1];
-      op[15] = CURVE_ARC_90;
-      points[15] = P(center->x, center->y - inner_radius);
-      points[16] = points[1];
-      op[17] = CURVE_CLOSE;
-      points[17] = points[9];
-      num = 18;
-    }
-  } else {
-    if (end_angle < start_angle) {
-      end_angle += 360;
-    }
-
-    float st_sin = SINF(start_angle);
-    float st_cos = COSF(start_angle);
-    float ed_sin = SINF(end_angle);
-    float ed_cos = COSF(end_angle);
-    float width = LV_MIN(dsc->width, radius);
-    points[0] = PR(center, radius - width, st_cos, st_sin);
-    op[0] = CURVE_LINE;
-    lv_coord_t i = 1;
-    if (dsc->rounded) {
-      op[i - 1] = CURVE_ARC_90;
-      points[i++] = PR(center, radius - width / 2, st_cos, st_sin);
-      lv_fpoint_t* mid = &points[i - 1];
-      op[i] = CURVE_ARC_90;
-      points[i++] = P_OFS(mid, width / 2 * st_sin, -width / 2 * st_cos);
-      points[i++] = *mid;
-    }
-    int16_t angle = end_angle - start_angle;
-    uint8_t j = 0;
-    while (angle > 0) {
-      op[i] = angle < 90 ? CURVE_ARC_ACUTE : CURVE_ARC_90;
-      points[i++] = get_rotated(center, radius, st_cos, st_sin, j++);
-      points[i++] = P(center->x, center->y);
-      angle -= 90;
-    }
-    op[i] = CURVE_LINE;
-    points[i++] = PR(center, radius, ed_cos, ed_sin);
-    if (dsc->rounded) {
-      op[i - 1] = CURVE_ARC_90;
-      points[i++] = PR(center, radius - width / 2, ed_cos, ed_sin);
-      lv_fpoint_t* mid = &points[i - 1];
-      op[i] = CURVE_ARC_90;
-      points[i++] = P_OFS(mid, -width / 2 * ed_sin, width / 2 * ed_cos);
-      points[i++] = *mid;
-    }
-    if (dsc->width < radius) {
-      angle = end_angle - start_angle;
-      op[i] = angle < 90 ? CURVE_ARC_ACUTE : CURVE_ARC_90;
-      j = 4;
-      while (angle > 0) {
-        op[i] = angle < 90 ? CURVE_ARC_ACUTE : CURVE_ARC_90;
-        points[i++] = get_rotated(center, radius - width, ed_cos, ed_sin, j--);
-        points[i++] = P(center->x, center->y);
-        angle -= 90;
-      }
-    }
-    op[i] = CURVE_CLOSE;
-    points[i++] = PR(center, radius - width, st_cos, st_sin);
-    num = i;
-  }
+  gpu_arc_dsc_t arc_dsc;
+  lv_memcpy_small(&arc_dsc.dsc, dsc, sizeof(lv_draw_arc_dsc_t));
+  arc_dsc.radius = radius;
+  arc_dsc.dsc.start_angle = start_angle;
+  arc_dsc.dsc.end_angle = end_angle;
+  uint16_t path_length = gpu_fill_path(g_path, GPU_ARC_PATH, center, &arc_dsc);
+  path_length *= sizeof(float);
 
   lv_gpu_curve_fill_t fill = {
     .color = dsc->color,
     .opa = dsc->opa,
     .type = CURVE_FILL_RULE_EVENODD
-  };
-  lv_gpu_curve_t curve = {
-    .fpoints = points,
-    .num = num,
-    .op = op,
-    .fill = &fill
   };
   lv_gpu_buffer_t gpu_buf = {
     .buf = draw_ctx->buf,
@@ -235,8 +105,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
   };
   lv_gpu_image_dsc_t gpu_img_dsc;
   lv_img_dsc_t img_dsc;
+  lv_draw_img_dsc_t draw_dsc = { 0 };
   gpu_img_dsc.coords = &coords;
-  gpu_img_dsc.draw_dsc = NULL;
+  gpu_img_dsc.draw_dsc = &draw_dsc;
   _lv_img_cache_entry_t* cdsc = NULL;
   if (dsc->img_src) {
     lv_color32_t color = dsc->color;
@@ -252,6 +123,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
   } else {
     fill.type |= CURVE_FILL_COLOR;
   }
-  gpu_draw_curve(&curve, &gpu_buf);
-  return LV_RES_OK;
+
+  return gpu_draw_path(g_path, path_length, &fill, &gpu_buf);
 }
