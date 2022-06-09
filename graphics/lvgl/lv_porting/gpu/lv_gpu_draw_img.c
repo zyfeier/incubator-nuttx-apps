@@ -286,7 +286,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
       vg_lite_set_CLUT(palette_size, palette_r);
       lv_mem_buf_release(palette_r);
     } else {
-      vg_lite_set_CLUT(palette_size, (uint32_t*)palette);
+      vg_lite_set_CLUT(palette_size, palette);
     }
   }
 

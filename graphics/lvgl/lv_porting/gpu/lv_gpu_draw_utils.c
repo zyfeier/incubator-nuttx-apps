@@ -834,6 +834,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
       lv_color32_t recolor = {
         .full = lv_color_to32(draw_dsc->recolor)
       };
+      GPU_WARN("get vgbuf failed");
       LV_COLOR_SET_A32(recolor, draw_dsc->recolor_opa);
       if (lv_gpu_load_vgbuf(img_data, img_header, &src_vgbuf, NULL, recolor, false)
           != LV_RES_OK) {
@@ -843,6 +844,13 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
       }
       allocated_src = true;
       vgbuf = &src_vgbuf;
+    }
+    if (vgbuf->format >= VG_LITE_INDEX_1 && vgbuf->format <= VG_LITE_INDEX_8) {
+      uint32_t* palette = (uint32_t*)(img_data + sizeof(gpu_data_header_t)
+          + vgbuf->stride * vgbuf->height);
+      uint8_t px_size = VG_FMT_TO_BPP(vgbuf->format);
+      uint16_t palette_size = 1 << px_size;
+      vg_lite_set_CLUT(palette_size, palette);
     }
     lv_area_t coords = { .x1 = gpu_fill->img->coords->x1,
       .y1 = gpu_fill->img->coords->y1 };
@@ -1133,8 +1141,8 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_calc_path_len(gpu_fill_path_type_t type,
       end_angle += 360;
     }
     uint16_t diff = end_angle - start_angle;
-    len = diff ? 10 + arc_dsc->rounded * 22 + (diff + 89) / 90 * 14
-               : 64;
+    len = diff ? 11 + arc_dsc->rounded * 22 + (diff + 89) / 90 * 14
+               : 65;
   } else {
     /* TODO: add other path type calculation as needed */
   }

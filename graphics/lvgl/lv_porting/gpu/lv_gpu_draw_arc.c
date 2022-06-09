@@ -31,7 +31,7 @@
  * Preprocessor Definitions
  ****************************************************************************/
 
-#define ARC_MAX_PATH_LEN 88
+#define ARC_MAX_PATH_LEN 89
 
 /****************************************************************************
  * Private Data
@@ -105,7 +105,11 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
   };
   lv_gpu_image_dsc_t gpu_img_dsc;
   lv_img_dsc_t img_dsc;
-  lv_draw_img_dsc_t draw_dsc = { 0 };
+  lv_draw_img_dsc_t draw_dsc = {
+    .angle = 0,
+    .zoom = LV_IMG_ZOOM_NONE,
+    .recolor_opa = 0
+  };
   gpu_img_dsc.coords = &coords;
   gpu_img_dsc.draw_dsc = &draw_dsc;
   _lv_img_cache_entry_t* cdsc = NULL;
