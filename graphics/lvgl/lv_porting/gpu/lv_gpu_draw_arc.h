@@ -65,6 +65,31 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
     uint16_t start_angle,
     uint16_t end_angle);
 
+/****************************************************************************
+ * Name: lv_draw_arc_f
+ *
+ * Description:
+ *   Draw an arc with GPU with more precise parameters.
+ *
+ * Input Parameters:
+ * @param draw_ctx draw context (refer to LVGL 8.2 changelog)
+ * @param dsc draw arc description
+ * @param radius arc radius
+ * @param start_angle arc start angle in degrees
+ * @param end_angle arc end angle in degrees
+ *
+ * Returned Value:
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
+ *
+ ****************************************************************************/
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_f(
+    lv_draw_ctx_t* draw_ctx,
+    const lv_draw_arc_dsc_t* dsc,
+    const lv_point_t* center,
+    float radius,
+    float start_angle,
+    float end_angle);
+
 #undef EXTERN
 #ifdef __cplusplus
 }

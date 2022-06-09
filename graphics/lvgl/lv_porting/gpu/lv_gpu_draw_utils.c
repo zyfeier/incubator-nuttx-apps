@@ -39,6 +39,7 @@
  ****************************************************************************/
 
 #define ARC_MAX_POINTS 25
+#define PI_DEG (M_PI / 180.0f)
 
 /****************************************************************************
  * Macros
@@ -54,14 +55,8 @@
 
 #define __SIGN(x) ((x) > 0 ? 1 : ((x < 0) ? -1 : 0))
 
-#define SINF(deg) ((deg) == 90       ? 1  \
-        : (deg) == 0 || (deg) == 180 ? 0  \
-        : (deg) == 270               ? -1 \
-                                     : sinf((deg)*M_PI / 180))
-#define COSF(deg) ((deg) == 0         ? 1  \
-        : (deg) == 90 || (deg) == 270 ? 0  \
-        : (deg) == 180                ? -1 \
-                                      : cosf((deg)*M_PI / 180))
+#define SINF(deg) sinf((deg)*PI_DEG)
+#define COSF(deg) cosf((deg)*PI_DEG)
 
 /****************************************************************************
  * Private Data
@@ -109,7 +104,7 @@ LV_ATTRIBUTE_FAST_MEM static float get_angle(float ux, float uy, float vx,
 }
 
 static inline lv_fpoint_t get_rotated(const lv_point_t* center,
-    uint16_t radius, float cos, float sin, uint8_t j)
+    float radius, float cos, float sin, uint8_t j)
 {
   switch (j & 3) {
   case 3:
@@ -582,14 +577,16 @@ LV_ATTRIBUTE_FAST_MEM static uint16_t fill_polygon_path(float* path,
 }
 
 LV_ATTRIBUTE_FAST_MEM static uint16_t fill_arc_path(float* path,
-    const lv_point_t* center, const lv_draw_arc_dsc_t* dsc, uint16_t radius)
+    const lv_point_t* center, const gpu_arc_dsc_t* dsc)
 {
-  uint16_t end_angle = dsc->end_angle % 360;
-  uint16_t start_angle = dsc->start_angle % 360;
+  float start_angle = dsc->start_angle;
+  float end_angle = dsc->end_angle;
+  float radius = dsc->radius;
   lv_fpoint_t* points = arc_points;
   lv_gpu_curve_op_t* op = arc_op;
   lv_memset_00(arc_op, sizeof(arc_op));
-  if (end_angle == start_angle) {
+  float angle = end_angle - start_angle;
+  if (fabs(angle) < ANGLE_RES) {
     op[0] = CURVE_ARC_90;
     points[0] = __PF(center->x + radius, center->y);
     points[1] = __PF(center->x, center->y);
@@ -605,8 +602,8 @@ LV_ATTRIBUTE_FAST_MEM static uint16_t fill_arc_path(float* path,
     op[8] = CURVE_CLOSE;
     points[8] = points[0];
     arc_curve.num = 8;
-    if (dsc->width < radius) {
-      lv_coord_t inner_radius = radius - dsc->width;
+    if (dsc->dsc.width - radius < ANGLE_RES) {
+      float inner_radius = radius - dsc->dsc.width;
       op[9] = CURVE_ARC_90;
       points[9] = __PF(center->x + inner_radius, center->y);
       points[10] = points[1];
@@ -624,53 +621,48 @@ LV_ATTRIBUTE_FAST_MEM static uint16_t fill_arc_path(float* path,
       arc_curve.num = 18;
     }
   } else {
-    if (end_angle < start_angle) {
-      end_angle += 360;
-    }
-
     float st_sin = SINF(start_angle);
     float st_cos = COSF(start_angle);
     float ed_sin = SINF(end_angle);
     float ed_cos = COSF(end_angle);
-    float width = LV_MIN(dsc->width, radius);
+    float width = LV_MIN(dsc->dsc.width, radius);
     points[0] = __PP(center, radius - width, st_cos, st_sin);
     op[0] = CURVE_LINE;
     lv_coord_t i = 1;
-    if (dsc->rounded) {
+    if (dsc->dsc.rounded) {
       op[i - 1] = CURVE_ARC_90;
-      points[i++] = __PP(center, radius - width / 2, st_cos, st_sin);
+      points[i++] = __PP(center, radius - width * 0.5f, st_cos, st_sin);
       lv_fpoint_t* mid = &points[i - 1];
       op[i] = CURVE_ARC_90;
-      points[i++] = __PO(mid, width / 2 * st_sin, -width / 2 * st_cos);
+      points[i++] = __PO(mid, width * 0.5f * st_sin, -width * 0.5f * st_cos);
       points[i++] = *mid;
     }
-    int16_t angle = end_angle - start_angle;
     uint8_t j = 0;
-    while (angle > 0) {
-      op[i] = angle < 90 ? CURVE_ARC_ACUTE : CURVE_ARC_90;
+    while (angle > -ANGLE_RES) {
+      op[i] = angle < 90.0f ? CURVE_ARC_ACUTE : CURVE_ARC_90;
       points[i++] = get_rotated(center, radius, st_cos, st_sin, j++);
       points[i++] = __PF(center->x, center->y);
-      angle -= 90;
+      angle -= 90.0f;
     }
     op[i] = CURVE_LINE;
     points[i++] = __PP(center, radius, ed_cos, ed_sin);
-    if (dsc->rounded) {
+    if (dsc->dsc.rounded) {
       op[i - 1] = CURVE_ARC_90;
-      points[i++] = __PP(center, radius - width / 2, ed_cos, ed_sin);
+      points[i++] = __PP(center, radius - width * 0.5f, ed_cos, ed_sin);
       lv_fpoint_t* mid = &points[i - 1];
       op[i] = CURVE_ARC_90;
-      points[i++] = __PO(mid, -width / 2 * ed_sin, width / 2 * ed_cos);
+      points[i++] = __PO(mid, -width * 0.5f * ed_sin, width * 0.5f * ed_cos);
       points[i++] = *mid;
     }
-    if (dsc->width < radius) {
+    if (dsc->dsc.width < radius) {
       angle = end_angle - start_angle;
-      op[i] = angle < 90 ? CURVE_ARC_ACUTE : CURVE_ARC_90;
+      op[i] = angle < 90.0f ? CURVE_ARC_ACUTE : CURVE_ARC_90;
       j = 4;
-      while (angle > 0) {
-        op[i] = angle < 90 ? CURVE_ARC_ACUTE : CURVE_ARC_90;
+      while (angle > -ANGLE_RES) {
+        op[i] = angle < 90.0f ? CURVE_ARC_ACUTE : CURVE_ARC_90;
         points[i++] = get_rotated(center, radius - width, ed_cos, ed_sin, j--);
         points[i++] = __PF(center->x, center->y);
-        angle -= 90;
+        angle -= 90.0f;
       }
     }
     op[i] = CURVE_CLOSE;
@@ -958,7 +950,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_set_tf(void* vg_matrix,
       vg_lite_scale(scale, scale, matrix);
     }
     if (angle != 0) {
-      vg_lite_rotate(angle / 10.0f, matrix);
+      vg_lite_rotate(angle * 0.1f, matrix);
     }
     vg_lite_translate(-pivot.x, -pivot.y, matrix);
   }
@@ -1108,7 +1100,7 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_fill_path(float* path,
   } else if (type == GPU_ARC_PATH) {
     /* arc path */
     const gpu_arc_dsc_t* arc_dsc = dsc;
-    len = fill_arc_path(path, points, &arc_dsc->dsc, arc_dsc->radius);
+    len = fill_arc_path(path, points, arc_dsc);
   } else {
     /* TODO: add other path type fill function as needed */
   }
@@ -1134,15 +1126,18 @@ LV_ATTRIBUTE_FAST_MEM uint16_t gpu_calc_path_len(gpu_fill_path_type_t type,
 {
   uint16_t len = 0;
   if (type == GPU_ARC_PATH) {
-    lv_draw_arc_dsc_t* arc_dsc = &((gpu_arc_dsc_t*)dsc)->dsc;
-    uint16_t start_angle = arc_dsc->start_angle % 360;
-    uint16_t end_angle = arc_dsc->end_angle % 360;
-    if (end_angle < start_angle) {
-      end_angle += 360;
+    gpu_arc_dsc_t* arc_dsc = (gpu_arc_dsc_t*)dsc;
+    float angle = arc_dsc->end_angle - arc_dsc->start_angle;
+    while (angle > 360.0f) {
+      angle -= 360.0f;
     }
-    uint16_t diff = end_angle - start_angle;
-    len = diff ? 11 + arc_dsc->rounded * 22 + (diff + 89) / 90 * 14
-               : 65;
+    while (angle < -ANGLE_RES) {
+      angle += 360.0f;
+    }
+    bool circle = fabs(angle) < ANGLE_RES;
+    uint32_t right_angles = (uint32_t)floorf(angle / 90.0f + 1);
+    len = circle ? 65
+                 : 11 + arc_dsc->dsc.rounded * 22 + right_angles * 14;
   } else {
     /* TODO: add other path type calculation as needed */
   }

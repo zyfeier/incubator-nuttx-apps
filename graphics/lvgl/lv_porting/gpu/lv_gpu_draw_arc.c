@@ -71,12 +71,44 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
   if (dsc->opa <= LV_OPA_MIN || dsc->width == 0 || start_angle == end_angle) {
     return LV_RES_OK;
   }
+  return lv_draw_arc_f(draw_ctx, dsc, center, radius, start_angle, end_angle);
+}
+
+/****************************************************************************
+ * Name: lv_draw_arc_f
+ *
+ * Description:
+ *   Draw an arc with GPU with more precise parameters.
+ *
+ * Input Parameters:
+ * @param draw_ctx draw context (refer to LVGL 8.2 changelog)
+ * @param dsc draw arc description
+ * @param radius arc radius
+ * @param start_angle arc start angle in degrees
+ * @param end_angle arc end angle in degrees
+ *
+ * Returned Value:
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
+ *
+ ****************************************************************************/
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_f(
+    lv_draw_ctx_t* draw_ctx,
+    const lv_draw_arc_dsc_t* dsc,
+    const lv_point_t* center,
+    float radius,
+    float start_angle,
+    float end_angle)
+{
+  if (dsc->opa <= LV_OPA_MIN || dsc->width == 0) {
+    return LV_RES_OK;
+  }
   lv_area_t coords;
-  coords.x1 = center->x - radius;
-  coords.y1 = center->y - radius;
+  lv_coord_t radius16 = (lv_coord_t)radius;
+  coords.x1 = center->x - radius16;
+  coords.y1 = center->y - radius16;
   /* -1 because the center already belongs to the left/bottom part */
-  coords.x2 = center->x + radius - 1;
-  coords.y2 = center->y + radius - 1;
+  coords.x2 = center->x + radius16 - 1;
+  coords.y2 = center->y + radius16 - 1;
   lv_area_t clip_area;
   if (_lv_area_intersect(&clip_area, &coords, draw_ctx->clip_area) == false) {
     return LV_RES_OK;
@@ -85,15 +117,29 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_gpu(
   gpu_arc_dsc_t arc_dsc;
   lv_memcpy_small(&arc_dsc.dsc, dsc, sizeof(lv_draw_arc_dsc_t));
   arc_dsc.radius = radius;
-  arc_dsc.dsc.start_angle = start_angle;
-  arc_dsc.dsc.end_angle = end_angle;
+  while (start_angle > 360.0f) {
+    start_angle -= 360.0f;
+  }
+  while (start_angle < -ANGLE_RES) {
+    start_angle += 360.0f;
+  }
+  while (end_angle > 360.0f) {
+    end_angle -= 360.0f;
+  }
+  while (end_angle < start_angle - ANGLE_RES) {
+    end_angle += 360.0f;
+  }
+  GPU_WARN("%f:%f", start_angle, end_angle);
+  arc_dsc.start_angle = start_angle;
+  arc_dsc.end_angle = end_angle;
   uint16_t path_length = gpu_fill_path(g_path, GPU_ARC_PATH, center, &arc_dsc);
   path_length *= sizeof(float);
 
   lv_gpu_curve_fill_t fill = {
     .color = dsc->color,
     .opa = dsc->opa,
-    .type = CURVE_FILL_RULE_EVENODD
+    .type = fabs(end_angle - start_angle) < ANGLE_RES ? CURVE_FILL_RULE_EVENODD
+                                                      : CURVE_FILL_RULE_NONZERO
   };
   lv_gpu_buffer_t gpu_buf = {
     .buf = draw_ctx->buf,

@@ -33,21 +33,6 @@
 #ifdef CONFIG_ARM_HAVE_MVE
 #include "arm_mve.h"
 #endif
-#ifdef CONFIG_LV_GPU_DRAW_LINE
-#include "gpu/lv_gpu_draw_line.h"
-#endif
-#ifdef CONFIG_LV_GPU_DRAW_ARC
-#include "gpu/lv_gpu_draw_arc.h"
-#endif
-#ifdef CONFIG_LV_GPU_DRAW_POLYGON
-#include "gpu/lv_gpu_draw_polygon.h"
-#endif
-#ifdef CONFIG_LV_GPU_DRAW_RECT
-#include "gpu/lv_gpu_draw_rect.h"
-#endif
-#ifdef CONFIG_LV_GPU_DRAW_IMG
-#include "gpu/lv_gpu_draw_img.h"
-#endif
 
 /****************************************************************************
  * Preprocessor Definitions

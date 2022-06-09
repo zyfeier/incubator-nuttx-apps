@@ -27,6 +27,21 @@
 
 #include "lv_porting/lv_gpu_interface.h"
 #include <lvgl/lvgl.h>
+#ifdef CONFIG_LV_GPU_DRAW_LINE
+#include "lv_gpu_draw_line.h"
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_ARC
+#include "lv_gpu_draw_arc.h"
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_POLYGON
+#include "lv_gpu_draw_polygon.h"
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_RECT
+#include "lv_gpu_draw_rect.h"
+#endif
+#ifdef CONFIG_LV_GPU_DRAW_IMG
+#include "lv_gpu_draw_img.h"
+#endif
 
 /*********************
  *      DEFINES
@@ -39,6 +54,7 @@
 #define GPU_LINE_PATH_SIZE 52 /* (3(LINE) * 4 + 1(CLOSE/END)) * sizeof(float) */
 #define GPU_LINE_PATH_ROUND_DELTA 44 /* (7(CUBIC) * 2 - 3(LINE)) * sizeof(float) */
 #define GPU_POLYGON_PATH_SIZE(n) (((n)*3 + 1) * sizeof(float))
+#define ANGLE_RES 0.01f
 
 /**********************
  *      TYPEDEFS
@@ -127,7 +143,9 @@ typedef struct {
 
 typedef struct {
   lv_draw_arc_dsc_t dsc;
-  uint16_t radius;
+  float radius;
+  float start_angle;
+  float end_angle;
 } gpu_arc_dsc_t;
 
 /**********************
