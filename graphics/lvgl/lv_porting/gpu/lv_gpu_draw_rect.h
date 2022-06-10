@@ -43,7 +43,7 @@ extern "C" {
  * Name: lv_draw_rect_gpu
  *
  * Description:
- *   Draw arc with GPU
+ *   Draw rect with GPU
  *
  * Input Parameters:
  * @param draw_ctx draw context (refer to LVGL 8.2 changelog)
@@ -51,11 +51,30 @@ extern "C" {
  * @param coords rectangle area
  *
  * Returned Value:
- *   None
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(
+    struct _lv_draw_ctx_t* draw_ctx, const lv_draw_rect_dsc_t* dsc,
+    const lv_area_t* coords);
+
+/****************************************************************************
+ * Name: lv_draw_bg_gpu
+ *
+ * Description:
+ *   Draw bg with GPU
+ *
+ * Input Parameters:
+ * @param draw_ctx draw context (refer to LVGL 8.2 changelog)
+ * @param dsc draw rectangle description
+ * @param coords rectangle area
+ *
+ * Returned Value:
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
+ *
+ ****************************************************************************/
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_bg_gpu(
     struct _lv_draw_ctx_t* draw_ctx, const lv_draw_rect_dsc_t* dsc,
     const lv_area_t* coords);
 

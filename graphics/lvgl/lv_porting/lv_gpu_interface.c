@@ -125,6 +125,18 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_draw_rect(
 }
 #endif
 
+#ifdef CONFIG_LV_GPU_DRAW_RECT
+LV_ATTRIBUTE_FAST_MEM static void gpu_draw_bg(
+    struct _lv_draw_ctx_t* draw_ctx,
+    const lv_draw_rect_dsc_t* dsc,
+    const lv_area_t* coords)
+{
+  if (lv_draw_bg_gpu(draw_ctx, dsc, coords) != LV_RES_OK) {
+    lv_draw_sw_bg(draw_ctx, dsc, coords);
+  }
+}
+#endif
+
 #ifdef CONFIG_LV_GPU_DRAW_IMG
 LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(
     struct _lv_draw_ctx_t* draw_ctx,
@@ -137,7 +149,7 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(
           color_format)
       != LV_RES_OK) {
     lv_area_t coords_aligned16 = *coords;
-    const lv_area_t *clip_area_ori = draw_ctx->clip_area;
+    const lv_area_t* clip_area_ori = draw_ctx->clip_area;
     lv_area_t clip_area;
     if (!_lv_area_intersect(&clip_area, coords, draw_ctx->clip_area))
       return;
@@ -156,7 +168,7 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(
 
 LV_ATTRIBUTE_FAST_MEM static void gpu_wait(struct _lv_draw_ctx_t* draw)
 {
-  vg_lite_finish();
+  gpu_wait_area(draw->clip_area);
 }
 
 /****************************************************************************
@@ -243,6 +255,7 @@ void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx)
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_RECT
   gpu_draw_ctx->base_draw.draw_rect = gpu_draw_rect;
+  gpu_draw_ctx->base_draw.draw_bg = gpu_draw_bg;
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_IMG
   gpu_draw_ctx->base_draw.draw_img_decoded = gpu_draw_img_decoded;

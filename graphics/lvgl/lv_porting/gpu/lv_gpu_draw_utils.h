@@ -463,6 +463,10 @@ LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
 LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
     const lv_color32_t* src, uint16_t size, uint32_t recolor);
 
+LV_ATTRIBUTE_FAST_MEM void gpu_set_area(const lv_area_t* area);
+
+LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area);
+
 #undef EXTERN
 #ifdef __cplusplus
 }

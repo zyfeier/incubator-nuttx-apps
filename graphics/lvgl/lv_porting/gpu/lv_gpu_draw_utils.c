@@ -73,6 +73,7 @@ static lv_gpu_curve_t arc_curve = {
   .op = arc_op,
   .num = 0
 };
+static lv_area_t gpu_area = { 0 };
 
 /****************************************************************************
  * Private Functions
@@ -808,7 +809,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
               >> 8;
     }
     CHECK_ERROR(vg_lite_draw(&dst_vgbuf, &vpath, fill, &gmat, blend, color));
-    CHECK_ERROR(vg_lite_finish());
+    CHECK_ERROR(vg_lite_flush());
 
   } else if (type == CURVE_FILL_IMAGE) {
     lv_gpu_image_dsc_t* img = gpu_fill->img;
@@ -864,7 +865,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     color = BGRA_TO_RGBA(lv_color_to32(gpu_fill->color));
     CHECK_ERROR(vg_lite_draw_pattern(&dst_vgbuf, &vpath, fill, &gmat, vgbuf,
         &matrix, blend, pattern, color, filter));
-    CHECK_ERROR(vg_lite_finish());
+    CHECK_ERROR(vg_lite_flush());
     if (allocated_src) {
       lv_mem_free(vgbuf->memory);
     }
@@ -903,7 +904,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
       vg_lite_scale(lv_area_get_width(grad_area) / 256.0f, 1.0f, &grad.matrix);
     }
     vg_lite_draw_gradient(&dst_vgbuf, &vpath, fill, &gmat, &grad, blend);
-    CHECK_ERROR(vg_lite_finish());
+    CHECK_ERROR(vg_lite_flush());
 
   } else if (type == CURVE_FILL_RADIAL_GRADIENT) {
     GPU_ERROR("Radial gradient unsupported at the moment");
@@ -912,6 +913,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
   }
 
   *p_lastop = original_op;
+  gpu_set_area(&clip_area);
   return LV_RES_OK;
 }
 
@@ -1503,4 +1505,26 @@ LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
   }
   gpu_pre_multiply(dst, dst, size);
 #endif
+}
+
+LV_ATTRIBUTE_FAST_MEM void gpu_set_area(const lv_area_t* area)
+{
+  if (!area) {
+    gpu_area.y1 = -1;
+    return;
+  }
+  lv_area_copy(&gpu_area, area);
+}
+
+LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area)
+{
+  if (gpu_area.x1 < 0) {
+    return;
+  }
+  lv_area_t tmp_area;
+  if (gpu_area.y1 < 0 || _lv_area_intersect(&tmp_area, &gpu_area, area)) {
+    vg_lite_finish();
+    gpu_area.x1 = -1;
+    return;
+  }
 }

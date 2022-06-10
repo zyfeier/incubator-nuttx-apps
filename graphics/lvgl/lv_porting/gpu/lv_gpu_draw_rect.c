@@ -298,7 +298,7 @@ LV_ATTRIBUTE_FAST_MEM static void draw_outline(lv_draw_ctx_t* draw_ctx,
  * Name: lv_draw_rect_gpu
  *
  * Description:
- *   Draw arc with GPU
+ *   Draw rect with GPU
  *
  * Input Parameters:
  * @param draw_ctx draw context (refer to LVGL 8.2 changelog)
@@ -306,7 +306,7 @@ LV_ATTRIBUTE_FAST_MEM static void draw_outline(lv_draw_ctx_t* draw_ctx,
  * @param coords rectangle area
  *
  * Returned Value:
- *   None
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
  *
  ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(
@@ -332,6 +332,40 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_rect_gpu(
   draw_border(draw_ctx, dsc, coords);
 
   draw_outline(draw_ctx, dsc, coords);
+
+  return LV_RES_OK;
+}
+
+/****************************************************************************
+ * Name: lv_draw_bg_gpu
+ *
+ * Description:
+ *   Draw bg with GPU
+ *
+ * Input Parameters:
+ * @param draw_ctx draw context (refer to LVGL 8.2 changelog)
+ * @param dsc draw rectangle description
+ * @param coords rectangle area
+ *
+ * Returned Value:
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
+ *
+ ****************************************************************************/
+LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_bg_gpu(
+    struct _lv_draw_ctx_t* draw_ctx, const lv_draw_rect_dsc_t* dsc,
+    const lv_area_t* coords)
+{
+#if LV_COLOR_SCREEN_TRANSP && LV_COLOR_DEPTH == 32
+  lv_memset_00(draw_ctx->buf,
+      lv_area_get_size(draw_ctx->buf_area) * sizeof(lv_color_t));
+#endif
+  if (lv_area_get_size(coords) <= GPU_SIZE_LIMIT)
+    return LV_RES_INV;
+
+  if (draw_bg(draw_ctx, dsc, coords) != LV_RES_OK) {
+    return LV_RES_INV;
+  }
+  draw_bg_img(draw_ctx, dsc, coords);
 
   return LV_RES_OK;
 }
