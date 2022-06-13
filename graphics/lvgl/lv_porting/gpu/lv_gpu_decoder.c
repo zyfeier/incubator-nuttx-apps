@@ -610,10 +610,10 @@ void lv_gpu_decoder_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
     return;
 
   if ((uint32_t)dsc->user_data == GPU_DATA_MAGIC) {
-    free((void*)dsc->img_data);
+    gpu_img_free((void*)dsc->img_data);
   } else if ((uint32_t)dsc->user_data == EVO_DATA_MAGIC) {
     evo_clear(&((gpu_data_header_t*)dsc->img_data)->evocontent);
-    free((void*)dsc->img_data);
+    lv_mem_buf_release((void*)dsc->img_data);
   }
 
   dsc->img_data = NULL;
@@ -666,7 +666,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
 #endif
   uint32_t vgbuf_size = header->h * vgbuf_stride;
   if (mem == NULL) {
-    mem = aligned_alloc(8, vgbuf_size);
+    mem = gpu_heap_aligned_alloc(8, vgbuf_size);
   }
   if (mem == NULL) {
     GPU_WARN("Insufficient memory for GPU 16px aligned image cache");

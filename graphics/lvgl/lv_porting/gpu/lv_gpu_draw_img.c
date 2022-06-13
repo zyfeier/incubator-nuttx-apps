@@ -232,7 +232,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
           1);
     } else {
       uint32_t vgbuf_size = src_vgbuf.height * src_vgbuf.stride;
-      void* mem = aligned_alloc(8, vgbuf_size);
+      void* mem = gpu_heap_aligned_alloc(8, vgbuf_size);
       if (mem) {
         allocated_src = true;
         lv_memset_00(mem, vgbuf_size);
@@ -338,7 +338,7 @@ Error_handler:
   if (allocated_src) {
     GPU_WARN("freeing allocated vgbuf:(%ld,%ld)@%p", src_vgbuf.width,
         src_vgbuf.height, src_vgbuf.memory);
-    free(src_vgbuf.memory);
+    gpu_heap_free(src_vgbuf.memory);
   }
   if (vgerr != VG_LITE_SUCCESS) {
     goto Fallback;

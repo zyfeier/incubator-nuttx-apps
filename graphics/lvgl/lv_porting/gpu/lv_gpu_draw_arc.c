@@ -129,7 +129,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_f(
   while (end_angle < start_angle - ANGLE_RES) {
     end_angle += 360.0f;
   }
-  GPU_WARN("%f:%f", start_angle, end_angle);
   arc_dsc.start_angle = start_angle;
   arc_dsc.end_angle = end_angle;
   uint16_t path_length = gpu_fill_path(g_path, GPU_ARC_PATH, center, &arc_dsc);

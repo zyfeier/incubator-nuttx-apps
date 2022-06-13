@@ -1169,7 +1169,7 @@ void* gpu_img_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf, uint32_t* len)
   }
 
   /*Allocate raw buffer*/
-  void* data = aligned_alloc(64, data_size);
+  void* data = gpu_heap_aligned_alloc(64, data_size);
   if (data == NULL) {
     return NULL;
   }
@@ -1197,7 +1197,7 @@ void* gpu_img_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf, uint32_t* len)
  ****************************************************************************/
 void gpu_img_free(void* img)
 {
-  free(img);
+  gpu_heap_free(img);
 }
 
 /****************************************************************************
@@ -1256,7 +1256,7 @@ void gpu_img_buf_free(lv_img_dsc_t* dsc)
   if (!dsc)
     return;
   if (dsc->data) {
-    free((void*)dsc->data);
+    gpu_img_free((void*)dsc->data);
   }
   lv_mem_free(dsc);
 }
@@ -1522,7 +1522,8 @@ LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area)
     return;
   }
   lv_area_t tmp_area;
-  if (gpu_area.y1 < 0 || _lv_area_intersect(&tmp_area, &gpu_area, area)) {
+  if (!area || gpu_area.y1 < 0
+      || _lv_area_intersect(&tmp_area, &gpu_area, area)) {
     vg_lite_finish();
     gpu_area.x1 = -1;
     return;

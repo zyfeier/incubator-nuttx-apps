@@ -32,6 +32,14 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
+#ifndef CONFIG_LV_MEM_INTERFACE_CUSTOM_SIZE
+#define CONFIG_LV_MEM_INTERFACE_CUSTOM_SIZE 0
+#endif
+
+#ifndef CONFIG_LV_MEM_INTERFACE_CUSTOM_NAME
+#define CONFIG_LV_MEM_INTERFACE_CUSTOM_NAME ""
+#endif
+
 #if CONFIG_LV_MEM_INTERFACE_CUSTOM_SIZE
 
 /****************************************************************************

@@ -297,6 +297,72 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t init_vg_buf(void* vdst, uint32_t width,
 
 void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx);
 
+/****************************************************************************
+ * Name: gpu_heap_alloc
+ *
+ * Description:
+ *   Allocate space in GPU custom heap.
+ *
+ * Input Parameters:
+ * @param[in] size bytes to allocate
+ *
+ * Returned Value:
+ * @return address of allocated space on success, NULL on failure.
+ *
+ ****************************************************************************/
+
+LV_ATTRIBUTE_FAST_MEM FAR void* gpu_heap_alloc(size_t size);
+
+/****************************************************************************
+ * Name: gpu_heap_aligned_alloc
+ *
+ * Description:
+ *   Allocate space in GPU custom heap with aligned address.
+ *
+ * Input Parameters:
+ * @param[in] size bytes to allocate
+ *
+ * Returned Value:
+ * @return address of allocated space on success, NULL on failure.
+ *
+ ****************************************************************************/
+
+LV_ATTRIBUTE_FAST_MEM FAR void* gpu_heap_aligned_alloc(size_t alignment,
+    size_t size);
+
+/****************************************************************************
+ * Name: gpu_heap_realloc
+ *
+ * Description:
+ *   Realloc space in GPU custom heap.
+ *
+ * Input Parameters:
+ * @param[in] mem address of memory to reallocate
+ * @param[in] size desired allocated size
+ *
+ * Returned Value:
+ * @return address of reallocated space on success, NULL on failure.
+ *
+ ****************************************************************************/
+
+LV_ATTRIBUTE_FAST_MEM void* gpu_heap_realloc(FAR void* mem, size_t size);
+
+/****************************************************************************
+ * Name: gpu_heap_free
+ *
+ * Description:
+ *   Free space in GPU custom heap.
+ *
+ * Input Parameters:
+ * @param[in] mem address of memory to free
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+LV_ATTRIBUTE_FAST_MEM void gpu_heap_free(FAR void* mem);
+
 #undef EXTERN
 #ifdef __cplusplus
 }
