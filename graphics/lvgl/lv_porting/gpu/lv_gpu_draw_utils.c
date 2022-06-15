@@ -1420,90 +1420,94 @@ LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
     return;
   }
 #ifdef CONFIG_ARM_HAVE_MVE
-  int32_t blkCnt = size;
-  uint32_t* pwTarget = (uint32_t*)dst;
-  uint32_t* phwSource = (uint32_t*)src;
-  lv_opa_t mix = 255 - opa;
-  if (src != NULL) {
-    __asm volatile(
-        "   .p2align 2                                                  \n"
-        "   vdup.32                 q0, %[pRecolor]                     \n"
-        "   vdup.8                  q1, %[opa]                          \n"
-        "   vrmulh.u8               q0, q0, q1                          \n"
-        "   vdup.8                  q1, %[mix]                          \n"
-        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-        "   2:                                                          \n"
-        "   vldrw.32                q2, [%[pSource]], #16               \n"
-        "   vsri.32                 q3, q2, #8                          \n"
-        "   vsri.32                 q3, q2, #16                         \n"
-        "   vsri.32                 q3, q2, #24                         \n"
-        "   vrmulh.u8               q2, q2, q1                          \n"
-        "   vadd.i8                 q2, q2, q0                          \n"
-        /* pre-multiply */
-        "   vrmulh.u8               q2, q2, q3                          \n"
-        "   vsli.32                 q2, q3, #24                         \n"
-        "   vstrw.32                q2, [%[pTarget]], #16               \n"
-        "   letp                    lr, 2b                              \n"
-        "   1:                                                          \n"
-        : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget),
-        [pRecolor] "+r"(recolor)
-        : [loopCnt] "r"(blkCnt), [opa] "r"(opa), [mix] "r"(mix)
-        : "q0", "q1", "q2", "q3", "lr", "memory");
-  } else {
-    uint32_t inits[4] = { 0x0, 0x1010101, 0x2020202, 0x3030303 };
-    uint32_t step = 4;
-    if (size == 16) {
-      step = 0x44;
-      inits[1] = 0x11111111;
-      inits[2] = 0x22222222;
-      inits[3] = 0x33333333;
-    }
-    __asm volatile(
-        "   .p2align 2                                                  \n"
-        "   vdup.32                 q0, %[pSource]                      \n"
-        "   vdup.8                  q1, %[opa]                          \n"
-        "   vrmulh.u8               q0, q0, q1                          \n"
-        "   vldrw.32                q1, [%[init]]                       \n"
-        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-        "   2:                                                          \n"
-        "   vrmulh.u8               q2, q0, q1                          \n"
-        "   vsli.32                 q2, q1, #24                         \n"
-        "   vstrw.32                q2, [%[pTarget]], #16               \n"
-        "   vadd.i8                 q1, q1, %[step]                     \n"
-        "   letp                    lr, 2b                              \n"
-        "   1:                                                          \n"
-        : [pSource] "+r"(recolor), [pTarget] "+r"(pwTarget), [opa] "+r"(opa)
-        : [loopCnt] "r"(blkCnt), [init] "r"(inits), [step] "r"(step)
-        : "q0", "q1", "q2", "lr", "memory");
-  }
-#else
-  uint16_t recolor_premult[3] = { (recolor >> 16 & 0xFF) * opa,
-    (recolor >> 8 & 0xFF) * opa, (recolor & 0xFF) * opa };
-  for (int_fast16_t i = 0; i < size; i++) {
+  if (IS_ALIGNED(src, 4)) {
+    int32_t blkCnt = size;
+    uint32_t* pwTarget = (uint32_t*)dst;
+    uint32_t* phwSource = (uint32_t*)src;
+    lv_opa_t mix = 255 - opa;
     if (src != NULL) {
-      lv_opa_t mix = 255 - opa;
-      /* index recolor */
-      if (src[i].ch.alpha == 0) {
-        dst[i].full = 0;
-      } else {
-        LV_COLOR_SET_R32(dst[i],
-            LV_UDIV255(recolor_premult[0] + LV_COLOR_GET_R32(src[i]) * mix));
-        LV_COLOR_SET_G32(dst[i],
-            LV_UDIV255(recolor_premult[1] + LV_COLOR_GET_G32(src[i]) * mix));
-        LV_COLOR_SET_B32(dst[i],
-            LV_UDIV255(recolor_premult[2] + LV_COLOR_GET_B32(src[i]) * mix));
-        LV_COLOR_SET_A32(dst[i], src[i].ch.alpha);
-      }
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   vdup.32                 q0, %[pRecolor]                     \n"
+          "   vdup.8                  q1, %[opa]                          \n"
+          "   vrmulh.u8               q0, q0, q1                          \n"
+          "   vdup.8                  q1, %[mix]                          \n"
+          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vldrw.32                q2, [%[pSource]], #16               \n"
+          "   vsri.32                 q3, q2, #8                          \n"
+          "   vsri.32                 q3, q2, #16                         \n"
+          "   vsri.32                 q3, q2, #24                         \n"
+          "   vrmulh.u8               q2, q2, q1                          \n"
+          "   vadd.i8                 q2, q2, q0                          \n"
+          /* pre-multiply */
+          "   vrmulh.u8               q2, q2, q3                          \n"
+          "   vsli.32                 q2, q3, #24                         \n"
+          "   vstrw.32                q2, [%[pTarget]], #16               \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget),
+          [pRecolor] "+r"(recolor)
+          : [loopCnt] "r"(blkCnt), [opa] "r"(opa), [mix] "r"(mix)
+          : "q0", "q1", "q2", "q3", "lr", "memory");
     } else {
-      /* fill alpha palette */
-      uint32_t opa_i = (size == 256) ? i : i * 0x11;
-      LV_COLOR_SET_R32(dst[i], LV_UDIV255(recolor_premult[0]));
-      LV_COLOR_SET_G32(dst[i], LV_UDIV255(recolor_premult[1]));
-      LV_COLOR_SET_B32(dst[i], LV_UDIV255(recolor_premult[2]));
-      LV_COLOR_SET_A32(dst[i], opa_i);
+      uint32_t inits[4] = { 0x0, 0x1010101, 0x2020202, 0x3030303 };
+      uint32_t step = 4;
+      if (size == 16) {
+        step = 0x44;
+        inits[1] = 0x11111111;
+        inits[2] = 0x22222222;
+        inits[3] = 0x33333333;
+      }
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   vdup.32                 q0, %[pSource]                      \n"
+          "   vdup.8                  q1, %[opa]                          \n"
+          "   vrmulh.u8               q0, q0, q1                          \n"
+          "   vldrw.32                q1, [%[init]]                       \n"
+          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vrmulh.u8               q2, q0, q1                          \n"
+          "   vsli.32                 q2, q1, #24                         \n"
+          "   vstrw.32                q2, [%[pTarget]], #16               \n"
+          "   vadd.i8                 q1, q1, %[step]                     \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pSource] "+r"(recolor), [pTarget] "+r"(pwTarget), [opa] "+r"(opa)
+          : [loopCnt] "r"(blkCnt), [init] "r"(inits), [step] "r"(step)
+          : "q0", "q1", "q2", "lr", "memory");
     }
+  } else {
+#endif
+    uint16_t recolor_premult[3] = { (recolor >> 16 & 0xFF) * opa,
+      (recolor >> 8 & 0xFF) * opa, (recolor & 0xFF) * opa };
+    for (int_fast16_t i = 0; i < size; i++) {
+      if (src != NULL) {
+        lv_opa_t mix = 255 - opa;
+        /* index recolor */
+        if (src[i].ch.alpha == 0) {
+          dst[i].full = 0;
+        } else {
+          LV_COLOR_SET_R32(dst[i],
+              LV_UDIV255(recolor_premult[0] + LV_COLOR_GET_R32(src[i]) * mix));
+          LV_COLOR_SET_G32(dst[i],
+              LV_UDIV255(recolor_premult[1] + LV_COLOR_GET_G32(src[i]) * mix));
+          LV_COLOR_SET_B32(dst[i],
+              LV_UDIV255(recolor_premult[2] + LV_COLOR_GET_B32(src[i]) * mix));
+          LV_COLOR_SET_A32(dst[i], src[i].ch.alpha);
+        }
+      } else {
+        /* fill alpha palette */
+        uint32_t opa_i = (size == 256) ? i : i * 0x11;
+        LV_COLOR_SET_R32(dst[i], LV_UDIV255(recolor_premult[0]));
+        LV_COLOR_SET_G32(dst[i], LV_UDIV255(recolor_premult[1]));
+        LV_COLOR_SET_B32(dst[i], LV_UDIV255(recolor_premult[2]));
+        LV_COLOR_SET_A32(dst[i], opa_i);
+      }
+    }
+    gpu_pre_multiply(dst, dst, size);
+#ifdef CONFIG_ARM_HAVE_MVE
   }
-  gpu_pre_multiply(dst, dst, size);
 #endif
 }
 
