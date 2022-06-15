@@ -41,14 +41,14 @@
 #include <nuttx/config.h>
 
 #include <cinttypes>
-#include <cunistd>
-#include <csched>
 #include <cassert>
 #include <cerrno>
 
 #include <limits.h>
 #include <semaphore.h>
 #include <debug.h>
+#include <sched.h>
+#include <unistd.h>
 
 #include <nuttx/semaphore.h>
 #include <nuttx/nx/nxbe.h>
