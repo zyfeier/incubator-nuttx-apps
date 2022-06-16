@@ -70,6 +70,9 @@ CSRCS += lv_porting/gpu/lv_gpu_decoder.c
 CSRCS += lv_porting/gpu/lv_gpu_evoreader.c
 CSRCS += lv_porting/gpu/lv_gpu_draw_utils.c
 CSRCS += lv_porting/gpu/fast_gaussian_blur.c
+ifneq ($(CONFIG_ARM_HAVE_MVE),)
+CSRCS += lv_porting/gpu/lv_gpu_draw_blend.c
+endif
 
 ifneq ($(CONFIG_LV_GPU_USE_CUSTOM_HEAP),)
 ifneq ($(CONFIG_LV_MEM_CUSTOM),)

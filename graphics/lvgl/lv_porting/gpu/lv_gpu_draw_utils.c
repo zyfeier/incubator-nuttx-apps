@@ -28,7 +28,6 @@
 #include "src/misc/lv_gc.h"
 #include "vg_lite.h"
 #include <math.h>
-#include <nuttx/cache.h>
 #include <stdlib.h>
 #ifdef CONFIG_ARM_HAVE_MVE
 #include "arm_mve.h"
@@ -1371,10 +1370,10 @@ uint32_t gpu_data_get_buf_size(lv_img_dsc_t* dsc)
  * @return None
  *
  ****************************************************************************/
-LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
-    const lv_color32_t* src, uint32_t count)
+LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color_t* dst,
+    const lv_color_t* src, uint32_t count)
 {
-#ifdef CONFIG_ARM_HAVE_MVE
+#if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
   if (IS_ALIGNED(src, 4)) {
     __asm volatile(
         "   .p2align 2                                                  \n"
@@ -1401,7 +1400,7 @@ LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
       dst->ch.blue = LV_UDIV255(src->ch.blue * src->ch.alpha);
       (dst++)->ch.alpha = (src++)->ch.alpha;
     }
-#ifdef CONFIG_ARM_HAVE_MVE
+#if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
   }
 #endif
 }

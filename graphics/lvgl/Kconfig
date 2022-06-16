@@ -136,7 +136,7 @@ config LV_GPU_DRAW_POLYGON
 
 config LV_GPU_DRAW_RECT
 	bool "Use GPU accelerated draw_rect"
-	default y
+	default n
 
 config LV_GPU_DRAW_IMG
 	bool "Use GPU accelerated draw_img"
