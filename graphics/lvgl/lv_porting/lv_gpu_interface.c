@@ -401,12 +401,12 @@ LV_ATTRIBUTE_FAST_MEM FAR void* gpu_heap_alloc(size_t size)
 #ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
   void* mem = lv_tlsf_malloc(s_gpu_heap, size);
   if (!mem) {
-    GPU_WARN("malloc failed, clearing cache");
+    LV_LOG_WARN("malloc failed, clearing cache");
     lv_img_cache_invalidate_src(NULL);
     mem = lv_tlsf_malloc(s_gpu_heap, size);
   }
   if (!mem) {
-    GPU_ERROR("malloc failed, fallback to system malloc");
+    LV_LOG_ERROR("malloc failed, fallback to system malloc");
     mem = malloc(size);
   }
   return mem;
@@ -435,12 +435,12 @@ LV_ATTRIBUTE_FAST_MEM FAR void* gpu_heap_aligned_alloc(size_t alignment,
 #ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
   void* mem = lv_tlsf_memalign(s_gpu_heap, alignment, size);
   if (!mem) {
-    GPU_WARN("malloc failed, clearing cache");
+    LV_LOG_WARN("malloc failed, clearing cache");
     lv_img_cache_invalidate_src(NULL);
     mem = lv_tlsf_memalign(s_gpu_heap, alignment, size);
   }
   if (!mem) {
-    GPU_ERROR("malloc failed, fallback to system malloc");
+    LV_LOG_ERROR("malloc failed, fallback to system malloc");
     mem = aligned_alloc(alignment, size);
   }
   return mem;
