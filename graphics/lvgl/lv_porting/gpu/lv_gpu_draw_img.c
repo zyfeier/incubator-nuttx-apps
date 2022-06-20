@@ -182,6 +182,20 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   bool allocated_src = false;
   lv_color32_t pre_recolor;
   vgbuf = lv_gpu_get_vgbuf((void*)map_p);
+  if (!transformed && lv_area_get_size(&draw_area) < GPU_SIZE_LIMIT
+      && ((!vgbuf && !dsc->recolor_opa) || vgbuf->format == VGLITE_PX_FMT)
+      && !lv_draw_mask_is_any(&draw_area)) {
+    lv_color_t* src = vgbuf ? vgbuf->memory : (lv_color_t*)map_p;
+    lv_color_t* dst = disp_buf;
+    lv_coord_t src_stride = vgbuf ? vgbuf->width : map_w;
+    lv_coord_t dst_stride = disp_w;
+    bool premult = !!vgbuf;
+    src += src_stride * (draw_area.y1 - coords->y1 + disp_area->y1)
+        + draw_area.x1 - coords->x1 + disp_area->x1;
+    dst += dst_stride * draw_area.y1 + draw_area.x1;
+    blend_ARGB(dst, &draw_area, dst_stride, src, src_stride, opa, premult);
+    return LV_RES_OK;
+  }
   if (vgbuf) {
     indexed = (vgbuf->format >= VG_LITE_INDEX_1)
         && (vgbuf->format <= VG_LITE_INDEX_8);

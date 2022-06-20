@@ -51,8 +51,7 @@
 #define LV_GPU_USE_PERF
 #endif
 
-#define GPU_SIZE_LIMIT 240
-#define GPU_SPLIT_SIZE (480 * 100)
+#define GPU_SIZE_LIMIT 5000
 
 #ifndef POSSIBLY_UNUSED
 #define POSSIBLY_UNUSED __attribute__((unused))
