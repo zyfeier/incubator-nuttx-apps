@@ -245,7 +245,8 @@ static int listener_update(FAR struct list_node *objlist,
         {
           unsigned long frequency;
 
-          frequency = delta_generation * 1000000 / delta_time;
+          frequency = (state.max_frequency ? state.max_frequency : 1000000)
+                      * delta_generation / delta_time;
           uorbinfo_raw("\033[K" "%-*s %2u %4" PRIu32 " %4lu %2" PRIu32 " %4u",
                        ORB_MAX_PRINT_NAME,
                        object->meta->o_name,
