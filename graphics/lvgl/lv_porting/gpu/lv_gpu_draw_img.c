@@ -193,6 +193,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     src += src_stride * (draw_area.y1 - coords->y1 + disp_area->y1)
         + draw_area.x1 - coords->x1 + disp_area->x1;
     dst += dst_stride * draw_area.y1 + draw_area.x1;
+    gpu_wait_area(&draw_area);
     blend_ARGB(dst, &draw_area, dst_stride, src, src_stride, opa, premult);
     return LV_RES_OK;
   }
