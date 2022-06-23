@@ -39,10 +39,10 @@ $(MQTTC_UNPACK): $(MQTTC_TARBALL)
 	$(Q) mv MQTT-C-$(MQTTC_VERSION) $(MQTTC_UNPACK)
 	$(Q) touch $(MQTTC_UNPACK)
 
-context:: $(MQTTC_UNPACK)
+context:: #$(MQTTC_UNPACK)
 
 distclean::
-	$(call DELFILE, $(MQTTC_TARBALL))
-	$(call DELDIR, $(MQTTC_UNPACK))
+#	$(call DELFILE, $(MQTTC_TARBALL))
+#	$(call DELDIR, $(MQTTC_UNPACK))
 
 include $(APPDIR)/Application.mk
