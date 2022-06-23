@@ -180,6 +180,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
 
   bool indexed = false, alpha = false;
   bool allocated_src = false;
+  bool premult = (color_format != LV_IMG_CF_TRUE_COLOR_ALPHA);
   lv_color32_t pre_recolor;
   vgbuf = lv_gpu_get_vgbuf((void*)map_p);
   if (!transformed && lv_area_get_size(&draw_area) < GPU_SIZE_LIMIT
@@ -189,7 +190,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     lv_color_t* dst = disp_buf;
     lv_coord_t src_stride = vgbuf ? vgbuf->width : map_w;
     lv_coord_t dst_stride = disp_w;
-    bool premult = !!vgbuf;
+    premult |= !!vgbuf;
     src += src_stride * (draw_area.y1 - coords->y1 + disp_area->y1)
         + draw_area.x1 - coords->x1 + disp_area->x1;
     dst += dst_stride * draw_area.y1 + draw_area.x1;
@@ -210,7 +211,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
       header.h = vgbuf->height;
       header.cf = color_format;
       if (lv_gpu_load_vgbuf(vgbuf->memory, &header, &src_vgbuf, NULL,
-              recolor, true)
+              recolor, premult)
           != LV_RES_OK) {
         GPU_ERROR("load failed");
         goto Fallback;
@@ -229,7 +230,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     header.h = map_h;
     header.cf = color_format;
     if (lv_gpu_load_vgbuf(map_p, &header, &src_vgbuf, NULL,
-            recolor, false)
+            recolor, premult)
         != LV_RES_OK) {
       GPU_ERROR("load failed");
       goto Fallback;

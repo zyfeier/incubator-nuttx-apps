@@ -67,6 +67,10 @@ LV_ATTRIBUTE_FAST_MEM static void pre_multiply(lv_color32_t* dp,
     dp->full = 0;
     return;
   }
+  if (sp->ch.alpha == 0xFF) {
+    dp->full = sp->full;
+    return;
+  }
   dp->ch.alpha = sp->ch.alpha;
   dp->ch.red = LV_UDIV255(sp->ch.red * sp->ch.alpha);
   dp->ch.green = LV_UDIV255(sp->ch.green * sp->ch.alpha);
@@ -137,7 +141,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
   if (dsc->src_type == LV_IMG_SRC_FILE) {
     lv_fs_file_t f;
     GPU_WARN("opening %s", (const char*)dsc->src);
-    const char *ext = lv_fs_get_ext(dsc->src);
+    const char* ext = lv_fs_get_ext(dsc->src);
     /*Support only "*.bin" files*/
     if (strcmp(ext, "bin") != 0) {
       GPU_WARN("can't open %s", (const char*)dsc->src);
@@ -202,8 +206,9 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
   header->magic = GPU_DATA_MAGIC;
   header->recolor = dsc->color.full;
   dsc->img_data = gpu_data;
+  bool premult = !(dsc->header.cf == LV_IMG_CF_TRUE_COLOR_ALPHA);
   lv_res_t ret = lv_gpu_load_vgbuf(img_data, &dsc->header, &header->vgbuf,
-      gpu_data + sizeof(gpu_data_header_t), dsc->color, false);
+      gpu_data + sizeof(gpu_data_header_t), dsc->color, premult);
 
   if (dsc->src_type == LV_IMG_SRC_FILE) {
     /* file cache is no longger needed. */
@@ -449,8 +454,8 @@ lv_res_t lv_gpu_decoder_info(lv_img_decoder_t* decoder, const void* src,
 
   if (src_type == LV_IMG_SRC_FILE) {
     /*Support only "*.bin", ".evo" and ".gpu" files*/
-    if (strcmp(lv_fs_get_ext(src), "bin") \
-        & strcmp(lv_fs_get_ext(src), "evo") \
+    if (strcmp(lv_fs_get_ext(src), "bin")
+        & strcmp(lv_fs_get_ext(src), "evo")
         & strcmp(lv_fs_get_ext(src), "gpu"))
       return LV_RES_INV;
 
@@ -527,7 +532,7 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder,
     }
   } else if (dsc->src_type == LV_IMG_SRC_FILE) {
     /* let's process "gpu" file firstly. */
-    const char *ext = lv_fs_get_ext(dsc->src);
+    const char* ext = lv_fs_get_ext(dsc->src);
     if (strcmp(ext, "gpu") == 0) {
       /* No need to decode gpu file, simply load it to ram */
       lv_fs_file_t f;
@@ -860,114 +865,190 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
           ? LV_COLOR_CHROMA_KEY.full
           : 0;
 #ifdef CONFIG_ARM_HAVE_MVE
+      uint32_t ff_alpha = 0xFF000000;
       if (IS_ALIGNED(phwSource, 4)) {
-        if (noalpha) {
-          __asm volatile(
-          "   .p2align 2                                                  \n"
-          "   vdup.32                 q0, %[pRecolor]                     \n"
-          "   vdup.8                  q1, %[opa]                          \n"
-          "   vrmulh.u8               q0, q0, q1                          \n"
-          "   vdup.8                  q1, %[mix]                          \n"
-          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-          "   2:                                                          \n"
-          "   "
-          "   vldrw.32                q2, [%[pSource]], #16               \n"
-          "   mov                     r0, 0xFF000000                      \n"
-          "   vdup.32                 q3, r0                              \n"
-          "   vorr                    q2, q2, q3                          \n"
-          "   vcmp.i32                ne, q2, %[chroma]                   \n"
-          "   vrmulh.u8               q2, q2, q1                          \n"
-          "   vadd.i8                 q2, q2, q0                          \n"
-          /* pre-multiply alpha to all channels */
-          "   vorr                    q2, q2, q3                          \n"
-          "   vpst                                                        \n"
-          "   vstrwt.32               q2, [%[pTarget]], #16               \n"
-          "   letp                    lr, 2b                              \n"
-          "   1:                                                          \n"
-          : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget), [pRecolor] "+r"(recolor)
-          : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa), [mix] "r"(mix)
-          : "q0", "q1", "q2", "q3", "r0", "lr", "memory");
-        } else if (!premult) {
-          __asm volatile(
-          "   .p2align 2                                                  \n"
-          "   vdup.32                 q0, %[pRecolor]                     \n"
-          "   vdup.8                  q1, %[opa]                          \n"
-          "   vrmulh.u8               q0, q0, q1                          \n"
-          "   vdup.8                  q1, %[mix]                          \n"
-          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-          "   2:                                                          \n"
-          "   "
-          "   vldrw.32                q2, [%[pSource]], #16               \n"
-          "   vsri.32                 q3, q2, #8                          \n"
-          "   vsri.32                 q3, q2, #16                         \n"
-          "   vsri.32                 q3, q2, #24                         \n"
-          "   vcmp.i32                ne, q2, %[chroma]                   \n"
-          "   vrmulh.u8               q2, q2, q1                          \n"
-          "   vadd.i8                 q2, q2, q0                          \n"
-          /* pre-multiply alpha to all channels */
-          "   vrmulh.u8               q2, q2, q3                          \n"
-          "   vsli.32                 q2, q3, #24                         \n"
-          "   vpst                                                        \n"
-          "   vstrwt.32               q2, [%[pTarget]], #16               \n"
-          "   letp                    lr, 2b                              \n"
-          "   1:                                                          \n"
-          : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget), [pRecolor] "+r"(recolor)
-          : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa), [mix] "r"(mix)
-          : "q0", "q1", "q2", "q3", "lr", "memory");
+        if (opa != LV_OPA_TRANSP) {
+          if (noalpha) {
+            __asm volatile(
+                "   .p2align 2                                                  \n"
+                "   vdup.32                 q0, %[pRecolor]                     \n"
+                "   vdup.8                  q1, %[opa]                          \n"
+                "   vrmulh.u8               q0, q0, q1                          \n"
+                "   vdup.8                  q1, %[mix]                          \n"
+                "   vdup.32                 q3, %[ff_alpha]                     \n"
+                "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+                "   2:                                                          \n"
+                "   "
+                "   vldrw.32                q2, [%[pSource]], #16               \n"
+                "   vorr                    q2, q2, q3                          \n"
+                "   vcmp.i32                ne, q2, %[chroma]                   \n"
+                "   vrmulh.u8               q2, q2, q1                          \n"
+                "   vadd.i8                 q2, q2, q0                          \n"
+                /* set alpha to 0xFF */
+                "   vorr                    q2, q2, q3                          \n"
+                "   vpst                                                        \n"
+                "   vstrwt.32               q2, [%[pTarget]], #16               \n"
+                "   letp                    lr, 2b                              \n"
+                "   1:                                                          \n"
+                : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+                : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa),
+                [mix] "r"(mix), [ff_alpha] "r"(ff_alpha), [pRecolor] "r"(recolor)
+                : "q0", "q1", "q2", "q3", "lr", "memory");
+          } else if (!premult) {
+            __asm volatile(
+                "   .p2align 2                                                  \n"
+                "   vdup.32                 q0, %[pRecolor]                     \n"
+                "   vdup.8                  q1, %[opa]                          \n"
+                "   vrmulh.u8               q0, q0, q1                          \n"
+                "   vdup.8                  q1, %[mix]                          \n"
+                "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+                "   2:                                                          \n"
+                "   "
+                "   vldrw.32                q2, [%[pSource]], #16               \n"
+                "   vsri.32                 q3, q2, #8                          \n"
+                "   vsri.32                 q3, q2, #16                         \n"
+                "   vsri.32                 q3, q2, #24                         \n"
+                "   vcmp.i32                ne, q2, %[chroma]                   \n"
+                "   vrmulh.u8               q2, q2, q1                          \n"
+                "   vadd.i8                 q2, q2, q0                          \n"
+                /* pre-multiply alpha to all channels */
+                "   vrmulh.u8               q2, q2, q3                          \n"
+                "   vsli.32                 q2, q3, #24                         \n"
+                "   vpst                                                        \n"
+                "   vstrwt.32               q2, [%[pTarget]], #16               \n"
+                "   letp                    lr, 2b                              \n"
+                "   1:                                                          \n"
+                : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+                : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa),
+                [mix] "r"(mix), [pRecolor] "r"(recolor)
+                : "q0", "q1", "q2", "q3", "lr", "memory");
+          } else {
+            __asm volatile(
+                "   .p2align 2                                                  \n"
+                "   vdup.32                 q0, %[pRecolor]                     \n"
+                "   vdup.8                  q1, %[opa]                          \n"
+                "   vrmulh.u8               q0, q0, q1                          \n"
+                "   vdup.8                  q1, %[mix]                          \n"
+                "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+                "   2:                                                          \n"
+                "   "
+                "   vldrw.32                q2, [%[pSource]], #16               \n"
+                "   vsri.32                 q3, q2, #8                          \n"
+                "   vsri.32                 q3, q2, #16                         \n"
+                "   vsri.32                 q3, q2, #24                         \n"
+                /* pre-multiply source alpha to recolor_premult */
+                "   vrmulh.u8               q4, q0, q3                          \n"
+                "   vcmp.i32                ne, q2, %[chroma]                   \n"
+                "   vrmulh.u8               q2, q2, q1                          \n"
+                "   vadd.i8                 q2, q2, q4                          \n"
+                "   vsli.32                 q2, q3, #24                         \n"
+                "   vpst                                                        \n"
+                "   vstrwt.32               q2, [%[pTarget]], #16               \n"
+                "   letp                    lr, 2b                              \n"
+                "   1:                                                          \n"
+                : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+                : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa),
+                [mix] "r"(mix), [pRecolor] "r"(recolor)
+                : "q0", "q1", "q2", "q3", "q4", "lr", "memory");
+          }
         } else {
-          __asm volatile(
-          "   .p2align 2                                                  \n"
-          "   vdup.32                 q0, %[pRecolor]                     \n"
-          "   vdup.8                  q1, %[opa]                          \n"
-          "   vrmulh.u8               q0, q0, q1                          \n"
-          "   vdup.8                  q1, %[mix]                          \n"
-          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-          "   2:                                                          \n"
-          "   "
-          "   vldrw.32                q2, [%[pSource]], #16               \n"
-          "   vsri.32                 q3, q2, #8                          \n"
-          "   vsri.32                 q3, q2, #16                         \n"
-          "   vsri.32                 q3, q2, #24                         \n"
-          /* pre-multiply source alpha to recolor_premult */
-          "   vrmulh.u8               q4, q0, q3                          \n"
-          "   vcmp.i32                ne, q2, %[chroma]                   \n"
-          "   vrmulh.u8               q2, q2, q1                          \n"
-          "   vadd.i8                 q2, q2, q4                          \n"
-          "   vsli.32                 q2, q3, #24                         \n"
-          "   vpst                                                        \n"
-          "   vstrwt.32               q2, [%[pTarget]], #16               \n"
-          "   letp                    lr, 2b                              \n"
-          "   1:                                                          \n"
-          : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget), [pRecolor] "+r"(recolor)
-          : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32), [opa] "r"(opa), [mix] "r"(mix)
-          : "q0", "q1", "q2", "q3", "q4", "lr", "memory");
-      }
+          if (noalpha) {
+            __asm volatile(
+                "   .p2align 2                                                  \n"
+                "   vdup.32                 q1, %[ff_alpha]                     \n"
+                "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+                "   2:                                                          \n"
+                "   "
+                "   vldrw.32                q0, [%[pSource]], #16               \n"
+                "   vorr                    q0, q0, q1                          \n"
+                "   vcmp.i32                ne, q0, %[chroma]                   \n"
+                "   vpst                                                        \n"
+                "   vstrwt.32               q0, [%[pTarget]], #16               \n"
+                "   letp                    lr, 2b                              \n"
+                "   1:                                                          \n"
+                : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+                : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32),
+                [ff_alpha] "r"(ff_alpha)
+                : "q0", "q1", "lr", "memory");
+          } else if (!premult) {
+            __asm volatile(
+                "   .p2align 2                                                  \n"
+                "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+                "   2:                                                          \n"
+                "   "
+                "   vldrw.32                q0, [%[pSource]], #16               \n"
+                "   vsri.32                 q1, q0, #8                          \n"
+                "   vsri.32                 q1, q0, #16                         \n"
+                "   vsri.32                 q1, q0, #24                         \n"
+                "   vcmp.i32                ne, q0, %[chroma]                   \n"
+                /* pre-multiply alpha to all channels */
+                "   vrmulh.u8               q0, q0, q1                          \n"
+                "   vsli.32                 q0, q1, #24                         \n"
+                "   vpst                                                        \n"
+                "   vstrwt.32               q0, [%[pTarget]], #16               \n"
+                "   letp                    lr, 2b                              \n"
+                "   1:                                                          \n"
+                : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+                : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32)
+                : "q0", "q1", "lr", "memory");
+          } else {
+            __asm volatile(
+                "   .p2align 2                                                  \n"
+                "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+                "   2:                                                          \n"
+                "   "
+                "   vldrw.32                q0, [%[pSource]], #16               \n"
+                "   vcmp.i32                ne, q0, %[chroma]                   \n"
+                "   vpst                                                        \n"
+                "   vstrwt.32               q0, [%[pTarget]], #16               \n"
+                "   letp                    lr, 2b                              \n"
+                "   1:                                                          \n"
+                : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+                : [loopCnt] "r"(blkCnt), [chroma] "r"(chroma32)
+                : "q0", "lr", "memory");
+          }
+        }
       } else {
 #endif /* CONFIG_ARM_HAVE_MVE */
-      const lv_color32_t* sp = (const lv_color32_t*)phwSource;
-      lv_color32_t* dp = (lv_color32_t*)pwTarget;
-      for (; blkCnt--; sp++, dp++) {
-        if (sp->ch.alpha != LV_OPA_TRANSP && sp->full != chroma32) {
-          if (premult) {
-            if (opa != LV_OPA_TRANSP) {
-              dp->ch.red = LV_UDIV255(recolor_premult[0] * sp->ch.alpha / 255 + sp->ch.red * mix);
-              dp->ch.green = LV_UDIV255(recolor_premult[1] * sp->ch.alpha / 255 + sp->ch.green * mix);
-              dp->ch.blue = LV_UDIV255(recolor_premult[2] * sp->ch.alpha / 255 + sp->ch.blue * mix);
-              dp->ch.alpha = sp->ch.alpha;
-            } else {
-            *dp = *sp;
-            }
-          } else {
-            if (opa != LV_OPA_TRANSP) {
+        const lv_color32_t* sp = (const lv_color32_t*)phwSource;
+        lv_color32_t* dp = (lv_color32_t*)pwTarget;
+        for (; blkCnt--; sp++, dp++) {
+          if ((noalpha && (sp->full | 0xFF000000) != chroma32) || sp->ch.alpha == LV_OPA_TRANSP
+              || sp->full == chroma32) {
+            dp->full = 0;
+            continue;
+          }
+          if (opa != LV_OPA_TRANSP) {
+            /* Perform recolor */
+            if (noalpha) {
               dp->ch.red = LV_UDIV255(recolor_premult[0] + sp->ch.red * mix);
               dp->ch.green = LV_UDIV255(recolor_premult[1] + sp->ch.green * mix);
               dp->ch.blue = LV_UDIV255(recolor_premult[2] + sp->ch.blue * mix);
-              dp->ch.alpha = sp->ch.alpha;
+              dp->ch.alpha = 0xFF;
+            } else {
+              if (premult) {
+                dp->ch.red = LV_UDIV255(recolor_premult[0] * sp->ch.alpha / 255 + sp->ch.red * mix);
+                dp->ch.green = LV_UDIV255(recolor_premult[1] * sp->ch.alpha / 255 + sp->ch.green * mix);
+                dp->ch.blue = LV_UDIV255(recolor_premult[2] * sp->ch.alpha / 255 + sp->ch.blue * mix);
+                dp->ch.alpha = sp->ch.alpha;
+              } else {
+                dp->ch.red = LV_UDIV255(recolor_premult[0] + sp->ch.red * mix);
+                dp->ch.green = LV_UDIV255(recolor_premult[1] + sp->ch.green * mix);
+                dp->ch.blue = LV_UDIV255(recolor_premult[2] + sp->ch.blue * mix);
+                pre_multiply(dp, dp);
+              }
             }
-            pre_multiply(dp, sp);
+          } else {
+            if (noalpha) {
+              dp->full = sp->full;
+              dp->ch.alpha = 0xFF;
+            } else if (!premult) {
+              pre_multiply(dp, sp);
+            } else {
+              dp->full = sp->full;
+            }
           }
         }
-      }
 #ifdef CONFIG_ARM_HAVE_MVE
       }
 #endif /* CONFIG_ARM_HAVE_MVE */
