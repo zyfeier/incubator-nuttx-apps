@@ -26,7 +26,6 @@
 #include "gpu/lv_gpu_draw_utils.h"
 #include "gpu_port.h"
 #include "vg_lite.h"
-#include <nuttx/cache.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -182,6 +181,14 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_wait(struct _lv_draw_ctx_t* draw)
   gpu_wait_area(draw->clip_area);
 }
 
+LV_ATTRIBUTE_FAST_MEM static void gpu_draw_blend(lv_draw_ctx_t* draw_ctx,
+    const lv_draw_sw_blend_dsc_t* dsc)
+{
+  if (lv_gpu_draw_blend(draw_ctx, dsc) != LV_RES_OK) {
+    return lv_draw_sw_blend_basic(draw_ctx, dsc);
+  }
+}
+
 /****************************************************************************
  * Global Functions
  ****************************************************************************/
@@ -270,6 +277,9 @@ void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx)
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_IMG
   gpu_draw_ctx->base_draw.draw_img_decoded = gpu_draw_img_decoded;
+#endif
+#if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
+  gpu_draw_ctx->blend = gpu_draw_blend;
 #endif
   gpu_draw_ctx->base_draw.wait_for_finish = gpu_wait;
 }
@@ -492,8 +502,7 @@ LV_ATTRIBUTE_FAST_MEM void gpu_heap_free(FAR void* mem)
 {
 #ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
   if ((char*)mem >= s_gpu_mem && (char*)mem < s_gpu_mem_end) {
-    lv_tlsf_free(s_gpu_heap, mem);
-    return;
+    return lv_tlsf_free(s_gpu_heap, mem);
   }
 #endif
   free(mem);

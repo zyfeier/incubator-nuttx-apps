@@ -42,6 +42,7 @@
 #ifdef CONFIG_LV_GPU_DRAW_IMG
 #include "lv_gpu_draw_img.h"
 #endif
+#include "lv_gpu_draw_blend.h"
 
 /*********************
  *      DEFINES
@@ -457,8 +458,8 @@ uint32_t gpu_data_get_buf_size(lv_img_dsc_t* dsc);
  * @return None
  *
  ****************************************************************************/
-LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
-    const lv_color32_t* src, uint32_t count);
+LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color_t* dst,
+    const lv_color_t* src, uint32_t count);
 
 LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
     const lv_color32_t* src, uint16_t size, uint32_t recolor);
@@ -466,6 +467,10 @@ LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
 LV_ATTRIBUTE_FAST_MEM void gpu_set_area(const lv_area_t* area);
 
 LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area);
+
+LV_ATTRIBUTE_FAST_MEM void blend_ARGB(lv_color_t* dst,
+    const lv_area_t* draw_area, lv_coord_t dst_stride, const lv_color_t* src,
+    lv_coord_t src_stride, lv_opa_t opa, bool premult);
 
 #undef EXTERN
 #ifdef __cplusplus

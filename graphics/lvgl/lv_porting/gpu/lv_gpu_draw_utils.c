@@ -28,7 +28,6 @@
 #include "src/misc/lv_gc.h"
 #include "vg_lite.h"
 #include <math.h>
-#include <nuttx/cache.h>
 #include <stdlib.h>
 #ifdef CONFIG_ARM_HAVE_MVE
 #include "arm_mve.h"
@@ -1371,10 +1370,10 @@ uint32_t gpu_data_get_buf_size(lv_img_dsc_t* dsc)
  * @return None
  *
  ****************************************************************************/
-LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
-    const lv_color32_t* src, uint32_t count)
+LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color_t* dst,
+    const lv_color_t* src, uint32_t count)
 {
-#ifdef CONFIG_ARM_HAVE_MVE
+#if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
   if (IS_ALIGNED(src, 4)) {
     __asm volatile(
         "   .p2align 2                                                  \n"
@@ -1401,7 +1400,7 @@ LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
       dst->ch.blue = LV_UDIV255(src->ch.blue * src->ch.alpha);
       (dst++)->ch.alpha = (src++)->ch.alpha;
     }
-#ifdef CONFIG_ARM_HAVE_MVE
+#if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
   }
 #endif
 }
@@ -1531,5 +1530,92 @@ LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area)
     vg_lite_finish();
     gpu_area.x1 = -1;
     return;
+  }
+}
+
+LV_ATTRIBUTE_FAST_MEM void blend_ARGB(lv_color_t* dst,
+    const lv_area_t* draw_area, lv_coord_t dst_stride, const lv_color_t* src,
+    lv_coord_t src_stride, lv_opa_t opa, bool premult)
+{
+  lv_coord_t w = lv_area_get_width(draw_area);
+  lv_coord_t h = lv_area_get_height(draw_area);
+  const uint8_t ff = 0xFF;
+  for (lv_coord_t i = 0; i < h; i++) {
+    uint32_t* phwSource = (uint32_t*)src;
+    uint32_t* pwTarget = (uint32_t*)dst;
+    register unsigned blkCnt __asm("lr") = w;
+    if (premult) {
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vld40.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
+          "   vld41.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
+          "   vld42.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
+          "   vld43.8                 {q0, q1, q2, q3}, [%[pSrc]]!        \n"
+          "   vld40.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vld41.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vld42.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vld43.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vdup.8                  q7, %[opa]                          \n"
+          "   vrmulh.u8               q0, q0, q7                          \n"
+          "   vrmulh.u8               q1, q1, q7                          \n"
+          "   vrmulh.u8               q2, q2, q7                          \n"
+          "   vrmulh.u8               q3, q3, q7                          \n"
+          "   vdup.8                  q7, %[ff]                           \n"
+          "   vsub.i8                 q3, q7, q3                          \n"
+          "   vrmulh.u8               q4, q4, q3                          \n"
+          "   vrmulh.u8               q5, q5, q3                          \n"
+          "   vrmulh.u8               q6, q6, q3                          \n"
+          "   vadd.i8                 q4, q0, q4                          \n"
+          "   vadd.i8                 q5, q1, q5                          \n"
+          "   vadd.i8                 q6, q2, q6                          \n"
+          "   vst40.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vst41.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vst42.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vst43.8                 {q4, q5, q6, q7}, [%[pDst]]!        \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
+          : [ff] "r"(ff), [opa] "r"(opa)
+          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "memory");
+    } else {
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vld40.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
+          "   vld41.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
+          "   vld42.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
+          "   vld43.8                 {q0, q1, q2, q3}, [%[pSrc]]!        \n"
+          "   vld40.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vld41.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vld42.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vld43.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vdup.8                  q7, %[opa]                          \n"
+          "   vrmulh.u8               q3, q3, q7                          \n"
+          "   vrmulh.u8               q0, q0, q3                          \n"
+          "   vrmulh.u8               q1, q1, q3                          \n"
+          "   vrmulh.u8               q2, q2, q3                          \n"
+          "   vdup.8                  q7, %[ff]                           \n"
+          "   vsub.i8                 q3, q7, q3                          \n"
+          "   vrmulh.u8               q4, q4, q3                          \n"
+          "   vrmulh.u8               q5, q5, q3                          \n"
+          "   vrmulh.u8               q6, q6, q3                          \n"
+          "   vadd.i8                 q4, q0, q4                          \n"
+          "   vadd.i8                 q5, q1, q5                          \n"
+          "   vadd.i8                 q6, q2, q6                          \n"
+          "   vst40.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vst41.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vst42.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
+          "   vst43.8                 {q4, q5, q6, q7}, [%[pDst]]!        \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
+          : [ff] "r"(ff), [opa] "r"(opa)
+          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "memory");
+    }
+    src += src_stride;
+    dst += dst_stride;
   }
 }
