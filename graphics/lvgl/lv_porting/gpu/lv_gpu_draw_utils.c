@@ -1513,7 +1513,7 @@ LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
 LV_ATTRIBUTE_FAST_MEM void gpu_set_area(const lv_area_t* area)
 {
   if (!area) {
-    gpu_area.y1 = -1;
+    gpu_area.y1 = INT16_MIN;
     return;
   }
   lv_area_copy(&gpu_area, area);
@@ -1521,28 +1521,28 @@ LV_ATTRIBUTE_FAST_MEM void gpu_set_area(const lv_area_t* area)
 
 LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area)
 {
-  if (gpu_area.x1 < 0) {
+  if (gpu_area.x1 == INT16_MIN) {
     return;
   }
   lv_area_t tmp_area;
-  if (!area || gpu_area.y1 < 0
+  if (!area || gpu_area.y1 == INT16_MIN
       || _lv_area_intersect(&tmp_area, &gpu_area, area)) {
     vg_lite_finish();
-    gpu_area.x1 = -1;
+    gpu_area.x1 = INT16_MIN;
     return;
   }
 }
 
-LV_ATTRIBUTE_FAST_MEM void blend_ARGB(lv_color_t* dst,
-    const lv_area_t* draw_area, lv_coord_t dst_stride, const lv_color_t* src,
+LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
+    const lv_area_t* draw_area, lv_coord_t dst_stride, const uint8_t* src,
     lv_coord_t src_stride, lv_opa_t opa, bool premult)
 {
   lv_coord_t w = lv_area_get_width(draw_area);
   lv_coord_t h = lv_area_get_height(draw_area);
   const uint8_t ff = 0xFF;
   for (lv_coord_t i = 0; i < h; i++) {
-    uint32_t* phwSource = (uint32_t*)src;
-    uint32_t* pwTarget = (uint32_t*)dst;
+    uint8_t* phwSource = (uint8_t*)src;
+    uint8_t* pwTarget = dst;
     register unsigned blkCnt __asm("lr") = w;
     if (premult) {
       __asm volatile(
@@ -1619,3 +1619,4 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(lv_color_t* dst,
     dst += dst_stride;
   }
 }
+

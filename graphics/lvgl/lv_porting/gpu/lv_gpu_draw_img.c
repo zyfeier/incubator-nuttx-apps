@@ -165,10 +165,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   uint32_t rect[4] = { 0, 0 };
   lv_area_t map_tf, draw_area;
   lv_area_copy(&draw_area, draw_ctx->clip_area);
-  lv_area_move(&draw_area, -disp_area->x1, -disp_area->y1);
   _lv_img_buf_get_transformed_area(&map_tf, map_w, map_h, angle, zoom, &pivot);
   lv_area_move(&map_tf, coords->x1, coords->y1);
-  lv_area_move(&map_tf, -disp_area->x1, -disp_area->y1);
   if (_lv_area_intersect(&draw_area, &draw_area, &map_tf) == false) {
     return LV_RES_OK;
   }
@@ -181,28 +179,52 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   bool indexed = false, alpha = false;
   bool allocated_src = false;
   bool premult = (color_format != LV_IMG_CF_TRUE_COLOR_ALPHA);
+  bool masked = lv_draw_mask_is_any(&draw_area);
   lv_color32_t pre_recolor;
   vgbuf = lv_gpu_get_vgbuf((void*)map_p);
-  if (!transformed && lv_area_get_size(&draw_area) < GPU_SIZE_LIMIT
-      && ((!vgbuf && !dsc->recolor_opa) || vgbuf->format == VGLITE_PX_FMT)
-      && !lv_draw_mask_is_any(&draw_area)) {
-    lv_color_t* src = vgbuf ? vgbuf->memory : (lv_color_t*)map_p;
-    lv_color_t* dst = disp_buf;
-    lv_coord_t src_stride = vgbuf ? vgbuf->width : map_w;
-    lv_coord_t dst_stride = disp_w;
-    premult |= !!vgbuf;
-    src += src_stride * (draw_area.y1 - coords->y1 + disp_area->y1)
-        + draw_area.x1 - coords->x1 + disp_area->x1;
-    dst += dst_stride * draw_area.y1 + draw_area.x1;
-    gpu_wait_area(&draw_area);
-    blend_ARGB(dst, &draw_area, dst_stride, src, src_stride, opa, premult);
-    return LV_RES_OK;
-  }
+  uint32_t* palette = NULL;
+
   if (vgbuf) {
     indexed = (vgbuf->format >= VG_LITE_INDEX_1)
         && (vgbuf->format <= VG_LITE_INDEX_8);
     alpha = (vgbuf->format == VG_LITE_A4) || (vgbuf->format == VG_LITE_A8);
     pre_recolor.full = ((gpu_data_header_t*)map_p)->recolor;
+    palette = (uint32_t*)(map_p + sizeof(gpu_data_header_t)
+        + vgbuf->stride * vgbuf->height);
+  }
+#ifdef CONFIG_ARM_HAVE_MVE
+  if (!transformed && vgbuf && vgbuf->format == VG_LITE_A8 && !masked) {
+    lv_draw_sw_blend_dsc_t blend_dsc = {
+      .blend_area = &draw_area,
+      .blend_mode = LV_BLEND_MODE_NORMAL,
+      .color = dsc->recolor,
+      .opa = LV_UDIV255(opa * dsc->recolor_opa),
+      .mask_area = coords,
+      .mask_buf = vgbuf->memory,
+      .mask_res = LV_DRAW_MASK_RES_CHANGED,
+      .src_buf = NULL
+    };
+    lv_draw_sw_blend(draw_ctx, &blend_dsc);
+    return LV_RES_OK;
+  }
+#endif
+  if (!transformed && lv_area_get_size(&draw_area) < GPU_SIZE_LIMIT && !masked
+      && ((!vgbuf && !dsc->recolor_opa)
+          || (vgbuf && vgbuf->format == VGLITE_PX_FMT && pre_recolor.full == recolor.full))) {
+    const uint8_t* src = vgbuf ? vgbuf->memory : map_p;
+    uint8_t* dst = (uint8_t*)disp_buf;
+    lv_coord_t src_stride = vgbuf ? vgbuf->stride : map_w * sizeof(lv_color_t);
+    lv_coord_t dst_stride = disp_w * sizeof(lv_color_t);
+    premult |= !!vgbuf;
+    src += src_stride * (draw_area.y1 - coords->y1)
+        + (draw_area.x1 - coords->x1) * sizeof(lv_color_t);
+    dst += dst_stride * (draw_area.y1 - disp_area->y1)
+        + (draw_area.x1 - disp_area->x1) * sizeof(lv_color_t);
+    gpu_wait_area(&draw_area);
+    blend_ARGB(dst, &draw_area, dst_stride, src, src_stride, opa, premult);
+    return LV_RES_OK;
+  }
+  if (vgbuf) {
     if (!indexed && !alpha && dsc->recolor_opa != LV_OPA_TRANSP
         && pre_recolor.ch.alpha == LV_OPA_TRANSP) {
       GPU_WARN("allocating new vgbuf:(%ld,%ld)", vgbuf->width, vgbuf->height);
@@ -264,9 +286,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     }
   }
 
-  uint32_t* palette = (uint32_t*)(map_p + sizeof(gpu_data_header_t)
-      + src_vgbuf.stride * src_vgbuf.height);
-
   vg_lite_matrix_t matrix;
   gpu_set_tf(&matrix, dsc, &coords_rel);
   rect[2] = map_w;
@@ -308,13 +327,15 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
 
   vg_lite_filter_t filter = transformed ? VG_LITE_FILTER_BI_LINEAR
                                         : VG_LITE_FILTER_POINT;
+  lv_area_move(&draw_area, -disp_area->x1, -disp_area->y1);
+  lv_area_move(&map_tf, -disp_area->x1, -disp_area->y1);
   fill_rect_path(rect_path, &draw_area);
   vg_lite_path_t vpath;
   lv_memset_00(&vpath, sizeof(vg_lite_path_t));
   CHECK_ERROR(vg_lite_init_path(&vpath, VG_LITE_S16, VG_LITE_HIGH,
       sizeof(rect_path), rect_path, draw_area.x1, draw_area.y1,
       draw_area.x2 + 1, draw_area.y2 + 1));
-  bool masked = lv_gpu_draw_mask_apply_path(&vpath, &draw_area);
+  masked = lv_gpu_draw_mask_apply_path(&vpath, &draw_area);
   if (!vpath.path) {
     GPU_WARN("draw img unsupported mask found");
     return LV_RES_INV;

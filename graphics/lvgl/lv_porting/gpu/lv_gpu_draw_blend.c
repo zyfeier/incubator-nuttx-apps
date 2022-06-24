@@ -314,7 +314,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_draw_blend(lv_draw_ctx_t* draw_ctx,
   const lv_opa_t* mask = dsc->mask_res == LV_DRAW_MASK_RES_FULL_COVER ? NULL : dsc->mask_buf;
   if (mask) {
     mask_stride = lv_area_get_width(dsc->mask_area);
-    mask += mask_stride * (dsc->mask_area->y1 - draw_area.y1) + dsc->mask_area->x1 - draw_area.x1;
+    mask += mask_stride * (draw_area.y1 - dsc->mask_area->y1) + draw_area.x1 - dsc->mask_area->x1;
   }
   if (src) {
     map_normal(dst, &draw_area, dst_stride, src, src_stride, dsc->opa, mask,
