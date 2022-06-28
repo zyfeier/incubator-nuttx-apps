@@ -207,7 +207,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     lv_draw_sw_blend(draw_ctx, &blend_dsc);
     return LV_RES_OK;
   }
-#endif
   if (!transformed && lv_area_get_size(&draw_area) < GPU_SIZE_LIMIT && !masked
       && ((!vgbuf && !dsc->recolor_opa)
           || (vgbuf && vgbuf->format == VGLITE_PX_FMT && pre_recolor.full == recolor.full))) {
@@ -224,6 +223,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     blend_ARGB(dst, &draw_area, dst_stride, src, src_stride, opa, premult);
     return LV_RES_OK;
   }
+#endif
   if (vgbuf) {
     if (!indexed && !alpha && dsc->recolor_opa != LV_OPA_TRANSP
         && pre_recolor.ch.alpha == LV_OPA_TRANSP) {
