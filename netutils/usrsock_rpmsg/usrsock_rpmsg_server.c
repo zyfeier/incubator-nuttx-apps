@@ -817,7 +817,7 @@ static int usrsock_rpmsg_ioctl_handler(struct rpmsg_endpoint *ept,
 
   rpmsg_hold_rx_buffer(ept, data);
 
-  work_queue(LPWORK, &work->work,
+  work_queue(HPWORK, &work->work,
              usrsock_rpmsg_worker, work, 0);
 
   return 0;
