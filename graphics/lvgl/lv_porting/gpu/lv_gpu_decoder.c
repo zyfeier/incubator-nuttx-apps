@@ -546,6 +546,7 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder,
       lv_img_dsc_t* gpu_dsc = gpu_img_buf_alloc(dsc->header.w, dsc->header.h, dsc->header.cf);
       if (gpu_dsc == NULL) {
         GPU_ERROR("out of memory");
+        lv_fs_close(&f);
         return LV_RES_INV;
       }
       uint8_t* gpu_data = (uint8_t*)gpu_dsc->data;
