@@ -574,21 +574,24 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder,
   /*Process true color formats*/
   if (cf == LV_IMG_CF_TRUE_COLOR || cf == LV_IMG_CF_TRUE_COLOR_ALPHA
       || cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
-    dsc->user_data = (void*)GPU_DATA_MAGIC;
     lv_res_t ret = decode_rgb(decoder, dsc);
+    if (ret == LV_RES_OK)
+        dsc->user_data = (void*)GPU_DATA_MAGIC;
     return ret;
   }
 
   if ((cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT)
       || cf == LV_IMG_CF_ALPHA_8BIT || cf == LV_IMG_CF_ALPHA_4BIT) {
-    dsc->user_data = (void*)GPU_DATA_MAGIC;
     lv_res_t ret = decode_indexed(decoder, dsc);
+    if (ret == LV_RES_OK)
+        dsc->user_data = (void*)GPU_DATA_MAGIC;
     return ret;
   }
 
   if (cf == LV_IMG_CF_EVO) {
-    dsc->user_data = (void*)EVO_DATA_MAGIC;
     lv_res_t ret = decode_evo(decoder, dsc);
+    if (ret == LV_RES_OK)
+        dsc->user_data = (void*)GPU_DATA_MAGIC;
     return ret;
   }
 
