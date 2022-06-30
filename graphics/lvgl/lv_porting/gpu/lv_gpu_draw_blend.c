@@ -41,7 +41,6 @@
  ****************************************************************************/
 
 static lv_opa_t tmp_mask[TMP_MASK_MAX_LEN];
-static const uint8_t ff = 0xFF;
 
 /****************************************************************************
  * Private Functions
@@ -61,23 +60,25 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t* dst,
         lv_memcpy(tmp_mask, mask, mask_stride);
         pMask = tmp_mask;
       }
-      register unsigned blkCnt __asm("lr") = w;
+      uint32_t blkCnt = w;
       uint8_t R = color.ch.red;
       uint8_t G = color.ch.green;
       uint8_t B = color.ch.blue;
       __asm volatile(
           "   .p2align 2                                                  \n"
-          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   mov                     r1, %[pMask]                        \n"
+          "   bic                     r0, %[loopCnt], 0xF                 \n"
+          "   wlstp.8                 lr, r0, 1f                          \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pDst]]         \n"
           "   vld41.8                 {q0, q1, q2, q3}, [%[pDst]]         \n"
           "   vld42.8                 {q0, q1, q2, q3}, [%[pDst]]         \n"
           "   vld43.8                 {q0, q1, q2, q3}, [%[pDst]]         \n"
-          "   vldrb.8                 q4, [%[pMask]], #16                 \n"
+          "   vldrb.8                 q4, [r1], #16                       \n"
           "   vdup.8                  q5, %[opa]                          \n"
           "   vrmulh.u8               q4, q4, q5                          \n"
-          "   vdup.8                  q3, %[ff]                           \n"
-          "   vsub.i8                 q5, q3, q4                          \n"
+          "   vmvn.i32                q3, #0                              \n"
+          "   vmvn                    q5, q4                              \n"
           "   vrmulh.u8               q0, q0, q5                          \n"
           "   vrmulh.u8               q1, q1, q5                          \n"
           "   vrmulh.u8               q2, q2, q5                          \n"
@@ -96,9 +97,27 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t* dst,
           "   vst43.8                 {q0, q1, q2, q3}, [%[pDst]]!        \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
-          : [pDst] "+r"(pwTarget), [pMask] "+r"(pMask), [loopCnt] "+r"(blkCnt)
-          : [R] "r"(R), [G] "r"(G), [B] "r"(B), [ff] "r"(ff), [opa] "r"(opa)
-          : "q0", "q1", "q2", "q3", "q4", "q5", "memory");
+          "   and                     r0, %[loopCnt], 0xF                 \n"
+          "   vdup.8                  q2, %[opa]                          \n"
+          "   vdup.32                 q3, %[color]                        \n"
+          "   wlstp.32                lr, r0, 3f                          \n"
+          "   4:                                                          \n"
+          "   vldrw.32                q0, [%[pDst]]                       \n"
+          "   vldrb.u32               q1, [r1], #4                        \n"
+          "   vsli.32                 q1, q1, #8                          \n"
+          "   vsli.32                 q1, q1, #16                         \n"
+          "   vrmulh.u8               q1, q1, q2                          \n"
+          "   vmvn                    q4, q1                              \n"
+          "   vrmulh.u8               q0, q0, q4                          \n"
+          "   vrmulh.u8               q5, q3, q1                          \n"
+          "   vadd.i8                 q0, q0, q5                          \n"
+          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   letp                    lr, 4b                              \n"
+          "   3:                                                          \n"
+          : [pDst] "+r"(pwTarget)
+          : [R] "r"(R), [G] "r"(G), [B] "r"(B), [opa] "r"(opa),
+          [loopCnt] "r"(blkCnt), [color] "r"(color.full), [pMask] "r"(pMask)
+          : "q0", "q1", "q2", "q3", "q4", "q5", "r0", "r1", "lr", "memory");
       dst += dst_stride;
       mask += mask_stride;
     }
@@ -162,10 +181,12 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
         lv_memcpy(tmp_mask, mask, mask_stride);
         pMask = tmp_mask;
       }
-      register unsigned blkCnt __asm("lr") = w;
+      uint32_t blkCnt = w;
       __asm volatile(
           "   .p2align 2                                                  \n"
-          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   mov                     r1, %[pMask]                        \n"
+          "   bic                     r0, %[loopCnt], 0xF                 \n"
+          "   wlstp.8                 lr, r0, 1f                          \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
           "   vld41.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
@@ -175,14 +196,14 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
           "   vld41.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
           "   vld42.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
           "   vld43.8                 {q4, q5, q6, q7}, [%[pDst]]         \n"
-          "   vldrb.8                 q3, [%[pMask]], #16                 \n"
+          "   vldrb.8                 q3, [r1], #16                       \n"
           "   vdup.8                  q7, %[opa]                          \n"
           "   vrmulh.u8               q3, q3, q7                          \n"
           "   vrmulh.u8               q0, q0, q3                          \n"
           "   vrmulh.u8               q1, q1, q3                          \n"
           "   vrmulh.u8               q2, q2, q3                          \n"
-          "   vdup.8                  q7, %[ff]                           \n"
-          "   vsub.i8                 q3, q7, q3                          \n"
+          "   vmvn.i32                q7, #0                              \n"
+          "   vmvn                    q3, q3                              \n"
           "   vrmulh.u8               q4, q4, q3                          \n"
           "   vrmulh.u8               q5, q5, q3                          \n"
           "   vrmulh.u8               q6, q6, q3                          \n"
@@ -195,10 +216,27 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
           "   vst43.8                 {q4, q5, q6, q7}, [%[pDst]]!        \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
-          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget), [pMask] "+r"(pMask),
-          [loopCnt] "+r"(blkCnt)
-          : [ff] "r"(ff), [opa] "r"(opa)
-          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "memory");
+          "   and                     r0, %[loopCnt], 0xF                 \n"
+          "   vdup.8                  q2, %[opa]                          \n"
+          "   wlstp.32                lr, r0, 3f                          \n"
+          "   4:                                                          \n"
+          "   vldrw.32                q0, [%[pDst]]                       \n"
+          "   vldrb.u32               q1, [r1], #4                        \n"
+          "   vldrw.32                q3, [%[pSrc]], #16                  \n"
+          "   vsli.32                 q1, q1, #8                          \n"
+          "   vsli.32                 q1, q1, #16                         \n"
+          "   vrmulh.u8               q1, q1, q2                          \n"
+          "   vmvn                    q4, q1                              \n"
+          "   vrmulh.u8               q0, q0, q4                          \n"
+          "   vrmulh.u8               q3, q3, q1                          \n"
+          "   vadd.i8                 q0, q0, q3                          \n"
+          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   letp                    lr, 4b                              \n"
+          "   3:                                                          \n"
+          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget)
+          : [opa] "r"(opa), [loopCnt] "r"(blkCnt), [pMask] "r"(pMask)
+          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "r0", "r1", "lr",
+           "memory");
       src += src_stride;
       dst += dst_stride;
       mask += mask_stride;

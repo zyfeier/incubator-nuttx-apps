@@ -1539,15 +1539,15 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
 {
   lv_coord_t w = lv_area_get_width(draw_area);
   lv_coord_t h = lv_area_get_height(draw_area);
-  const uint8_t ff = 0xFF;
   for (lv_coord_t i = 0; i < h; i++) {
     uint8_t* phwSource = (uint8_t*)src;
     uint8_t* pwTarget = dst;
-    register unsigned blkCnt __asm("lr") = w;
+    uint32_t blkCnt = w;
     if (premult) {
       __asm volatile(
           "   .p2align 2                                                  \n"
-          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   bic                     r0, %[loopCnt], 0xF                 \n"
+          "   wlstp.8                 lr, r0, 1f                          \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
           "   vld41.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
@@ -1562,8 +1562,8 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
           "   vrmulh.u8               q1, q1, q7                          \n"
           "   vrmulh.u8               q2, q2, q7                          \n"
           "   vrmulh.u8               q3, q3, q7                          \n"
-          "   vdup.8                  q7, %[ff]                           \n"
-          "   vsub.i8                 q3, q7, q3                          \n"
+          "   vmvn.i32                q7, #0                              \n"
+          "   vmvn                    q3, q3                              \n"
           "   vrmulh.u8               q4, q4, q3                          \n"
           "   vrmulh.u8               q5, q5, q3                          \n"
           "   vrmulh.u8               q6, q6, q3                          \n"
@@ -1576,12 +1576,33 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
           "   vst43.8                 {q4, q5, q6, q7}, [%[pDst]]!        \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
-          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
-          : [ff] "r"(ff), [opa] "r"(opa)
-          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "memory");
+          "   and                     r0, %[loopCnt], 0xF                 \n"
+          "   vdup.8                  q2, %[opa]                          \n"
+          "   vmvn.i32                q5, #0                              \n"
+          "   wlstp.32                lr, r0, 3f                          \n"
+          "   4:                                                          \n"
+          "   vldrw.32                q0, [%[pDst]]                       \n"
+          "   vldrw.32                q1, [%[pSrc]], #16                  \n"
+          "   vsri.32                 q3, q1, #8                          \n"
+          "   vsri.32                 q3, q1, #16                         \n"
+          "   vsri.32                 q3, q1, #24                         \n"
+          "   vrmulh.u8               q3, q3, q2                          \n"
+          "   vmvn                    q4, q3                              \n"
+          "   vrmulh.u8               q0, q0, q4                          \n"
+          "   vrmulh.u8               q1, q1, q2                          \n"
+          "   vadd.i8                 q0, q0, q1                          \n"
+          "   vsli.32                 q0, q5, #24                         \n"
+          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   letp                    lr, 4b                              \n"
+          "   3:                                                          \n"
+          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget)
+          : [opa] "r"(opa), [loopCnt] "r"(blkCnt)
+          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "r0", "lr",
+          "memory");
     } else {
       __asm volatile(
           "   .p2align 2                                                  \n"
+          "   bic                     r0, %[loopCnt], 0xF                 \n"
           "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
@@ -1597,7 +1618,7 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
           "   vrmulh.u8               q0, q0, q3                          \n"
           "   vrmulh.u8               q1, q1, q3                          \n"
           "   vrmulh.u8               q2, q2, q3                          \n"
-          "   vdup.8                  q7, %[ff]                           \n"
+          "   vmvn.i32                q7, #0                              \n"
           "   vsub.i8                 q3, q7, q3                          \n"
           "   vrmulh.u8               q4, q4, q3                          \n"
           "   vrmulh.u8               q5, q5, q3                          \n"
@@ -1611,12 +1632,31 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
           "   vst43.8                 {q4, q5, q6, q7}, [%[pDst]]!        \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
-          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
-          : [ff] "r"(ff), [opa] "r"(opa)
-          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "memory");
+          "   and                     r0, %[loopCnt], 0xF                 \n"
+          "   vdup.8                  q2, %[opa]                          \n"
+          "   vmvn.i32                q5, #0                              \n"
+          "   wlstp.32                lr, r0, 3f                          \n"
+          "   4:                                                          \n"
+          "   vldrw.32                q0, [%[pDst]]                       \n"
+          "   vldrw.32                q1, [%[pSrc]], #16                  \n"
+          "   vsri.32                 q3, q1, #8                          \n"
+          "   vsri.32                 q3, q1, #16                         \n"
+          "   vsri.32                 q3, q1, #24                         \n"
+          "   vrmulh.u8               q3, q3, q2                          \n"
+          "   vmvn                    q4, q3                              \n"
+          "   vrmulh.u8               q0, q0, q4                          \n"
+          "   vrmulh.u8               q1, q1, q3                          \n"
+          "   vadd.i8                 q0, q0, q1                          \n"
+          "   vsli.32                 q0, q5, #24                         \n"
+          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   letp                    lr, 4b                              \n"
+          "   3:                                                          \n"
+          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget)
+          : [opa] "r"(opa), [loopCnt] "r"(blkCnt)
+          : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "r0", "lr",
+          "memory");
     }
     src += src_stride;
     dst += dst_stride;
   }
 }
-
