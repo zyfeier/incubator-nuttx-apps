@@ -201,6 +201,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
     return LV_RES_INV;
   }
 
+  dsc->user_data = (void*)GPU_DATA_MAGIC;
   /* add gpu header right at beginning of gpu image buffer */
   gpu_data_header_t* header = (gpu_data_header_t*)gpu_data;
   header->magic = GPU_DATA_MAGIC;
@@ -256,6 +257,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
     return LV_RES_INV;
   }
 
+  dsc->user_data = (void*)GPU_DATA_MAGIC;
   gpu_data_header_t* header = (gpu_data_header_t*)gpu_data;
   header->magic = GPU_DATA_MAGIC;
   header->recolor = dsc->color.full;
@@ -370,6 +372,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder,
       GPU_ERROR("file read failed");
       return LV_RES_INV;
     }
+    dsc->user_data = (void*)EVO_DATA_MAGIC;
     img_data = (const uint8_t*)gpu_data;
   } else if (dsc->src_type == LV_IMG_SRC_VARIABLE) {
     /*The variables should have valid data*/
@@ -575,23 +578,17 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder,
   if (cf == LV_IMG_CF_TRUE_COLOR || cf == LV_IMG_CF_TRUE_COLOR_ALPHA
       || cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
     lv_res_t ret = decode_rgb(decoder, dsc);
-    if (ret == LV_RES_OK)
-        dsc->user_data = (void*)GPU_DATA_MAGIC;
     return ret;
   }
 
   if ((cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT)
       || cf == LV_IMG_CF_ALPHA_8BIT || cf == LV_IMG_CF_ALPHA_4BIT) {
     lv_res_t ret = decode_indexed(decoder, dsc);
-    if (ret == LV_RES_OK)
-        dsc->user_data = (void*)GPU_DATA_MAGIC;
     return ret;
   }
 
   if (cf == LV_IMG_CF_EVO) {
     lv_res_t ret = decode_evo(decoder, dsc);
-    if (ret == LV_RES_OK)
-        dsc->user_data = (void*)GPU_DATA_MAGIC;
     return ret;
   }
 
