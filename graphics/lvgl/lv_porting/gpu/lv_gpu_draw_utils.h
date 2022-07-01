@@ -472,6 +472,11 @@ LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area);
 LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
     const lv_area_t* draw_area, lv_coord_t dst_stride, const uint8_t* src,
     lv_coord_t src_stride, lv_opa_t opa, bool premult);
+
+LV_ATTRIBUTE_FAST_MEM void blend_transform(uint8_t* dst,
+    const lv_area_t* draw_area, lv_coord_t dst_stride, const uint8_t* src,
+    const lv_area_t* src_area, lv_coord_t src_stride,
+    const lv_draw_img_dsc_t* dsc, bool premult);
 #endif
 
 #undef EXTERN

@@ -1673,4 +1673,200 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
     dst += dst_stride;
   }
 }
+
+LV_ATTRIBUTE_FAST_MEM void blend_transform(uint8_t* dst,
+    const lv_area_t* draw_area, lv_coord_t dst_stride, const uint8_t* src,
+    const lv_area_t* src_area, lv_coord_t src_stride,
+    const lv_draw_img_dsc_t* dsc, bool premult)
+{
+  uint8_t* phwSource = (uint8_t*)src;
+  uint8_t* pwTarget = dst + ((draw_area->y1 * dst_stride + draw_area->x1) << 2);
+  lv_coord_t draw_w = lv_area_get_width(draw_area);
+  lv_coord_t draw_h = lv_area_get_height(draw_area);
+  lv_coord_t src_w = lv_area_get_width(src_area);
+  lv_coord_t src_h = lv_area_get_height(src_area);
+  float angle = dsc->angle * 0.1f * PI_DEG;
+  lv_point_t start = {
+    .x = draw_area->x1 - src_area->x1 - dsc->pivot.x,
+    .y = draw_area->y1 - src_area->y1 - dsc->pivot.y
+  };
+  lv_coord_t w_aligned_up_4 = ALIGN_UP(draw_w, 4);
+  float cosma = cosf(angle);
+  float sinma = sinf(angle);
+  struct {
+    float index_buf[8]; // used as temporary stack
+    float rot_vec[4]; // #32
+    float xoxo[4]; // #48
+    uint32_t oyoy[4]; // #64
+    float pivot_f32[4]; // #80
+    float xyxy[4]; // #96
+    uint32_t ratio_buf[8]; // #112
+    uint32_t loop_x; // #144
+    uint32_t loop_y_with_aa_flag; // #148
+    uint32_t dst_offset; // #152
+    float zoom_inv; // #156
+    uint32_t src_x_max; // #160
+    uint32_t src_y_max; // #164
+    float ff; // #168
+    uint32_t opa_with_flag; // #172
+    uint32_t premult; // #176
+    uint32_t tail; // #180
+  } args = {
+    .index_buf = { start.x, start.y, start.x + 1, start.y,
+        start.x + 2, start.y, start.x + 3, start.y },
+    .rot_vec = { cosma, -sinma, cosma, -sinma },
+    .xoxo = { 4, 0, 4, 0 },
+    .oyoy = { 0, src_stride, 0, src_stride },
+    .pivot_f32 = { dsc->pivot.x, dsc->pivot.y, dsc->pivot.x, dsc->pivot.y },
+    .xyxy = { -w_aligned_up_4, 1, -w_aligned_up_4, 1 },
+    .loop_x = w_aligned_up_4 >> 2,
+    .loop_y_with_aa_flag = (draw_h - 1) << 1 | dsc->antialias,
+    .dst_offset = dst_stride - w_aligned_up_4,
+    .zoom_inv = 256.0f / dsc->zoom,
+    .src_x_max = src_w,
+    .src_y_max = src_h,
+    .ff = 255,
+    .opa_with_flag = dsc->opa,
+    .premult = premult ? 0xFFFF : 0,
+    .tail = ((draw_w - 1) & 3) + 1
+  };
+  void* argp = &args;
+  __asm volatile(
+      "   .p2align 2                                                  \n"
+      "   vldrw.32                q0, [%[arg]]                        \n" /* q0 = [x0, y0, x1, y1] */
+      "   vldrw.32                q1, [%[arg], #32]                   \n" /* rotation vector (cos+isin) */
+      "   vldrw.32                q5, [%[arg], #16]                   \n" /* q5 = [x2, y2, x3, y3] */
+      "   ldr                     r3, [%[arg], #148]                  \n" /* y loop start */
+      "   .yloop:                                                     \n"
+      "   ldr                     r1, [%[arg], #144]                  \n" /* x loop start */
+      "   wls                     lr, r1, 1f                          \n"
+      "   2:                                                          \n"
+      "   ldr                     r2, [%[arg], #156]                  \n" /* r2 = zoom_inv */
+      "   vldrw.32                q3, [%[arg], #80]                   \n" /* add pivot offset */
+      "   vcmul.f32               q2, q0, q1, #0                      \n"
+      "   vcmul.f32               q6, q5, q1, #0                      \n"
+      "   ldr                     r0, [%[arg], #160]                  \n" /* r0 = x limit */
+      "   vcmla.f32               q2, q0, q1, #90                     \n" /* X = x*cos-y*sin  Y = x*sin+y*cos */
+      "   vmov                    q4, q3                              \n" /* backup q3 for next use */
+      "   vfma.f32                q3, q2, r2                          \n" /* q3 = [x0' y0' x1' y1'] */
+      "   vcmla.f32               q6, q5, q1, #90                     \n"
+      "   vstrw.32                q3, [%[arg]]                        \n"
+      "   vfma.f32                q4, q6, r2                          \n" /* q4 = [x2' y2' x3' y3'] */
+      "   vstrw.32                q4, [%[arg], #16]                   \n" /* interleaved-save transformed coordinates */
+      "   ldr                     r1, [%[arg], #164]                  \n" /* r1 = y limit */
+      "   vld20.32                {q3, q4}, [%[arg]]                  \n" /* q3 = X'(0,1,2,3) */
+      "   vld21.32                {q3, q4}, [%[arg]]                  \n" /* q4 = Y'(0,1,2,3) */
+      "   vrintm.f32              q6, q3                              \n"
+      "   vrintm.f32              q7, q4                              \n"
+      "   vsub.f32                q3, q3, q6                          \n" /* q3 = X' decimals */
+      "   vsub.f32                q4, q4, q7                          \n" /* q4 = Y' decimals */
+      "   vcvt.s32.f32            q6, q6                              \n" /* q6 = floored X' */
+      "   vcvt.s32.f32            q7, q7                              \n" /* q7 = floored Y' */
+      "   vcmp.s32                lt, q6, r0                          \n" /* x < w */
+      "   vmrs                    r2, p0                              \n"
+      "   vcmp.s32                lt, q7, r1                          \n" /* y < h */
+      "   vmrs                    r5, p0                              \n"
+      "   movs                    r4, #0                              \n"
+      "   ands                    r2, r5                              \n"
+      "   vcmp.s32                ge, q6, r4                          \n" /* x >= 0 */
+      "   vmrs                    r5, p0                              \n"
+      "   ands                    r2, r5                              \n"
+      "   vcmp.s32                ge, q7, r4                          \n" /* y >= 0 */
+      "   vmrs                    r5, p0                              \n"
+      "   ldr                     r4, [%[arg], #68]                   \n" /* r4 = src_stride */
+      "   ands                    r2, r5                              \n" /* r2 = 0<=x<w && 0<=y<h */
+      "   subs                    r0, #1                              \n"
+      "   subs                    r1, #1                              \n"
+      "   vcmp.s32                lt, q6, r0                          \n" /* x1 < w */
+      "   vmrs                    r0, p0                              \n" /* r0 = x1 mask */
+      "   vcmp.s32                lt, q7, r1                          \n" /* y1 < h */
+      "   vmrs                    r1, p0                              \n" /* r1 = y1 mask */
+      "   vmla.s32                q6, q7, r4                          \n" /* q6 = offset */
+      "   vmsr                    p0, r2                              \n" /* predicate */
+      "   vpst                                                        \n"
+      "   vldrwt.u32              q2, [%[pSrc], q6, uxtw #2]          \n" /* load src pixels into q2 */
+      "   ands                    r5, r3, #1                          \n" /* check aa flag */
+      "   beq                     .output                             \n" /* no alias then done */
+      "   ldr                     r5, [%[arg], #168]                  \n" /* r5 = 255f */
+      "   ands                    r0, r2                              \n" /* apply src_00 mask */
+      "   ands                    r1, r2                              \n"
+      "   vmul.f32                q3, q3, r5                          \n"
+      "   vmul.f32                q4, q4, r5                          \n"
+      "   movs                    r2, #0x01010101                     \n"
+      "   vcvt.s32.f32            q3, q3                              \n"
+      "   vcvt.s32.f32            q4, q4                              \n"
+      "   vmul.u32                q3, q3, r2                          \n"
+      "   vmul.u32                q4, q4, r2                          \n"
+      "   vmvn                    q3, q3                              \n" /* q3 = ~[x0 x1 x2 x3] */
+      "   vmvn                    q4, q4                              \n" /* q4 = ~[y0 y1 y2 y3] */
+      "   vrmulh.u8               q2, q2, q3                          \n"
+      "   movs                    r2, #1                              \n"
+      "   vrmulh.u8               q2, q2, q4                          \n" /* q2 = src_00 * (1-x0) * (1-y0) */
+      "   vmsr                    p0, r0                              \n" /* predicate x1 */
+      "   vpstt                                                       \n"
+      "   vaddt.i32               q6, q6, r2                          \n"
+      "   vldrwt.u32              q7, [%[pSrc], q6, uxtw #2]          \n" /* load src_01 pixels into q7 */
+      "   vmvn                    q3, q3                              \n" /* q3 = [x0 x1 x2 x3] */
+      "   vrmulh.u8               q7, q7, q4                          \n"
+      "   vrmulh.u8               q7, q7, q3                          \n" /* q7 = src_01 * x0 * (1-y0) */
+      "   vadd.i8                 q2, q2, q7                          \n" /* q2 += q7 */
+      "   vmsr                    p0, r1                              \n" /* predicate y1 */
+      "   vpstt                                                       \n"
+      "   vaddt.i32               q6, q6, r4                          \n"
+      "   vldrwt.u32              q7, [%[pSrc], q6, uxtw #2]          \n" /* load src_11 pixels into q7 */
+      "   vmvn                    q4, q4                              \n" /* q4 = [y0 y1 y2 y3] */
+      "   vrmulh.u8               q7, q7, q3                          \n"
+      "   vrmulh.u8               q7, q7, q4                          \n" /* q7 = src_11 * x0 * y0 */
+      "   vadd.i8                 q2, q2, q7                          \n" /* q2 += q7 */
+      "   vmsr                    p0, r0                              \n" /* predicate x1 */
+      "   vpstt                                                       \n"
+      "   vsubt.i32               q6, q6, r2                          \n"
+      "   vldrwt.u32              q7, [%[pSrc], q6, uxtw #2]          \n" /* load src_01 pixels into q7 */
+      "   vmvn                    q3, q3                              \n" /* q3 = ~[x0 x1 x2 x3] */
+      "   vrmulh.u8               q7, q7, q4                          \n"
+      "   vrmulh.u8               q7, q7, q3                          \n" /* q7 = src_10 * (1-x0) * y0 */
+      "   vadd.i8                 q2, q2, q7                          \n" /* q2 += q7 */
+      "   .output:                                                    \n"
+      "   ldr                     r0, [%[arg], #172]                  \n" /* opa */
+      "   vmov                    q6, q2                              \n"
+      "   vdup.8                  q4, r0                              \n" /* q4 = [opa(8x16)] */
+      "   vsri.32                 q6, q6, #8                          \n" /* create vector of Sa */
+      "   vldrw.32                q3, [%[pDst]]                       \n" /* q3 = D */
+      "   vsri.32                 q6, q6, #16                         \n"
+      "   ldr                     r1, [%[arg], #176]                  \n" /* premult as vpr.p0 */
+      "   vrmulh.u8               q6, q6, q4                          \n" /* q6 = Sa' = Sa*opa */
+      "   vrmulh.u8               q7, q2, q4                          \n" /* q7 = S*opa */
+      "   vmvn                    q4, q6                              \n"
+      "   vrmulh.u8               q2, q2, q6                          \n" /* q2 = S*Sa*opa */
+      "   vrmulh.u8               q3, q3, q4                          \n" /* q3 = D*(1-Sa*opa) */
+      "   vmsr                    p0, r1                              \n"
+      "   vpsel                   q2, q7, q2                          \n" /* select q2 based on premult */
+      "   cmp                     lr, #1                              \n" /* tail predication */
+      "   ite                     eq                                  \n"
+      "   ldreq                   r2, [%[arg], #180]                  \n" /* r2 = tail */
+      "   movne                   r2, #4                              \n" /* 4 for all */
+      "   vadd.i8                 q2, q2, q3                          \n" /* D' = S*Sa' + D*(1-Sa') */
+      "   vldrw.32                q7, [%[arg], #48]                   \n" /* q7 = xoxo */
+      "   vctp.32                 r2                                  \n"
+      "   vpst                                                        \n"
+      "   vstrwt.32               q2, [%[pDst]], #16                  \n" /* save q2 with tail predication */
+      "   vadd.f32                q0, q0, q7                          \n" /* X0X1 update */
+      "   vadd.f32                q5, q5, q7                          \n" /* X2X3 update */
+      "   le                      lr, 2b                              \n"
+      "   1:                                                          \n" /* xloop end */
+      "   vldrw.32                q4, [%[arg], #96]                   \n" /* q4 = xyxy */
+      "   vadd.f32                q0, q0, q4                          \n" /* X0X1 update */
+      "   ldr                     r0, [%[arg], #152]                  \n" /* r0 = dst_offset */
+      "   vadd.f32                q5, q5, q4                          \n" /* X2X3 update */
+      "   adds                    %[pDst], %[pDst], r0, lsl #2        \n"
+      "   subs                    r3, #2                              \n"
+      "   bmi                     .loopEnd                            \n"
+      "   b                       .yloop                              \n"
+      "   .loopEnd:                                                   \n"
+      : [pDst] "+r"(pwTarget)
+      : [pSrc] "r"(phwSource), [arg] "r"(argp)
+      : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "r0", "r1", "r2", "r3", "r4", "r5",
+      "memory");
+}
+
 #endif

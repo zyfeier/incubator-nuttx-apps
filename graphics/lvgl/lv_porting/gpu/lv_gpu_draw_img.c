@@ -207,6 +207,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     lv_draw_sw_blend(draw_ctx, &blend_dsc);
     return LV_RES_OK;
   }
+  premult |= !!vgbuf;
   if (!transformed && lv_area_get_size(&draw_area) < GPU_SIZE_LIMIT && !masked
       && ((!vgbuf && !dsc->recolor_opa)
           || (vgbuf && vgbuf->format == VGLITE_PX_FMT && pre_recolor.full == recolor.full))) {
@@ -214,7 +215,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     uint8_t* dst = (uint8_t*)disp_buf;
     lv_coord_t src_stride = vgbuf ? vgbuf->stride : map_w * sizeof(lv_color_t);
     lv_coord_t dst_stride = disp_w * sizeof(lv_color_t);
-    premult |= !!vgbuf;
     src += src_stride * (draw_area.y1 - coords->y1)
         + (draw_area.x1 - coords->x1) * sizeof(lv_color_t);
     dst += dst_stride * (draw_area.y1 - disp_area->y1)
@@ -223,6 +223,16 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     blend_ARGB(dst, &draw_area, dst_stride, src, src_stride, opa, premult);
     return LV_RES_OK;
   }
+#if 0
+  if (transformed && !indexed && !alpha && !masked) {
+    const uint8_t* src = vgbuf ? vgbuf->memory : map_p;
+    uint8_t* dst = (uint8_t*)disp_buf;
+    lv_coord_t src_stride = vgbuf ? vgbuf->width: map_w;
+    lv_area_move(&draw_area, -disp_area->x1, -disp_area->y1);
+    blend_transform(dst, &draw_area, disp_w, src, &coords_rel, src_stride, dsc, premult);
+    return LV_RES_OK;
+  }
+#endif // #if 0
 #endif
   if (vgbuf) {
     if (!indexed && !alpha && dsc->recolor_opa != LV_OPA_TRANSP
