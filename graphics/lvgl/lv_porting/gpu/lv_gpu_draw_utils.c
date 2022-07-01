@@ -754,8 +754,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_curve(lv_gpu_curve_t* curve,
 LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     lv_gpu_curve_fill_t* gpu_fill, const lv_gpu_buffer_t* gpu_buf)
 {
-  if (!path || !length) {
-    GPU_ERROR("invalid path");
+  if (!path || !length || !gpu_fill) {
+    GPU_ERROR("invalid arguments");
     return LV_RES_INV;
   }
   lv_coord_t w = gpu_buf->w;
@@ -812,10 +812,16 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
 
   } else if (type == CURVE_FILL_IMAGE) {
     lv_gpu_image_dsc_t* img = gpu_fill->img;
+    if (!img) {
+      *p_lastop = original_op;
+      GPU_ERROR("no img dsc");
+      return LV_RES_INV;
+    }
     const uint8_t* img_data = img->img_dsc->data;
     lv_img_header_t* img_header = &img->img_dsc->header;
     lv_draw_img_dsc_t* draw_dsc = img->draw_dsc;
     if (!draw_dsc) {
+      *p_lastop = original_op;
       GPU_ERROR("no draw img dsc");
       return LV_RES_INV;
     }
@@ -870,11 +876,17 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     }
 
   } else if (type == CURVE_FILL_LINEAR_GRADIENT) {
+    lv_gpu_grad_dsc_t* ggrad = gpu_fill->grad;
+    if (!ggrad) {
+      *p_lastop = original_op;
+      GPU_ERROR("no grad dsc");
+      return LV_RES_INV;
+    }
     vg_lite_linear_gradient_t grad;
     init_vg_buf(&grad.image, VLC_GRADBUFFER_WIDTH, 1,
         VLC_GRADBUFFER_WIDTH * sizeof(uint32_t), grad_mem,
         VG_LITE_BGRA8888, false);
-    lv_grad_dsc_t* lv_grad = gpu_fill->grad->grad_dsc;
+    lv_grad_dsc_t* lv_grad = ggrad->grad_dsc;
     grad.count = lv_grad->stops_count;
     for (int_fast16_t i = 0; i < grad.count; i++) {
       lv_color_t color = lv_grad->stops[i].color;
@@ -890,7 +902,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
       vg_lite_update_grad(&grad);
       last_grad_hash = grad_hash;
     }
-    lv_area_t* grad_area = gpu_fill->grad->coords;
+    lv_area_t* grad_area = ggrad->coords;
     vg_lite_identity(&grad.matrix);
     vg_lite_translate(grad_area->x1, grad_area->y1, &grad.matrix);
     if (disp_area) {
@@ -906,8 +918,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t gpu_draw_path(float* path, lv_coord_t length,
     CHECK_ERROR(vg_lite_flush());
 
   } else if (type == CURVE_FILL_RADIAL_GRADIENT) {
-    GPU_ERROR("Radial gradient unsupported at the moment");
     *p_lastop = original_op;
+    GPU_ERROR("Radial gradient unsupported at the moment");
     return LV_RES_INV;
   }
 
