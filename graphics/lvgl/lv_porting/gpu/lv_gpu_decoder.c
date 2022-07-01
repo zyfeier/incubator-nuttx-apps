@@ -559,6 +559,7 @@ lv_res_t lv_gpu_decoder_open(lv_img_decoder_t* decoder,
       lv_fs_close(&f);
       if (res != LV_FS_RES_OK) {
         gpu_img_free(gpu_data);
+        lv_mem_free(gpu_dsc);
         GPU_ERROR("file read failed");
         return LV_RES_INV;
       }
