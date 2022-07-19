@@ -14,4 +14,12 @@ config GPSUTILS_MINMEA_LIB
 		this.  See the discussion in the top-level nuttx/README.txt file.
 
 if GPSUTILS_MINMEA_LIB
+
+config GPSUTILS_MINMEA_BREAM_LIB
+	bool "BREAM NMEA Library"
+	default n
+	---help---
+		Enable support for the BREAM private nmea library.
+		NOTE: This library depends on gps gpsutils/minmea
+
 endif
