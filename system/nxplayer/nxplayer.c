@@ -148,7 +148,7 @@ static int _open_with_http(const char *fullurl)
   char resp_msg[] = "\r\n\r\n";
   struct timeval tv;
   uint16_t port = 80;
-  char buf[64];
+  char buf[PATH_MAX];
   int  s;
   int  n;
   char c;
