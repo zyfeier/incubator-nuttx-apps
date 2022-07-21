@@ -525,8 +525,8 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state,
 
 #if defined(CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER)
   FAR lv_timer_t *refr_timer = _lv_disp_get_refr_timer(fbdev_obj->disp);
-  lv_timer_set_cb(refr_timer, NULL);
-  lv_timer_pause(refr_timer);
+  lv_timer_del(refr_timer);
+  fbdev_obj->disp->refr_timer = NULL;
   lv_timer_create(fbdev_disp_refr, 1, fbdev_obj);
   LV_LOG_INFO("Enable direct mode in double framebuffer");
 #endif /* CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER */
