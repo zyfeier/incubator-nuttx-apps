@@ -30,8 +30,6 @@
  * Preprocessor Definitions
  ****************************************************************************/
 
-#define TMP_MASK_MAX_LEN 480
-
 /****************************************************************************
  * Macros
  ****************************************************************************/
@@ -39,8 +37,6 @@
 /****************************************************************************
  * Private Data
  ****************************************************************************/
-
-static lv_opa_t tmp_mask[TMP_MASK_MAX_LEN];
 
 /****************************************************************************
  * Private Functions
@@ -55,19 +51,14 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t* dst,
   if (mask) {
     for (lv_coord_t i = 0; i < h; i++) {
       uint32_t* pwTarget = (uint32_t*)dst;
-      uint8_t* pMask = (uint8_t*)mask;
-      if (!IS_ALIGNED(mask, 4)) {
-        lv_memcpy(tmp_mask, mask, mask_stride);
-        pMask = tmp_mask;
-      }
       uint32_t blkCnt = w;
       uint8_t R = color.ch.red;
       uint8_t G = color.ch.green;
       uint8_t B = color.ch.blue;
       __asm volatile(
           "   .p2align 2                                                  \n"
-          "   mov                     r1, %[pMask]                        \n"
-          "   bic                     r0, %[loopCnt], 0xF                 \n"
+          "   movs                    r1, %[mask]                         \n"
+          "   bics                    r0, %[loopCnt], 0xF                 \n"
           "   wlstp.8                 lr, r0, 1f                          \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pDst]]         \n"
@@ -97,12 +88,13 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t* dst,
           "   vst43.8                 {q0, q1, q2, q3}, [%[pDst]]!        \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
-          "   and                     r0, %[loopCnt], 0xF                 \n"
+          "   ands                    r0, %[loopCnt], #0xF                \n"
+          "   movs                    r0, r0, lsl #2                      \n"
           "   vdup.8                  q2, %[opa]                          \n"
           "   vdup.32                 q3, %[color]                        \n"
-          "   wlstp.32                lr, r0, 3f                          \n"
+          "   wlstp.8                 lr, r0, 3f                          \n"
           "   4:                                                          \n"
-          "   vldrw.32                q0, [%[pDst]]                       \n"
+          "   vldrb.8                 q0, [%[pDst]]                       \n"
           "   vldrb.u32               q1, [r1], #4                        \n"
           "   vsli.32                 q1, q1, #8                          \n"
           "   vsli.32                 q1, q1, #16                         \n"
@@ -111,50 +103,70 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t* dst,
           "   vrmulh.u8               q0, q0, q4                          \n"
           "   vrmulh.u8               q5, q3, q1                          \n"
           "   vadd.i8                 q0, q0, q5                          \n"
-          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
           "   letp                    lr, 4b                              \n"
           "   3:                                                          \n"
           : [pDst] "+r"(pwTarget)
           : [R] "r"(R), [G] "r"(G), [B] "r"(B), [opa] "r"(opa),
-          [loopCnt] "r"(blkCnt), [color] "r"(color.full), [pMask] "r"(pMask)
+          [loopCnt] "r"(blkCnt), [color] "r"(color.full), [mask] "r"(mask)
           : "q0", "q1", "q2", "q3", "q4", "q5", "r0", "r1", "lr", "memory");
       dst += dst_stride;
       mask += mask_stride;
     }
   } else if (opa != LV_OPA_COVER) {
-    for (lv_coord_t i = 0; i < h; i++) {
-      uint32_t* pwTarget = (uint32_t*)dst;
-      lv_opa_t mix = 255 - opa;
-      register unsigned blkCnt __asm("lr") = w;
+    if (dst_stride != w) {
+      for (lv_coord_t i = 0; i < h; i++) {
+        uint32_t* pwTarget = (uint32_t*)dst;
+        register unsigned blkCnt __asm("lr") = w << 2;
+        __asm volatile(
+            "   .p2align 2                                                  \n"
+            "   vdup.32                 q0, %[color]                        \n"
+            "   vdup.8                  q1, %[opa]                          \n"
+            "   vrmulh.u8               q0, q0, q1                          \n"
+            "   vmvn                    q1, q1                              \n"
+            "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+            "   2:                                                          \n"
+            "   vldrb.8                 q2, [%[pDst]]                       \n"
+            "   vrmulh.u8               q2, q2, q1                          \n"
+            "   vadd.i8                 q2, q0, q2                          \n"
+            "   vstrb.8                 q2, [%[pDst]], #16                  \n"
+            "   letp                    lr, 2b                              \n"
+            "   1:                                                          \n"
+            : [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
+            : [color] "r"(color), [opa] "r"(opa)
+            : "q0", "q1", "q2", "memory");
+        dst += dst_stride;
+      }
+    } else {
+      register unsigned blkCnt __asm("lr") = w * h << 2;
       __asm volatile(
           "   .p2align 2                                                  \n"
           "   vdup.32                 q0, %[color]                        \n"
           "   vdup.8                  q1, %[opa]                          \n"
           "   vrmulh.u8               q0, q0, q1                          \n"
-          "   vdup.8                  q1, %[mix]                          \n"
-          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+          "   vmvn                    q1, q1                              \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
           "   2:                                                          \n"
-          "   vldrw.32                q2, [%[pDst]]                       \n"
+          "   vldrb.8                 q2, [%[pDst]]                       \n"
           "   vrmulh.u8               q2, q2, q1                          \n"
           "   vadd.i8                 q2, q0, q2                          \n"
-          "   vstrw.32                q2, [%[pDst]], #16                  \n"
+          "   vstrb.8                 q2, [%[pDst]], #16                  \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
-          : [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
-          : [color] "r"(color), [opa] "r"(opa), [mix] "r"(mix)
+          : [pDst] "+r"(dst), [loopCnt] "+r"(blkCnt)
+          : [color] "r"(color), [opa] "r"(opa)
           : "q0", "q1", "q2", "memory");
-      dst += dst_stride;
     }
-  } else {
+  } else if (dst_stride != w) {
     for (lv_coord_t i = 0; i < h; i++) {
       uint32_t* pwTarget = (uint32_t*)dst;
-      register unsigned blkCnt __asm("lr") = w;
+      register unsigned blkCnt __asm("lr") = w << 2;
       __asm volatile(
           "   .p2align 2                                                  \n"
           "   vdup.32                 q0, %[color]                        \n"
-          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
           "   2:                                                          \n"
-          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
           : [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
@@ -162,6 +174,19 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t* dst,
           : "q0", "memory");
       dst += dst_stride;
     }
+  } else {
+    register unsigned blkCnt __asm("lr") = w * h << 2;
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   vdup.32                 q0, %[color]                        \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pDst] "+r"(dst), [loopCnt] "+r"(blkCnt)
+          : [color] "r"(color)
+          : "q0", "memory");
   }
 }
 
@@ -176,16 +201,11 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
     for (lv_coord_t i = 0; i < h; i++) {
       uint32_t* phwSource = (uint32_t*)src;
       uint32_t* pwTarget = (uint32_t*)dst;
-      uint8_t* pMask = (uint8_t*)mask;
-      if (!IS_ALIGNED(mask, 4)) {
-        lv_memcpy(tmp_mask, mask, mask_stride);
-        pMask = tmp_mask;
-      }
       uint32_t blkCnt = w;
       __asm volatile(
           "   .p2align 2                                                  \n"
-          "   mov                     r1, %[pMask]                        \n"
-          "   bic                     r0, %[loopCnt], 0xF                 \n"
+          "   movs                    r1, %[mask]                         \n"
+          "   bics                    r0, %[loopCnt], 0xF                 \n"
           "   wlstp.8                 lr, r0, 1f                          \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
@@ -216,11 +236,12 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
           "   vst43.8                 {q4, q5, q6, q7}, [%[pDst]]!        \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
-          "   and                     r0, %[loopCnt], 0xF                 \n"
+          "   ands                    r0, %[loopCnt], #0xF                \n"
+          "   movs                    r0, r0, lsl #2                      \n"
           "   vdup.8                  q2, %[opa]                          \n"
-          "   wlstp.32                lr, r0, 3f                          \n"
+          "   wlstp.8                 lr, r0, 3f                          \n"
           "   4:                                                          \n"
-          "   vldrw.32                q0, [%[pDst]]                       \n"
+          "   vldrb.8                 q0, [%[pDst]]                       \n"
           "   vldrb.u32               q1, [r1], #4                        \n"
           "   vldrw.32                q3, [%[pSrc]], #16                  \n"
           "   vsli.32                 q1, q1, #8                          \n"
@@ -230,13 +251,13 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
           "   vrmulh.u8               q0, q0, q4                          \n"
           "   vrmulh.u8               q3, q3, q1                          \n"
           "   vadd.i8                 q0, q0, q3                          \n"
-          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
           "   letp                    lr, 4b                              \n"
           "   3:                                                          \n"
           : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget)
-          : [opa] "r"(opa), [loopCnt] "r"(blkCnt), [pMask] "r"(pMask)
+          : [opa] "r"(opa), [loopCnt] "r"(blkCnt), [mask] "r"(mask)
           : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "r0", "r1", "lr",
-           "memory");
+          "memory");
       src += src_stride;
       dst += dst_stride;
       mask += mask_stride;
@@ -245,25 +266,24 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
     for (lv_coord_t i = 0; i < h; i++) {
       uint32_t* phwSource = (uint32_t*)src;
       uint32_t* pwTarget = (uint32_t*)dst;
-      lv_opa_t mix = 255 - opa;
-      register unsigned blkCnt __asm("lr") = w;
+      register unsigned blkCnt __asm("lr") = w << 2;
       __asm volatile(
           "   .p2align 2                                                  \n"
           "   vdup.8                  q0, %[opa]                          \n"
-          "   vdup.8                  q1, %[mix]                          \n"
-          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+          "   vmvn                    q1, q0                              \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
           "   2:                                                          \n"
-          "   vldrw.32                q2, [%[pSrc]], #16                  \n"
+          "   vldrb.8                 q2, [%[pSrc]], #16                  \n"
           "   vrmulh.u8               q2, q2, q0                          \n"
-          "   vldrw.32                q3, [%[pDst]]                       \n"
+          "   vldrb.8                 q3, [%[pDst]]                       \n"
           "   vrmulh.u8               q3, q3, q1                          \n"
           "   vadd.i8                 q3, q2, q3                          \n"
-          "   vstrw.32                q3, [%[pDst]], #16                  \n"
+          "   vstrb.8                 q3, [%[pDst]], #16                  \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
           : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget),
           [loopCnt] "+r"(blkCnt)
-          : [opa] "r"(opa), [mix] "r"(mix)
+          : [opa] "r"(opa)
           : "q0", "q1", "q2", "q3", "memory");
       src += src_stride;
       dst += dst_stride;
@@ -272,13 +292,13 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
     for (lv_coord_t i = 0; i < h; i++) {
       uint32_t* phwSource = (uint32_t*)src;
       uint32_t* pwTarget = (uint32_t*)dst;
-      register unsigned blkCnt __asm("lr") = w;
+      register unsigned blkCnt __asm("lr") = w << 2;
       __asm volatile(
           "   .p2align 2                                                  \n"
-          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
           "   2:                                                          \n"
-          "   vldrw.32                q0, [%[pSrc]], #16                  \n"
-          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   vldrb.8                 q0, [%[pSrc]], #16                  \n"
+          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
           : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget),
@@ -323,10 +343,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_draw_blend(lv_draw_ctx_t* draw_ctx,
   }
   if (disp->driver->screen_transp) {
     GPU_WARN("transparent screen blend acceleration unsupported at the moment");
-    return LV_RES_INV;
-  }
-  if (!IS_ALIGNED(dsc->src_buf, 4) || !IS_ALIGNED(draw_ctx->buf, 4)) {
-    GPU_WARN("Unaligned src/dst buffer");
     return LV_RES_INV;
   }
   if (dsc->mask_buf && dsc->mask_res == LV_DRAW_MASK_RES_TRANSP) {
