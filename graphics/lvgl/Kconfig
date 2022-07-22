@@ -70,6 +70,21 @@ config LV_FBDEV_USE_STATIC_BUFFER
 	default n
 	depends on !LV_FBDEV_USE_DOUBLE_BUFFER
 
+choice
+	bool "Software screen rotation"
+	default LV_FBDEV_ROTATE_0
+	depends on !LV_FBDEV_USE_DOUBLE_BUFFER
+
+	config LV_FBDEV_ROTATE_0
+		bool "0 deg"
+	config LV_FBDEV_ROTATE_90
+		bool "90 deg"
+	config LV_FBDEV_ROTATE_180
+		bool "180 deg"
+	config LV_FBDEV_ROTATE_270
+		bool "270 deg"
+endchoice
+
 if LV_FBDEV_USE_STATIC_BUFFER
 
 config LV_FBDEV_HOR_RES
