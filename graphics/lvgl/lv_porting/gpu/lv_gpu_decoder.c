@@ -103,11 +103,14 @@ static void bit_rev(uint8_t px_size, uint8_t* buf, uint32_t stride)
 LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
     lv_img_decoder_dsc_t* dsc)
 {
-  const uint8_t* img_data; /* points to the input image */
-
+  const uint8_t* img_data = NULL; /* points to the input image */
+  lv_fs_file_t f;
+  uint8_t* fs_buf = NULL;
+  uint32_t data_size;
+  bool no_processing = dsc->header.cf == LV_IMG_CF_TRUE_COLOR
+      && IS_ALIGNED(dsc->header.w, 16);
   /*Open the file if it's a file*/
   if (dsc->src_type == LV_IMG_SRC_FILE) {
-    lv_fs_file_t f;
     GPU_WARN("opening %s", (const char*)dsc->src);
     const char* ext = lv_fs_get_ext(dsc->src);
     /*Support only "*.bin" files*/
@@ -122,27 +125,29 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
       return LV_RES_INV;
     }
 
-    uint32_t data_size = lv_img_cf_get_px_size(dsc->header.cf);
+    data_size = lv_img_cf_get_px_size(dsc->header.cf);
     data_size *= dsc->header.w * dsc->header.h;
     data_size >>= 3; /* bits to bytes */
-    uint8_t* fs_buf;
-    fs_buf = lv_mem_alloc(data_size);
-    if (fs_buf == NULL) {
-      GPU_ERROR("out of memory");
+    if (!no_processing) {
+      fs_buf = lv_mem_alloc(data_size);
+      if (fs_buf == NULL) {
+        GPU_ERROR("out of memory");
+        lv_fs_close(&f);
+        return LV_RES_INV;
+      }
+
+      /*Skip the header*/
+      lv_fs_seek(&f, 4, LV_FS_SEEK_SET);
+      res = lv_fs_read(&f, fs_buf, data_size, NULL);
       lv_fs_close(&f);
-      return LV_RES_INV;
-    }
+      if (res != LV_FS_RES_OK) {
+        lv_mem_free(fs_buf);
+        GPU_ERROR("file read failed");
+        return LV_RES_INV;
+      }
 
-    lv_fs_seek(&f, 4, LV_FS_SEEK_SET); /* skip file header. */
-    res = lv_fs_read(&f, fs_buf, data_size, NULL);
-    lv_fs_close(&f);
-    if (res != LV_FS_RES_OK) {
-      lv_mem_free(fs_buf);
-      GPU_ERROR("file read failed");
-      return LV_RES_INV;
+      img_data = fs_buf;
     }
-
-    img_data = fs_buf;
   } else if (dsc->src_type == LV_IMG_SRC_VARIABLE) {
     const lv_img_dsc_t* img_dsc = dsc->src;
     /*The variables should have valid data*/
@@ -151,20 +156,20 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
       return LV_RES_INV;
     }
     img_data = img_dsc->data;
+    data_size = img_dsc->data_size;
   } else {
     /* No way to get the image data, return invalid */
     return LV_RES_INV;
   }
 
   /* alloc new buffer that meets GPU requirements(width, alignment) */
-  uint32_t gpu_data_size;
   uint8_t* gpu_data;
-  gpu_data = gpu_img_alloc(dsc->header.w, dsc->header.h, dsc->header.cf, &gpu_data_size);
+  gpu_data = gpu_img_alloc(dsc->header.w, dsc->header.h, dsc->header.cf, NULL);
   if (gpu_data == NULL) {
     GPU_ERROR("out of memory");
-    if (dsc->src_type == LV_IMG_SRC_FILE) {
+    if (fs_buf) {
       /* release file cache */
-      lv_mem_free((void*)img_data);
+      lv_mem_free(fs_buf);
     }
     return LV_RES_INV;
   }
@@ -175,12 +180,28 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_rgb(lv_img_decoder_t* decoder,
   header->magic = GPU_DATA_MAGIC;
   header->recolor = dsc->color.full;
   dsc->img_data = gpu_data;
-  lv_res_t ret = lv_gpu_load_vgbuf(img_data, &dsc->header, &header->vgbuf,
-      gpu_data + sizeof(gpu_data_header_t), dsc->color, false);
+  lv_res_t ret = LV_RES_OK;
 
-  if (dsc->src_type == LV_IMG_SRC_FILE) {
+  uint8_t* gpu_data_buf = gpu_data + sizeof(gpu_data_header_t);
+  if (dsc->src_type == LV_IMG_SRC_FILE && no_processing) {
+    lv_fs_seek(&f, 4, LV_FS_SEEK_SET);
+    lv_fs_res_t res = lv_fs_read(&f, gpu_data_buf, data_size, NULL);
+    lv_fs_close(&f);
+    if (res != LV_FS_RES_OK) {
+      lv_mem_free(gpu_data);
+      GPU_ERROR("file read failed");
+      return LV_RES_INV;
+    }
+    init_vg_buf(&header->vgbuf, dsc->header.w, dsc->header.h,
+        dsc->header.w * sizeof(lv_color_t), gpu_data_buf, VGLITE_PX_FMT, true);
+  } else {
+    ret = lv_gpu_load_vgbuf(img_data, &dsc->header, &header->vgbuf,
+        gpu_data_buf, dsc->color, false);
+  }
+
+  if (fs_buf) {
     /* file cache is no longger needed. */
-    lv_mem_free((void*)img_data);
+    lv_mem_free(fs_buf);
   }
 
   return ret;
@@ -216,9 +237,8 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
     }
   }
 
-  uint32_t gpu_data_size;
   uint8_t* gpu_data;
-  gpu_data = gpu_img_alloc(dsc->header.w, dsc->header.h, dsc->header.cf, &gpu_data_size);
+  gpu_data = gpu_img_alloc(dsc->header.w, dsc->header.h, dsc->header.cf, NULL);
   if (gpu_data == NULL) {
     GPU_ERROR("out of memory");
     return LV_RES_INV;
@@ -250,9 +270,14 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
   if (indexed) {
     if (dsc->src_type == LV_IMG_SRC_FILE) {
       /*Read the palette from file*/
-      LV_ASSERT(lv_fs_read(&f, palette,
-                    sizeof(lv_color32_t) * palette_size, NULL)
-          == LV_FS_RES_OK);
+      lv_fs_res_t res = lv_fs_read(&f, palette,
+          sizeof(lv_color32_t) * palette_size, NULL);
+      if (res != LV_FS_RES_OK) {
+        GPU_ERROR("file read failed");
+        lv_fs_close(&f);
+        lv_mem_free(gpu_data);
+        return LV_RES_INV;
+      }
       palette_p = (lv_color32_t*)palette;
     } else {
       /*The palette is in the beginning of the image data. Just point to it.*/
@@ -265,39 +290,68 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
   vg_lite_buffer_t* vgbuf = &header->vgbuf;
 
   void* mem = gpu_data + sizeof(gpu_data_header_t);
-  LV_ASSERT(init_vg_buf(vgbuf, vgbuf_w, img_h, vgbuf_stride, mem, vgbuf_format,
-                true)
-      == LV_RES_OK);
+  init_vg_buf(vgbuf, vgbuf_w, img_h, vgbuf_stride, mem, vgbuf_format,
+      true);
   uint8_t* px_buf = vgbuf->memory;
   const uint8_t* px_map = img_dsc->data;
   if (indexed) {
     px_map += palette_size * sizeof(lv_color32_t);
   }
 
+  uint32_t data_size = map_stride * img_h;
   if (map_stride == vgbuf_stride) {
     if (dsc->src_type == LV_IMG_SRC_FILE) {
-      lv_fs_read(&f, px_buf, map_stride * img_h, NULL);
-    } else {
-      lv_memcpy(px_buf, px_map, map_stride * img_h);
-    }
-
-    bit_rev(px_size, px_buf, map_stride * img_h);
-
-    px_map += map_stride * img_h;
-    px_buf += vgbuf_stride * img_h;
-  } else {
-    for (int_fast16_t i = 0; i < img_h; i++) {
-      if (dsc->src_type == LV_IMG_SRC_FILE) {
-        lv_fs_read(&f, px_buf, map_stride, NULL);
-      } else {
-        lv_memcpy(px_buf, px_map, map_stride);
+      lv_fs_res_t res = lv_fs_read(&f, px_buf, data_size, NULL);
+      if (res != LV_FS_RES_OK) {
+        lv_mem_free(gpu_data);
+        GPU_ERROR("file read failed");
+        return LV_RES_INV;
       }
+    } else {
+      lv_memcpy(px_buf, px_map, data_size);
+    }
+    bit_rev(px_size, px_buf, data_size);
+  } else {
+    uint8_t* fs_buf = NULL;
+    if (dsc->src_type == LV_IMG_SRC_FILE) {
+      fs_buf = lv_mem_alloc(data_size);
+      if (fs_buf == NULL) {
+        GPU_ERROR("out of memory");
+        lv_fs_close(&f);
+        lv_mem_free(gpu_data);
+        return LV_RES_INV;
+      }
+      lv_fs_res_t res = lv_fs_read(&f, fs_buf, data_size, NULL);
+      lv_fs_close(&f);
+      if (res != LV_FS_RES_OK) {
+        lv_mem_free(gpu_data);
+        lv_mem_free(fs_buf);
+        GPU_ERROR("file read failed");
+        return LV_RES_INV;
+      }
+      px_map = fs_buf;
+    }
+    uint8_t zero_id = 0;
+    while (palette[zero_id]) {
+      zero_id++;
+      if (!zero_id) {
+        LV_LOG_ERROR("no transparent found in palette but padding required!");
+        break;
+      }
+    }
+    const uint8_t multiplier[4] = { 0xFF, 0x55, 0x11, 0x01 };
+    uint8_t padding = zero_id * multiplier[__builtin_ctz(px_size)];
+    for (int_fast16_t i = 0; i < img_h; i++) {
+      lv_memcpy(px_buf, px_map, map_stride);
+      lv_memset(px_buf + map_stride, padding, vgbuf_stride - map_stride);
       bit_rev(px_size, px_buf, map_stride);
       px_map += map_stride;
       px_buf += vgbuf_stride;
     }
+    if (fs_buf) {
+      lv_mem_free(fs_buf);
+    }
   }
-
   if (dsc->src_type == LV_IMG_SRC_FILE) {
     lv_fs_close(&f);
   }
@@ -325,7 +379,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder,
     }
     lv_fs_seek(&f, 4, LV_FS_SEEK_SET);
 
-    gpu_data_header_t* gpu_data = lv_mem_buf_get(sizeof(gpu_data_header_t));
+    gpu_data_header_t* gpu_data = lv_mem_alloc(sizeof(gpu_data_header_t));
     if (gpu_data == NULL) {
       GPU_ERROR("out of memory");
       lv_fs_close(&f);
@@ -333,7 +387,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_evo(lv_img_decoder_t* decoder,
     }
     gpu_data->magic = EVO_DATA_MAGIC;
     if (evo_read(&f, &gpu_data->evocontent) != LV_FS_RES_OK) {
-      lv_mem_buf_release(gpu_data);
+      lv_mem_free(gpu_data);
       lv_fs_close(&f);
       GPU_ERROR("file read failed");
       return LV_RES_INV;
@@ -586,7 +640,7 @@ void lv_gpu_decoder_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
     gpu_img_free((void*)dsc->img_data);
   } else if ((uint32_t)dsc->user_data == EVO_DATA_MAGIC) {
     evo_clear(&((gpu_data_header_t*)dsc->img_data)->evocontent);
-    lv_mem_buf_release((void*)dsc->img_data);
+    lv_mem_free((void*)dsc->img_data);
   }
 
   dsc->img_data = NULL;
@@ -643,9 +697,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
     GPU_WARN("Insufficient memory for GPU 16px aligned image cache");
     return LV_RES_INV;
   }
-  LV_ASSERT(init_vg_buf(&vgbuf, vgbuf_w, header->h, vgbuf_stride, mem,
-                vgbuf_format, true)
-      == LV_RES_OK);
+  init_vg_buf(&vgbuf, vgbuf_w, header->h, vgbuf_stride, mem,
+      vgbuf_format, true);
   uint8_t* px_buf = vgbuf.memory;
   const uint8_t* px_map = img_data;
 

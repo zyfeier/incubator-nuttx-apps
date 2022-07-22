@@ -158,6 +158,10 @@ config LV_GPU_DRAW_IMG
 	bool "Use GPU accelerated draw_img"
 	default y
 
+config GPU_IMG_CACHE_PATH
+	string "GPU image cache path"
+	default "/data/cache/"
+
 choice
 	prompt "Default power mode"
 	default GPU_MODE_PERFORMANCE
