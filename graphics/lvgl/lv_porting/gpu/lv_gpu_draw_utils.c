@@ -1185,11 +1185,6 @@ void* gpu_img_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf, uint32_t* len)
     return NULL;
   }
 
-#if 1
-  /* @todo double-check if we need this. */
-  lv_memset_00((uint8_t*)data, data_size);
-#endif
-
   if (len) {
     *len = data_size;
   }
@@ -1386,142 +1381,160 @@ LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color_t* dst,
     const lv_color_t* src, uint32_t count)
 {
 #if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
-  if (IS_ALIGNED(src, 4)) {
-    __asm volatile(
-        "   .p2align 2                                                  \n"
-        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-        "   2:                                                          \n"
-        "   vldrw.32                q0, [%[pSource]], #16               \n"
-        "   vsri.32                 q1, q0, #8                          \n"
-        "   vsri.32                 q1, q0, #16                         \n"
-        "   vsri.32                 q1, q0, #24                         \n"
-        /* pre-multiply alpha to all channels */
-        "   vrmulh.u8               q0, q0, q1                          \n"
-        "   vsli.32                 q0, q1, #24                         \n"
-        "   vstrw.32                q0, [%[pTarget]], #16               \n"
-        "   letp                    lr, 2b                              \n"
-        "   1:                                                          \n"
-        : [pSource] "+r"(src), [pTarget] "+r"(dst)
-        : [loopCnt] "r"(count)
-        : "q0", "q1", "lr", "memory");
-  } else {
-#endif
-    while (count--) {
-      dst->ch.red = LV_UDIV255(src->ch.red * src->ch.alpha);
-      dst->ch.green = LV_UDIV255(src->ch.green * src->ch.alpha);
-      dst->ch.blue = LV_UDIV255(src->ch.blue * src->ch.alpha);
-      (dst++)->ch.alpha = (src++)->ch.alpha;
-    }
-#if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
+  __asm volatile(
+      "   .p2align 2                                                  \n"
+      "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+      "   2:                                                          \n"
+      "   vldrb.8                 q0, [%[pSource]], #16               \n"
+      "   vsri.32                 q1, q0, #8                          \n"
+      "   vsri.32                 q1, q0, #16                         \n"
+      "   vsri.32                 q1, q0, #24                         \n"
+      /* pre-multiply alpha to all channels */
+      "   vrmulh.u8               q0, q0, q1                          \n"
+      "   vsli.32                 q0, q1, #24                         \n"
+      "   vstrb.8                 q0, [%[pTarget]], #16               \n"
+      "   letp                    lr, 2b                              \n"
+      "   1:                                                          \n"
+      : [pSource] "+r"(src), [pTarget] "+r"(dst)
+      : [loopCnt] "r"(count << 2)
+      : "q0", "q1", "lr", "memory");
+#else
+  while (count--) {
+    dst->ch.red = LV_UDIV255(src->ch.red * src->ch.alpha);
+    dst->ch.green = LV_UDIV255(src->ch.green * src->ch.alpha);
+    dst->ch.blue = LV_UDIV255(src->ch.blue * src->ch.alpha);
+    (dst++)->ch.alpha = (src++)->ch.alpha;
   }
 #endif
 }
 
+/****************************************************************************
+ * Name: recolor_palette
+ *
+ * Description:
+ *   Apply recolor to index/alpha format palette
+ *
+ * @param dst destination palette buffer
+ * @param src palette source, if NULL treated as alpha format
+ * @param size palette color count, only 16 and 256 supported
+ * @param recolor recolor value in ARGB8888 format
+ *
+ * @return None
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
     const lv_color32_t* src, uint16_t size, uint32_t recolor)
 {
   lv_opa_t opa = recolor >> 24;
   if (opa == LV_OPA_TRANSP) {
     if (!src) {
-      GPU_ERROR("no src && no recolor");
-      lv_memset_00(dst, size * sizeof(lv_color32_t));
+      GPU_WARN("alpha recolor unspecified, default to black");
+      recolor = 0xFFFFFFFF;
+    } else {
+      gpu_pre_multiply(dst, src, size);
       return;
     }
-    gpu_pre_multiply(dst, src, size);
-    return;
   }
 #ifdef CONFIG_ARM_HAVE_MVE
-  if (IS_ALIGNED(src, 4)) {
-    int32_t blkCnt = size;
-    uint32_t* pwTarget = (uint32_t*)dst;
-    uint32_t* phwSource = (uint32_t*)src;
-    lv_opa_t mix = 255 - opa;
-    if (src != NULL) {
-      __asm volatile(
-          "   .p2align 2                                                  \n"
-          "   vdup.32                 q0, %[pRecolor]                     \n"
-          "   vdup.8                  q1, %[opa]                          \n"
-          "   vrmulh.u8               q0, q0, q1                          \n"
-          "   vdup.8                  q1, %[mix]                          \n"
-          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-          "   2:                                                          \n"
-          "   vldrw.32                q2, [%[pSource]], #16               \n"
-          "   vsri.32                 q3, q2, #8                          \n"
-          "   vsri.32                 q3, q2, #16                         \n"
-          "   vsri.32                 q3, q2, #24                         \n"
-          "   vrmulh.u8               q2, q2, q1                          \n"
-          "   vadd.i8                 q2, q2, q0                          \n"
-          /* pre-multiply */
-          "   vrmulh.u8               q2, q2, q3                          \n"
-          "   vsli.32                 q2, q3, #24                         \n"
-          "   vstrw.32                q2, [%[pTarget]], #16               \n"
-          "   letp                    lr, 2b                              \n"
-          "   1:                                                          \n"
-          : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget),
-          [pRecolor] "+r"(recolor)
-          : [loopCnt] "r"(blkCnt), [opa] "r"(opa), [mix] "r"(mix)
-          : "q0", "q1", "q2", "q3", "lr", "memory");
-    } else {
-      uint32_t inits[4] = { 0x0, 0x1010101, 0x2020202, 0x3030303 };
-      uint32_t step = 4;
-      if (size == 16) {
-        step = 0x44;
-        inits[1] = 0x11111111;
-        inits[2] = 0x22222222;
-        inits[3] = 0x33333333;
-      }
-      __asm volatile(
-          "   .p2align 2                                                  \n"
-          "   vdup.32                 q0, %[pSource]                      \n"
-          "   vdup.8                  q1, %[opa]                          \n"
-          "   vrmulh.u8               q0, q0, q1                          \n"
-          "   vldrw.32                q1, [%[init]]                       \n"
-          "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-          "   2:                                                          \n"
-          "   vrmulh.u8               q2, q0, q1                          \n"
-          "   vsli.32                 q2, q1, #24                         \n"
-          "   vstrw.32                q2, [%[pTarget]], #16               \n"
-          "   vadd.i8                 q1, q1, %[step]                     \n"
-          "   letp                    lr, 2b                              \n"
-          "   1:                                                          \n"
-          : [pSource] "+r"(recolor), [pTarget] "+r"(pwTarget), [opa] "+r"(opa)
-          : [loopCnt] "r"(blkCnt), [init] "r"(inits), [step] "r"(step)
-          : "q0", "q1", "q2", "lr", "memory");
-    }
+  int32_t blkCnt = size << 2;
+  uint32_t* pwTarget = (uint32_t*)dst;
+  uint32_t* phwSource = (uint32_t*)src;
+  if (src != NULL) {
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vdup.32                 q0, %[pRecolor]                     \n"
+        "   vdup.8                  q1, %[opa]                          \n"
+        "   vrmulh.u8               q0, q0, q1                          \n"
+        "   vmvn                    q1, q1                              \n"
+        "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        "   vldrb.8                 q2, [%[pSource]], #16               \n"
+        "   vsri.32                 q3, q2, #8                          \n"
+        "   vsri.32                 q3, q2, #16                         \n"
+        "   vsri.32                 q3, q2, #24                         \n"
+        "   vrmulh.u8               q2, q2, q1                          \n"
+        "   vadd.i8                 q2, q2, q0                          \n"
+        /* pre-multiply */
+        "   vrmulh.u8               q2, q2, q3                          \n"
+        "   vsli.32                 q2, q3, #24                         \n"
+        "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   1:                                                          \n"
+        : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget),
+        [pRecolor] "+r"(recolor)
+        : [loopCnt] "r"(blkCnt), [opa] "r"(opa)
+        : "q0", "q1", "q2", "q3", "lr", "memory");
   } else {
-#endif
-    uint16_t recolor_premult[3] = { (recolor >> 16 & 0xFF) * opa,
-      (recolor >> 8 & 0xFF) * opa, (recolor & 0xFF) * opa };
-    for (int_fast16_t i = 0; i < size; i++) {
-      if (src != NULL) {
-        lv_opa_t mix = 255 - opa;
-        /* index recolor */
-        if (src[i].ch.alpha == 0) {
-          dst[i].full = 0;
-        } else {
-          LV_COLOR_SET_R32(dst[i],
-              LV_UDIV255(recolor_premult[0] + LV_COLOR_GET_R32(src[i]) * mix));
-          LV_COLOR_SET_G32(dst[i],
-              LV_UDIV255(recolor_premult[1] + LV_COLOR_GET_G32(src[i]) * mix));
-          LV_COLOR_SET_B32(dst[i],
-              LV_UDIV255(recolor_premult[2] + LV_COLOR_GET_B32(src[i]) * mix));
-          LV_COLOR_SET_A32(dst[i], src[i].ch.alpha);
-        }
-      } else {
-        /* fill alpha palette */
-        uint32_t opa_i = (size == 256) ? i : i * 0x11;
-        LV_COLOR_SET_R32(dst[i], LV_UDIV255(recolor_premult[0]));
-        LV_COLOR_SET_G32(dst[i], LV_UDIV255(recolor_premult[1]));
-        LV_COLOR_SET_B32(dst[i], LV_UDIV255(recolor_premult[2]));
-        LV_COLOR_SET_A32(dst[i], opa_i);
-      }
-    }
-    gpu_pre_multiply(dst, dst, size);
-#ifdef CONFIG_ARM_HAVE_MVE
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vdup.32                 q0, %[pSource]                      \n"
+        "   vdup.8                  q1, %[opa]                          \n"
+        "   vrmulh.u8               q0, q0, q1                          \n"
+        "   mov                     r0, #0                              \n"
+        "   vidup.u32               q1, r0, #1                          \n"
+        "   cmp                     %[size], #16                        \n"
+        "   itte                    eq                                  \n"
+        "   moveq                   r1, #0x11                           \n"
+        "   moveq                   r0, #0x44                           \n"
+        "   movne                   r1, #0x1                            \n"
+        "   vsli.32                 q1, q1, #8                          \n"
+        "   vsli.32                 q1, q1, #16                         \n"
+        "   vmul.i8                 q1, q1, r1                          \n"
+        "   1:                                                          \n"
+        "   wlstp.8                 lr, %[loopCnt], 3f                  \n"
+        "   2:                                                          \n"
+        "   vrmulh.u8               q2, q0, q1                          \n"
+        "   vsli.32                 q2, q1, #24                         \n"
+        "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+        "   vadd.i8                 q1, q1, r0                          \n"
+        "   letp                    lr, 2b                              \n"
+        "   3:                                                          \n"
+        : [pSource] "+r"(recolor), [pTarget] "+r"(pwTarget)
+        : [loopCnt] "r"(blkCnt), [opa] "r"(opa), [size] "r"(size)
+        : "r0", "r1", "q0", "q1", "q2", "lr", "memory");
   }
+#else
+  uint16_t recolor_premult[3] = { (recolor >> 16 & 0xFF) * opa,
+    (recolor >> 8 & 0xFF) * opa, (recolor & 0xFF) * opa };
+  for (int_fast16_t i = 0; i < size; i++) {
+    if (src != NULL) {
+      lv_opa_t mix = 255 - opa;
+      /* index recolor */
+      if (src[i].ch.alpha == 0) {
+        dst[i].full = 0;
+      } else {
+        LV_COLOR_SET_R32(dst[i],
+            LV_UDIV255(recolor_premult[0] + LV_COLOR_GET_R32(src[i]) * mix));
+        LV_COLOR_SET_G32(dst[i],
+            LV_UDIV255(recolor_premult[1] + LV_COLOR_GET_G32(src[i]) * mix));
+        LV_COLOR_SET_B32(dst[i],
+            LV_UDIV255(recolor_premult[2] + LV_COLOR_GET_B32(src[i]) * mix));
+        LV_COLOR_SET_A32(dst[i], src[i].ch.alpha);
+      }
+    } else {
+      /* fill alpha palette */
+      uint32_t opa_i = (size == 256) ? i : i * 0x11;
+      LV_COLOR_SET_R32(dst[i], LV_UDIV255(recolor_premult[0]));
+      LV_COLOR_SET_G32(dst[i], LV_UDIV255(recolor_premult[1]));
+      LV_COLOR_SET_B32(dst[i], LV_UDIV255(recolor_premult[2]));
+      LV_COLOR_SET_A32(dst[i], opa_i);
+    }
+  }
+  gpu_pre_multiply(dst, dst, size);
 #endif
 }
 
+/****************************************************************************
+ * Name: gpu_set_area
+ *
+ * Description:
+ *   Set last GPU work area
+ *
+ * @param area current GPU draw area
+ *
+ * @return None
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM void gpu_set_area(const lv_area_t* area)
 {
   if (!area) {
@@ -1531,6 +1544,18 @@ LV_ATTRIBUTE_FAST_MEM void gpu_set_area(const lv_area_t* area)
   lv_area_copy(&gpu_area, area);
 }
 
+/****************************************************************************
+ * Name: gpu_wait_area
+ *
+ * Description:
+ *   Wait for last GPU operation to complete if current area overlaps with
+ *   the last one
+ *
+ * @param area current GPU draw area
+ *
+ * @return None
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area)
 {
   if (gpu_area.x1 == INT16_MIN) {
@@ -1545,10 +1570,744 @@ LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area)
   }
 }
 
+/****************************************************************************
+ * Name: convert_argb8565_to_8888
+ *
+ * Description:
+ *   Convert ARGB8565 to ARGB8888 format
+ *
+ * @param px_buf destination buffer
+ * @param buf_stride destination buffer stride in bytes
+ * @param px_map source buffer
+ * @param map_stride source buffer stride in bytes
+ * @param header LVGL source image header
+ *
+ * @return None
+ *
+ ****************************************************************************/
+void convert_argb8565_to_8888(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header)
+{
 #ifdef CONFIG_ARM_HAVE_MVE
-LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
-    const lv_area_t* draw_area, lv_coord_t dst_stride, const uint8_t* src,
-    lv_coord_t src_stride, lv_opa_t opa, bool premult)
+  int32_t blkCnt;
+  const uint32_t _maskA[4] = { 0xff000000, 0xff0000, 0xff00, 0xff };
+  const uint32_t _maskRB[4] = { 0xf8000000, 0xf80000, 0xf800, 0xf8 };
+  const uint32_t _maskG[4] = { 0xfc000000, 0xfc0000, 0xfc00, 0xfc };
+  const uint32_t _shiftC[4] = { 0x1, 0x100, 0x10000, 0x1000000 };
+
+  for (int_fast16_t y = 0; y < header->h; y++) {
+    const uint8_t* phwSource = px_map;
+    uint32_t* pwTarget = (uint32_t*)px_buf;
+
+    blkCnt = header->w;
+    while (!IS_ALIGNED(phwSource, 4)) {
+      lv_color32_t* c32 = (lv_color32_t*)pwTarget;
+      const lv_color16_t* c16 = (const lv_color16_t*)phwSource;
+      c32->ch.red = c16->ch.red << 3 | c16->ch.red >> 2;
+      c32->ch.green = c16->ch.green << 2 | c16->ch.green >> 4;
+      c32->ch.blue = c16->ch.blue << 3 | c16->ch.blue >> 2;
+      c32->ch.alpha = phwSource[LV_IMG_PX_SIZE_ALPHA_BYTE - 1];
+      phwSource += 3;
+      pwTarget++;
+      blkCnt--;
+    }
+/* (disabled due to intrinsics being much slower than hand-written asm) */
+// #define USE_MVE_INTRINSICS
+#ifdef USE_MVE_INTRINSICS
+    uint32x4_t maskA = vldrwq_u32(_maskA);
+    uint32x4_t maskRB = vldrwq_u32(_maskRB);
+    uint32x4_t maskG = vldrwq_u32(_maskG);
+    uint32x4_t shiftC = vldrwq_u32(_shiftC);
+    do {
+      mve_pred16_t tailPred = vctp32q(blkCnt);
+
+      /* load a vector of 4 argb8565 pixels
+       * (residuals are processed in the next loop) */
+      uint32x4_t vecIn = vld1q_z_u32((const uint32_t*)phwSource, tailPred);
+      /* extract individual channels and place them in high 8bits
+       * (P=GlB, Q=RGh) */
+
+      uint32_t carry = 0;
+      vecIn = vshlcq(vecIn, &carry, 8); /* |***A|QPAQ|PAQP|AQP0| */
+      uint32x4_t vecA = vandq(vecIn, maskA); /* |000A|00A0|0A00|A000| */
+      vecA = vmulq(vecA, shiftC); /* |A000|A000|A000|A000| */
+      vecIn = vshlcq(vecIn, &carry, 8); /* |**AQ|PAQP|AQPA|QP**| */
+      uint32x4_t vecR = vandq(vecIn, maskRB); /* |000R|00R0|0R00|R000| */
+      vecR = vmulq(vecR, shiftC); /* |R000|R000|R000|R000| */
+      vecIn = vshlcq(vecIn, &carry, 5); /* Similar operation on G channel */
+      uint32x4_t vecG = vandq(vecIn, maskG);
+      vecG = vmulq(vecG, shiftC);
+      vecIn = vshlcq(vecIn, &carry, 6);
+      uint32x4_t vecB = vandq(vecIn, maskRB);
+      vecB = vmulq(vecB, shiftC);
+      /* pre-multiply alpha to all channels */
+      vecR = vmulhq(vecR, vecA);
+      vecG = vmulhq(vecG, vecA);
+      vecB = vmulhq(vecB, vecA);
+      /* merge channels */
+      vecG = vsriq(vecG, vecB, 8);
+      vecR = vsriq(vecR, vecG, 8);
+      vecA = vsriq(vecA, vecR, 8);
+      /* store a vector of 4 bgra8888 pixels */
+      vst1q_p(pwTarget, vecA, tailPred);
+      phwSource += 6;
+      pwTarget += 4;
+      blkCnt -= 4;
+    } while (blkCnt > 0);
+#else
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        /* load a vector of 4 argb8565 pixels */
+        "   vldrw.32                q0, [%[pSource]], #12               \n"
+        /* q0 => |****|AQPA|QPAQ|PAQP| */
+        "   vshlc                   q0, r0, #8                          \n"
+        /* q0 => |***A|QPAQ|PAQP|AQP0| */
+        "   vldrw.32                q1, [%[maskA]]                      \n"
+        "   vand                    q2, q0, q1                          \n"
+        /* q2 => |000A|00A0|0A00|A000| */
+        "   vldrw.32                q4, [%[shiftC]]                     \n"
+        "   vmul.i32                q1, q2, q4                          \n"
+        /* q1 => |A000|A000|A000|A000|, use q1 as final output */
+        "   vshlc                   q0, r0, #8                          \n"
+        /* q0 => |**AQ|PAQP|AQPA|QP**| */
+        "   vldrw.32                q3, [%[maskRB]]                     \n"
+        "   vand                    q2, q0, q3                          \n"
+        /* q2 => |000r|00r0|0r00|r000| */
+        "   vmul.i32                q3, q2, q4                          \n"
+        /* q3 => |r000|r000|r000|r000| */
+        "   vsri.32                 q1, q3, #8                          \n"
+        /* q1 => |Ar00|Ar00|Ar00|Ar00| */
+        "   vsri.32                 q1, q3, #13                         \n"
+        /* q1 => |AR*0|AR*0|AR*0|AR*0| */
+        "   vshlc                   q0, r0, #5                          \n"
+        /* Similar operation on G channel */
+        "   vldrw.32                q3, [%[maskG]]                      \n"
+        "   vand                    q2, q0, q3                          \n"
+        /* q2 => |000g|00g0|0g00|g000| */
+        "   vmul.i32                q3, q2, q4                          \n"
+        /* q3 => |g000|g000|g000|g000| */
+        "   vsri.32                 q1, q3, #16                         \n"
+        /* q1 => |ARg0|ARg0|ARg0|ARg0| */
+        "   vsri.32                 q1, q3, #22                         \n"
+        /* q1 => |ARG*|ARG*|ARG*|ARG*| */
+        "   vshlc                   q0, r0, #6                          \n"
+        /* Similar operation on B channel */
+        "   vldrw.32                q3, [%[maskRB]]                     \n"
+        "   vand                    q2, q0, q3                          \n"
+        /* q2 => |000b|00b0|0b00|b000| */
+        "   vmul.i32                q3, q2, q4                          \n"
+        /* q3 => |b000|b000|b000|b000| */
+        "   vsri.32                 q1, q3, #24                         \n"
+        /* q1 => |ARGb|ARGb|ARGb|ARGb| */
+        "   vsri.32                 q1, q3, #29                         \n"
+        /* q1 => |ARGB|ARGB|ARGB|ARGB| */
+        "   vsri.32                 q3, q1, #8                          \n"
+        "   vsri.32                 q3, q1, #16                         \n"
+        "   vsri.32                 q3, q1, #24                         \n"
+        /* pre-multiply alpha to all channels */
+        "   vrmulh.u8               q2, q1, q3                          \n"
+        "   vsli.32                 q2, q3, #24                         \n"
+        /* store a vector of 4 bgra8888 pixels */
+        "   vstrw.32                q2, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   1:                                                          \n"
+
+        : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
+        : [loopCnt] "r"(blkCnt), [maskA] "r"(_maskA), [shiftC] "r"(_shiftC),
+        [maskRB] "r"(_maskRB), [maskG] "r"(_maskG)
+        : "q0", "q1", "q2", "q3", "q4", "r0", "lr", "memory");
+#endif
+    px_map += map_stride;
+    px_buf += buf_stride;
+  }
+#else
+  lv_opa_t opa = recolor.ch.alpha;
+  lv_opa_t mix = 255 - opa;
+  uint32_t recolor_premult[3];
+  if (opa != LV_OPA_TRANSP) {
+    recolor_premult[0] = recolor.ch.red * opa;
+    recolor_premult[1] = recolor.ch.green * opa;
+    recolor_premult[2] = recolor.ch.blue * opa;
+  }
+  for (int_fast16_t i = 0; i < header->h; i++) {
+    for (int_fast16_t j = 0; j < header->w; j++) {
+      lv_color32_t* c32 = (lv_color32_t*)px_buf + j;
+      lv_color16_t* c16 = (const lv_color16_t*)px_map;
+      c32->ch.alpha = px_map[LV_IMG_PX_SIZE_ALPHA_BYTE - 1];
+      c32->ch.red = (c16->ch.red * 263 + 7) * c32->ch.alpha >> 13;
+      c32->ch.green = (c16->ch.green * 259 + 3) * c32->ch.alpha >> 14;
+      c32->ch.blue = (c16->ch.blue * 263 + 7) * c32->ch.alpha >> 13;
+      if (opa != LV_OPA_TRANSP) {
+        c32->ch.red = LV_UDIV255(c32->ch.red * mix + recolor_premult[0]);
+        c32->ch.green = LV_UDIV255(c32->ch.green * mix + recolor_premult[1]);
+        c32->ch.blue = LV_UDIV255(c32->ch.blue * mix + recolor_premult[2]);
+      }
+      px_map += LV_IMG_PX_SIZE_ALPHA_BYTE;
+    }
+    lv_memset_00(px_buf + (header->w << 2), buf_stride - (header->w << 2));
+    px_buf += buf_stride;
+  }
+#endif
+}
+
+/****************************************************************************
+ * Name: convert_rgb565_to_gpu
+ *
+ * Description:
+ *   Process RGB565 before GPU could blit it. Opaque RGB565 images will stay
+ *   16bpp, while chroma-keyed images will be converted to ARGB8888.
+ *
+ * @param px_buf destination buffer
+ * @param buf_stride destination buffer stride in bytes
+ * @param px_map source buffer
+ * @param map_stride source buffer stride in bytes
+ * @param header LVGL source image header
+ * @param recolor recolor to apply
+ * @param ckey color key for transparent pixel
+ *
+ * @return None
+ *
+ ****************************************************************************/
+void convert_rgb565_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
+    lv_color32_t recolor, uint32_t ckey)
+{
+  lv_opa_t opa = recolor.ch.alpha;
+  lv_opa_t mix = 255 - opa;
+  uint32_t recolor_premult[3] = {
+    recolor.ch.red * opa, recolor.ch.green * opa, recolor.ch.blue * opa
+  };
+  if (ckey == 0) {
+    if (opa == LV_OPA_TRANSP) {
+      if (map_stride == buf_stride) {
+        lv_memcpy(px_buf, px_map, buf_stride * header->h);
+      } else {
+        for (int_fast16_t i = 0; i < header->h; i++) {
+          lv_memcpy(px_buf, px_map, map_stride);
+        }
+        lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+        px_map += map_stride;
+        px_buf += buf_stride;
+      }
+    } else {
+      for (int_fast16_t i = 0; i < header->h; i++) {
+        const lv_color_t* src = (const lv_color_t*)px_map;
+        lv_color_t* dst = (lv_color_t*)px_buf;
+        for (int_fast16_t j = 0; j < header->w; j++) {
+          dst[j].ch.red = LV_UDIV255(src[j].ch.red * mix + (recolor_premult[0] >> 3));
+          dst[j].ch.green = LV_UDIV255(src[j].ch.green * mix + (recolor_premult[1] >> 2));
+          dst[j].ch.blue = LV_UDIV255(src[j].ch.blue * mix + (recolor_premult[2] >> 3));
+        }
+        lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+        px_map += map_stride;
+        px_buf += buf_stride;
+      }
+    }
+  } else if (opa == LV_OPA_TRANSP) {
+    /* chroma keyed, target is argb32 */
+    for (int_fast16_t i = 0; i < header->h; i++) {
+      const lv_color_t* src = (const lv_color_t*)px_map;
+      lv_color32_t* dst = (lv_color32_t*)px_buf;
+      for (int_fast16_t j = 0; j < header->w; j++) {
+        dst[j].full = (src[j].full == ckey) ? 0 : lv_color_to32(src[j]);
+      }
+      lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+      px_map += map_stride;
+      px_buf += buf_stride;
+    }
+  } else {
+    for (int_fast16_t i = 0; i < header->h; i++) {
+      const lv_color_t* src = (const lv_color_t*)px_map;
+      lv_color32_t* dst = (lv_color32_t*)px_buf;
+      for (int_fast16_t j = 0; j < header->w; j++) {
+        if (src[j].full == ckey) {
+          dst[j].full = 0;
+        } else {
+          dst[j].ch.alpha = 0xFF;
+          dst[j].ch.red = LV_UDIV255(((src[j].ch.red * 263 + 7) >> 5) * mix + recolor_premult[0]);
+          dst[j].ch.green = LV_UDIV255(((src[j].ch.green * 259 + 3) >> 6) * mix + recolor_premult[1]);
+          dst[j].ch.blue = LV_UDIV255(((src[j].ch.blue * 263 + 7) >> 5) * mix + recolor_premult[2]);
+        }
+        lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+        px_map += map_stride;
+        px_buf += buf_stride;
+      }
+    }
+  }
+}
+
+/****************************************************************************
+ * Name: convert_rgb888_to_gpu
+ *
+ * Description:
+ *   Process RGB888 before GPU could blit it.
+ *
+ * @param px_buf destination buffer
+ * @param buf_stride destination buffer stride in bytes
+ * @param px_map source buffer
+ * @param map_stride source buffer stride in bytes
+ * @param header LVGL source image header
+ * @param recolor recolor to apply
+ * @param ckey color key for transparent pixel
+ *
+ * @return None
+ *
+ ****************************************************************************/
+void convert_rgb888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
+    lv_color32_t recolor, uint32_t ckey)
+{
+#ifdef CONFIG_ARM_HAVE_MVE
+  uint32_t ww = ALIGN_UP(header->w, 4) << 2;
+  int32_t map_offset = map_stride - ww;
+  int32_t buf_offset = buf_stride - ww;
+  if (recolor.ch.alpha != LV_OPA_TRANSP) {
+    if (ckey != 0) {
+      /* recolor && chroma keyed */
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   movs                    r0, %[recolor], lsr #24             \n"
+          "   vdup.32                 q0, %[recolor]                      \n"
+          "   vdup.8                  q1, r0                              \n"
+          "   vrmulh.u8               q0, q0, q1                          \n" /* q0 = recolor_premult */
+          "   vmvn                    q1, q1                              \n"
+          "   vmov.i32                q3, #0                              \n"
+          "   1:                                                          \n"
+          "   wlstp.8                 lr, %[w], 3f                        \n"
+          "   2:                                                          \n"
+          "   vldrb.8                 q2, [%[pSource]], #16               \n"
+          "   vorr.i32                q2, #0xFF000000                     \n"
+          "   vcmp.i32                eq, q2, %[ckey]                     \n"
+          "   vrmulh.u8               q2, q2, q1                          \n"
+          "   vadd.i8                 q2, q2, q0                          \n"
+          "   vorr.i32                q2, #0xFF000000                     \n" /* set alpha to 0xFF */
+          "   vpst                                                        \n"
+          "   vmovt.i32               q2, #0                              \n"
+          "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+          "   letp                    lr, 2b                              \n"
+          "   3:                                                          \n"
+          "   wlstp.8                 lr, %[dst_offset], 5f               \n"
+          "   4:                                                          \n"
+          "   vstrb.8                 q3, [%[pTarget]], #16               \n"
+          "   letp                    lr, 4b                              \n"
+          "   5:                                                          \n"
+          "   adds                    %[pSource], %[src_offset]           \n"
+          "   subs                    %[h], #1                            \n"
+          "   bne                     1b                                  \n"
+          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+          : [w] "r"(header->w << 2), [recolor] "r"(recolor), [ckey] "r"(ckey),
+          [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
+          : "q0", "q1", "q2", "q3", "r0", "lr", "memory");
+    } else {
+      /* recolor, no chroma key */
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   movs                    r0, %[recolor], lsr #24             \n"
+          "   vdup.32                 q0, %[recolor]                      \n"
+          "   vdup.8                  q1, r0                              \n"
+          "   vrmulh.u8               q0, q0, q1                          \n" /* q0 = recolor_premult */
+          "   vmvn                    q1, q1                              \n" /* q1 = ~recolor_opa */
+          "   vmov.i32                q3, #0                              \n"
+          "   1:                                                          \n"
+          "   wlstp.8                 lr, %[w], 3f                        \n"
+          "   2:                                                          \n"
+          "   vldrb.8                 q2, [%[pSource]], #16               \n"
+          "   vrmulh.u8               q2, q2, q1                          \n"
+          "   vadd.i8                 q2, q2, q0                          \n"
+          "   vorr.i32                q2, #0xFF000000                     \n" /* set alpha to 0xFF */
+          "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+          "   letp                    lr, 2b                              \n"
+          "   3:                                                          \n"
+          "   wlstp.8                 lr, %[dst_offset], 5f               \n"
+          "   4:                                                          \n"
+          "   vstrb.8                 q3, [%[pTarget]], #16               \n"
+          "   letp                    lr, 4b                              \n"
+          "   5:                                                          \n"
+          "   adds                    %[pSource], %[src_offset]           \n"
+          "   subs                    %[h], #1                            \n"
+          "   bne                     1b                                  \n"
+          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+          : [w] "r"(header->w << 2), [recolor] "r"(recolor),
+          [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
+          : "q0", "q1", "q2", "q3", "r0", "lr", "memory");
+    }
+  } else if (ckey != 0) {
+    /* no recolor, chroma keyed */
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vmov.i32                q1, #0                              \n"
+        "   1:                                                          \n"
+        "   wlstp.8                 lr, %[w], 3f                        \n"
+        "   2:                                                          \n"
+        "   vldrb.8                 q0, [%[pSource]], #16               \n"
+        "   vorr.i32                q0, #0xFF000000                     \n"
+        "   vcmp.i32                eq, q0, %[ckey]                     \n"
+        "   vpst                                                        \n"
+        "   vmovt.i32               q0, #0                              \n"
+        "   vstrb.8                 q0, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   3:                                                          \n"
+        "   wlstp.8                 lr, %[dst_offset], 5f               \n"
+        "   4:                                                          \n"
+        "   vstrb.8                 q1, [%[pTarget]], #16               \n"
+        "   letp                    lr, 4b                              \n"
+        "   5:                                                          \n"
+        "   adds                    %[pSource], %[src_offset]           \n"
+        "   subs                    %[h], #1                            \n"
+        "   bne                     1b                                  \n"
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [w] "r"(header->w << 2), [ckey] "r"(ckey),
+        [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
+        : "q0", "q1", "lr", "memory");
+  } else if (map_offset || buf_offset) {
+    /* no recolor, no chroma key */
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vmov.i32                q1, #0                              \n"
+        "   1:                                                          \n"
+        "   wlstp.8                 lr, %[w], 3f                        \n"
+        "   2:                                                          \n"
+        "   vldrb.8                 q0, [%[pSource]], #16               \n"
+        "   vorr.i32                q0, #0xFF000000                     \n" /* set alpha to 0xFF */
+        "   vstrb.8                 q0, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   3:                                                          \n"
+        "   wlstp.8                 lr, %[dst_offset], 5f               \n"
+        "   4:                                                          \n"
+        "   vstrb.8                 q1, [%[pTarget]], #16               \n"
+        "   letp                    lr, 4b                              \n"
+        "   5:                                                          \n"
+        "   adds                    %[pSource], %[src_offset]           \n"
+        "   subs                    %[h], #1                            \n"
+        "   bne                     1b                                  \n"
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [w] "r"(header->w << 2), [src_offset] "r"(map_offset),
+        [dst_offset] "r"(buf_offset)
+        : "q0", "q1", "lr", "memory");
+  } else {
+    /* map_stride and buf_stride matches width, just copy 'em all */
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   wlstp.8                 lr, %[size], 2f                     \n"
+        "   1:                                                          \n"
+        "   vldrb.8                 q0, [%[pSource]], #16               \n"
+        "   vorr.i32                q0, #0xFF000000                     \n" /* set alpha to 0xFF */
+        "   vstrb.8                 q0, [%[pTarget]], #16               \n"
+        "   letp                    lr, 1b                              \n"
+        "   2:                                                          \n"
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf)
+        : [size] "r"(ww * header->h)
+        : "q0", "lr", "memory");
+  }
+#else
+  lv_opa_t opa = recolor.ch.alpha;
+  lv_opa_t mix = 255 - opa;
+  uint32_t recolor_premult[3] = {
+    recolor.ch.red * opa, recolor.ch.green * opa, recolor.ch.blue * opa
+  };
+  for (int_fast16_t i = 0; i < header->h; i++) {
+    const lv_color32_t* src = (const lv_color32_t*)px_map;
+    lv_color32_t* dst = (lv_color32_t*)px_buf;
+    for (int_fast16_t j = 0; j < header->w; j++) {
+      if (src[j].full == ckey) {
+        dst[j].full = 0;
+      } else {
+        dst[j].ch.alpha = 0xFF;
+        dst[j].ch.red = LV_UDIV255(src[j].ch.red * mix + recolor_premult[0]);
+        dst[j].ch.green = LV_UDIV255(src[j].ch.green * mix + recolor_premult[1]);
+        dst[j].ch.blue = LV_UDIV255(src[j].ch.blue * mix + recolor_premult[2]);
+      }
+    }
+    lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+    px_map += map_stride;
+    px_buf += buf_stride;
+  }
+#endif
+}
+
+/****************************************************************************
+ * Name: convert_argb8888_to_gpu
+ *
+ * Description:
+ *   Process ARGB8888 before GPU could blit it. The image may be preprocessed
+ *   and came here for recolor.
+ *
+ * @param px_buf destination buffer
+ * @param buf_stride destination buffer stride in bytes
+ * @param px_map source buffer
+ * @param map_stride source buffer stride in bytes
+ * @param header LVGL source image header
+ * @param recolor recolor to apply
+ * @param preprocessed mark if the image has already been pre-multiplied
+ *
+ * @return None
+ *
+ ****************************************************************************/
+void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
+    lv_color32_t recolor, bool preprocessed)
+{
+#ifdef CONFIG_ARM_HAVE_MVE
+  uint32_t ww = ALIGN_UP(header->w, 4) << 2;
+  int32_t map_offset = map_stride - ww;
+  int32_t buf_offset = buf_stride - ww;
+  if (recolor.ch.alpha != LV_OPA_TRANSP) {
+    if (!preprocessed) {
+      /* recolor && need premult */
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   movs                    r0, %[recolor], lsr #24             \n"
+          "   vdup.32                 q0, %[recolor]                      \n"
+          "   vdup.8                  q1, r0                              \n"
+          "   vrmulh.u8               q0, q0, q1                          \n" /* q0 = recolor_premult */
+          "   vmvn                    q1, q1                              \n" /* q1 = ~recolor_opa */
+          "   1:                                                          \n"
+          "   wlstp.8                 lr, %[w], 3f                        \n"
+          "   2:                                                          \n"
+          "   vldrb.8                 q2, [%[pSource]], #16               \n"
+          "   vsri.32                 q3, q2, #8                          \n"
+          "   vsri.32                 q3, q2, #16                         \n"
+          "   vsri.32                 q3, q2, #24                         \n"
+          "   vrmulh.u8               q2, q2, q1                          \n"
+          "   vadd.i8                 q2, q2, q0                          \n"
+          "   vrmulh.u8               q2, q2, q3                          \n"
+          "   vsli.32                 q2, q3, #24                         \n"
+          "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+          "   letp                    lr, 2b                              \n"
+          "   3:                                                          \n"
+          "   vmov.i32                q3, #0                              \n"
+          "   wlstp.8                 lr, %[dst_offset], 5f               \n"
+          "   4:                                                          \n"
+          "   vstrb.8                 q3, [%[pTarget]], #16               \n"
+          "   letp                    lr, 4b                              \n"
+          "   5:                                                          \n"
+          "   adds                    %[pSource], %[src_offset]           \n"
+          "   subs                    %[h], #1                            \n"
+          "   bne                     1b                                  \n"
+          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+          : [w] "r"(header->w << 2), [recolor] "r"(recolor),
+          [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
+          : "q0", "q1", "q2", "q3", "r0", "lr", "memory");
+    } else {
+      /* recolor, need not premult */
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   movs                    r0, %[recolor], lsr #24             \n"
+          "   vdup.32                 q0, %[recolor]                      \n"
+          "   vdup.8                  q1, r0                              \n"
+          "   vrmulh.u8               q0, q0, q1                          \n" /* q0 = recolor_premult */
+          "   vmvn                    q1, q1                              \n" /* q1 = ~recolor_opa */
+          "   1:                                                          \n"
+          "   wlstp.8                 lr, %[w], 3f                        \n"
+          "   2:                                                          \n"
+          "   vldrb.8                 q2, [%[pSource]], #16               \n"
+          "   vsri.32                 q3, q2, #8                          \n"
+          "   vsri.32                 q3, q2, #16                         \n"
+          "   vsri.32                 q3, q2, #24                         \n"
+          "   vrmulh.u8               q2, q2, q1                          \n"
+          "   vrmulh.u8               q4, q0, q3                          \n"
+          "   vadd.i8                 q2, q2, q4                          \n"
+          "   vsli.32                 q2, q3, #24                         \n"
+          "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+          "   letp                    lr, 2b                              \n"
+          "   3:                                                          \n"
+          "   vmov.i32                q3, #0                              \n"
+          "   wlstp.8                 lr, %[dst_offset], 5f               \n"
+          "   4:                                                          \n"
+          "   vstrb.8                 q3, [%[pTarget]], #16               \n"
+          "   letp                    lr, 4b                              \n"
+          "   5:                                                          \n"
+          "   adds                    %[pSource], %[src_offset]           \n"
+          "   subs                    %[h], #1                            \n"
+          "   bne                     1b                                  \n"
+          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+          : [w] "r"(header->w << 2), [recolor] "r"(recolor),
+          [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
+          : "q0", "q1", "q2", "q3", "q4", "r0", "lr", "memory");
+    }
+  } else if (!preprocessed) {
+    /* no recolor, need premult */
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vmov.i32                q2, #0                              \n"
+        "   1:                                                          \n"
+        "   wlstp.8                 lr, %[w], 3f                        \n"
+        "   2:                                                          \n"
+        "   vldrb.8                 q0, [%[pSource]], #16               \n"
+        "   vsri.32                 q1, q0, #8                          \n"
+        "   vsri.32                 q1, q0, #16                         \n"
+        "   vsri.32                 q1, q0, #24                         \n"
+        "   vrmulh.u8               q0, q0, q1                          \n"
+        "   vsli.32                 q0, q1, #24                         \n"
+        "   vstrb.8                 q0, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   3:                                                          \n"
+        "   wlstp.8                 lr, %[dst_offset], 5f               \n"
+        "   4:                                                          \n"
+        "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+        "   letp                    lr, 4b                              \n"
+        "   5:                                                          \n"
+        "   adds                    %[pSource], %[src_offset]           \n"
+        "   subs                    %[h], #1                            \n"
+        "   bne                     1b                                  \n"
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [w] "r"(header->w << 2), [src_offset] "r"(map_offset),
+        [dst_offset] "r"(buf_offset)
+        : "q0", "q1", "q2", "lr", "memory");
+  } else if (map_offset || buf_offset) {
+    /* no recolor, need not premult */
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vmov.i32                q1, #0                              \n"
+        "   1:                                                          \n"
+        "   wlstp.8                 lr, %[w], 3f                        \n"
+        "   2:                                                          \n"
+        "   vldrb.8                 q0, [%[pSource]], #16               \n"
+        "   vstrb.8                 q0, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   3:                                                          \n"
+        "   wlstp.8                 lr, %[dst_offset], 5f               \n"
+        "   4:                                                          \n"
+        "   vstrb.8                 q1, [%[pTarget]], #16               \n"
+        "   letp                    lr, 4b                              \n"
+        "   5:                                                          \n"
+        "   adds                    %[pSource], %[src_offset]           \n"
+        "   subs                    %[h], #1                            \n"
+        "   bne                     1b                                  \n"
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [w] "r"(header->w << 2), [src_offset] "r"(map_offset),
+        [dst_offset] "r"(buf_offset)
+        : "q0", "q1", "lr", "memory");
+  } else {
+    /* map_stride and buf_stride matches width, just copy 'em all */
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   wlstp.8                 lr, %[size], 2f                     \n"
+        "   1:                                                          \n"
+        "   vldrb.8                 q0, [%[pSource]], #16               \n"
+        "   vstrb.8                 q0, [%[pTarget]], #16               \n"
+        "   letp                    lr, 1b                              \n"
+        "   2:                                                          \n"
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf)
+        : [size] "r"(ww * header->h)
+        : "q0", "lr", "memory");
+  }
+#else
+  lv_opa_t opa = recolor.ch.alpha;
+  lv_opa_t mix = 255 - opa;
+  uint32_t recolor_premult[3];
+  if (opa != LV_OPA_TRANSP) {
+    recolor_premult[0] = recolor.ch.red * opa;
+    recolor_premult[1] = recolor.ch.green * opa;
+    recolor_premult[2] = recolor.ch.blue * opa;
+  }
+  if (!preprocessed) {
+    if (opa != LV_OPA_TRANSP) {
+      for (int_fast16_t i = 0; i < header->h; i++) {
+        const lv_color32_t* src = (const lv_color32_t*)px_map;
+        lv_color32_t* dst = (lv_color32_t*)px_buf;
+        for (int_fast16_t j = 0; j < header->w; j++) {
+          if (src[j].ch.alpha == 0) {
+            dst[j].full = 0;
+            continue;
+          }
+          dst[j].ch.alpha = src[j].ch.alpha;
+          dst[j].ch.red = LV_UDIV255(src[j].ch.red * mix + recolor_premult[0]);
+          dst[j].ch.green = LV_UDIV255(src[j].ch.green * mix + recolor_premult[1]);
+          dst[j].ch.blue = LV_UDIV255(src[j].ch.blue * mix + recolor_premult[2]);
+          if (src[j].ch.alpha != 0xFF) {
+            dst[j].ch.red = LV_UDIV255(dst[j].ch.red * src[j].ch.alpha);
+            dst[j].ch.green = LV_UDIV255(dst[j].ch.green * src[j].ch.alpha);
+            dst[j].ch.blue = LV_UDIV255(dst[j].ch.blue * src[j].ch.alpha);
+          }
+        }
+        lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+        px_map += map_stride;
+        px_buf += buf_stride;
+      }
+    } else {
+      for (int_fast16_t i = 0; i < header->h; i++) {
+        const lv_color32_t* src = (const lv_color32_t*)px_map;
+        lv_color32_t* dst = (lv_color32_t*)px_buf;
+        for (int_fast16_t j = 0; j < header->w; j++) {
+          if (src[j].ch.alpha == 0) {
+            dst[j].full = 0;
+          } else if (src[j].ch.alpha < 0xFF) {
+            dst[j].ch.alpha = src[j].ch.alpha;
+            dst[j].ch.red = LV_UDIV255(src[j].ch.red * src[j].ch.alpha);
+            dst[j].ch.green = LV_UDIV255(src[j].ch.green * src[j].ch.alpha);
+            dst[j].ch.blue = LV_UDIV255(src[j].ch.blue * src[j].ch.alpha);
+          } else {
+            dst[j] = src[j];
+          }
+        }
+        lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+        px_map += map_stride;
+        px_buf += buf_stride;
+      }
+    }
+  } else if (opa != LV_OPA_TRANSP) {
+    /* have been pre-multiplied */
+    for (int_fast16_t i = 0; i < header->h; i++) {
+      const lv_color32_t* src = (const lv_color32_t*)px_map;
+      lv_color32_t* dst = (lv_color32_t*)px_buf;
+      for (int_fast16_t j = 0; j < header->w; j++) {
+        if (src[j].ch.alpha == 0) {
+          dst[j].full = 0;
+          continue;
+        }
+        dst[j].ch.alpha = src[j].ch.alpha;
+        if (src[j].ch.alpha < 0xFF) {
+          dst[j].ch.red = LV_UDIV255(src[j].ch.red * mix + LV_UDIV255(recolor_premult[0]) * src[j].ch.alpha);
+          dst[j].ch.green = LV_UDIV255(src[j].ch.green * mix + LV_UDIV255(recolor_premult[1]) * src[j].ch.alpha);
+          dst[j].ch.blue = LV_UDIV255(src[j].ch.blue * mix + LV_UDIV255(recolor_premult[2]) * src[j].ch.alpha);
+        } else {
+          dst[j].ch.red = LV_UDIV255(src[j].ch.red * mix + recolor_premult[0]);
+          dst[j].ch.green = LV_UDIV255(src[j].ch.green * mix + recolor_premult[1]);
+          dst[j].ch.blue = LV_UDIV255(src[j].ch.blue * mix + recolor_premult[2]);
+        }
+      }
+      lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+      px_map += map_stride;
+      px_buf += buf_stride;
+    }
+  } else if (map_stride != buf_stride) {
+    for (int_fast16_t i = 0; i < header->h; i++) {
+      lv_memcpy(px_buf, px_map, header->w << 2);
+      lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+      px_map += map_stride;
+      px_buf += buf_stride;
+    }
+  } else {
+    lv_memcpy(px_buf, px_map, header->h * map_stride);
+  }
+#endif
+}
+
+#ifdef CONFIG_ARM_HAVE_MVE
+
+/****************************************************************************
+ * Name: blend_ARGB
+ *
+ * Description:
+ *   MVE-accelerated non-transformed ARGB image BLIT
+ *
+ * @param dst destination buffer
+ * @param dst_stride destination buffer stride in bytes
+ * @param src source image buffer
+ * @param src_stride source buffer stride in bytes
+ * @param draw_area target area
+ * @param opa extra opacity to apply to source
+ * @param premult mark if the image has already been pre-multiplied
+ *
+ * @return None
+ *
+ ****************************************************************************/
+LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst, lv_coord_t dst_stride,
+    const uint8_t* src, lv_coord_t src_stride, const lv_area_t* draw_area,
+    lv_opa_t opa, bool premult)
 {
   lv_coord_t w = lv_area_get_width(draw_area);
   lv_coord_t h = lv_area_get_height(draw_area);
@@ -1559,7 +2318,7 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
     if (premult) {
       __asm volatile(
           "   .p2align 2                                                  \n"
-          "   bic                     r0, %[loopCnt], 0xF                 \n"
+          "   bics                    r0, %[loopCnt], 0xF                 \n"
           "   wlstp.8                 lr, r0, 1f                          \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
@@ -1589,13 +2348,14 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
           "   vst43.8                 {q4, q5, q6, q7}, [%[pDst]]!        \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
-          "   and                     r0, %[loopCnt], 0xF                 \n"
+          "   ands                    r0, %[loopCnt], 0xF                 \n"
+          "   movs                    r0, r0, lsl #2                      \n"
           "   vdup.8                  q2, %[opa]                          \n"
           "   vmvn.i32                q5, #0                              \n"
-          "   wlstp.32                lr, r0, 3f                          \n"
+          "   wlstp.8                 lr, r0, 3f                          \n"
           "   4:                                                          \n"
-          "   vldrw.32                q0, [%[pDst]]                       \n"
-          "   vldrw.32                q1, [%[pSrc]], #16                  \n"
+          "   vldrb.8                 q0, [%[pDst]]                       \n"
+          "   vldrb.8                 q1, [%[pSrc]], #16                  \n"
           "   vsri.32                 q3, q1, #8                          \n"
           "   vsri.32                 q3, q1, #16                         \n"
           "   vsri.32                 q3, q1, #24                         \n"
@@ -1605,7 +2365,7 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
           "   vrmulh.u8               q1, q1, q2                          \n"
           "   vadd.i8                 q0, q0, q1                          \n"
           "   vsli.32                 q0, q5, #24                         \n"
-          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
           "   letp                    lr, 4b                              \n"
           "   3:                                                          \n"
           : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget)
@@ -1615,7 +2375,7 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
     } else {
       __asm volatile(
           "   .p2align 2                                                  \n"
-          "   bic                     r0, %[loopCnt], 0xF                 \n"
+          "   bics                    r0, %[loopCnt], 0xF                 \n"
           "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
@@ -1645,13 +2405,14 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
           "   vst43.8                 {q4, q5, q6, q7}, [%[pDst]]!        \n"
           "   letp                    lr, 2b                              \n"
           "   1:                                                          \n"
-          "   and                     r0, %[loopCnt], 0xF                 \n"
+          "   ands                    r0, %[loopCnt], 0xF                 \n"
+          "   movs                    r0, r0, lsl #2                      \n"
           "   vdup.8                  q2, %[opa]                          \n"
           "   vmvn.i32                q5, #0                              \n"
-          "   wlstp.32                lr, r0, 3f                          \n"
+          "   wlstp.8                 lr, r0, 3f                          \n"
           "   4:                                                          \n"
-          "   vldrw.32                q0, [%[pDst]]                       \n"
-          "   vldrw.32                q1, [%[pSrc]], #16                  \n"
+          "   vldrb.8                 q0, [%[pDst]]                       \n"
+          "   vldrb.8                 q1, [%[pSrc]], #16                  \n"
           "   vsri.32                 q3, q1, #8                          \n"
           "   vsri.32                 q3, q1, #16                         \n"
           "   vsri.32                 q3, q1, #24                         \n"
@@ -1661,7 +2422,7 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
           "   vrmulh.u8               q1, q1, q3                          \n"
           "   vadd.i8                 q0, q0, q1                          \n"
           "   vsli.32                 q0, q5, #24                         \n"
-          "   vstrw.32                q0, [%[pDst]], #16                  \n"
+          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
           "   letp                    lr, 4b                              \n"
           "   3:                                                          \n"
           : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget)
@@ -1674,6 +2435,24 @@ LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
   }
 }
 
+/****************************************************************************
+ * Name: blend_transform
+ *
+ * Description:
+ *   MVE-accelerated transformed ARGB image BLIT
+ *
+ * @param dst destination buffer
+ * @param draw_area target area
+ * @param dst_stride destination buffer stride in bytes
+ * @param src source image buffer
+ * @param src_area source area
+ * @param src_stride source buffer stride in bytes
+ * @param dsc draw image descriptor
+ * @param premult mark if the image has already been pre-multiplied
+ *
+ * @return None
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM void blend_transform(uint8_t* dst,
     const lv_area_t* draw_area, lv_coord_t dst_stride, const uint8_t* src,
     const lv_area_t* src_area, lv_coord_t src_stride,

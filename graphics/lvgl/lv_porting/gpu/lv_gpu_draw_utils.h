@@ -461,18 +461,173 @@ uint32_t gpu_data_get_buf_size(lv_img_dsc_t* dsc);
 LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color_t* dst,
     const lv_color_t* src, uint32_t count);
 
+/****************************************************************************
+ * Name: recolor_palette
+ *
+ * Description:
+ *   Apply recolor to index/alpha format palette
+ *
+ * @param dst destination palette buffer
+ * @param src palette source, if NULL treated as alpha format
+ * @param size palette color count, only 16 and 256 supported
+ * @param recolor recolor value in ARGB8888 format
+ *
+ * @return None
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM void recolor_palette(lv_color32_t* dst,
     const lv_color32_t* src, uint16_t size, uint32_t recolor);
 
+/****************************************************************************
+ * Name: gpu_set_area
+ *
+ * Description:
+ *   Set last GPU work area
+ *
+ * @param area current GPU draw area
+ *
+ * @return None
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM void gpu_set_area(const lv_area_t* area);
 
+/****************************************************************************
+ * Name: gpu_wait_area
+ *
+ * Description:
+ *   Wait for last GPU operation to complete if current area overlaps with
+ *   the last one
+ *
+ * @param area current GPU draw area
+ *
+ * @return None
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area);
 
-#ifdef CONFIG_ARM_HAVE_MVE
-LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst,
-    const lv_area_t* draw_area, lv_coord_t dst_stride, const uint8_t* src,
-    lv_coord_t src_stride, lv_opa_t opa, bool premult);
+/****************************************************************************
+ * Name: convert_argb8565_to_8888
+ *
+ * Description:
+ *   Convert ARGB8565 to ARGB8888 format
+ *
+ * @param px_buf destination buffer
+ * @param buf_stride destination buffer stride in bytes
+ * @param px_map source buffer
+ * @param map_stride source buffer stride in bytes
+ * @param header LVGL source image header
+ *
+ * @return None
+ *
+ ****************************************************************************/
+void convert_argb8565_to_8888(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header);
 
+/****************************************************************************
+ * Name: convert_rgb565_to_gpu
+ *
+ * Description:
+ *   Process RGB565 before GPU could blit it. Opaque RGB565 images will stay
+ *   16bpp, while chroma-keyed images will be converted to ARGB8888.
+ *
+ * @param px_buf destination buffer
+ * @param buf_stride destination buffer stride in bytes
+ * @param px_map source buffer
+ * @param map_stride source buffer stride in bytes
+ * @param header LVGL source image header
+ * @param recolor recolor to apply
+ * @param ckey color key for transparent pixel
+ *
+ * @return None
+ *
+ ****************************************************************************/
+void convert_rgb565_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
+    lv_color32_t recolor, uint32_t ckey);
+
+/****************************************************************************
+ * Name: convert_rgb888_to_gpu
+ *
+ * Description:
+ *   Process RGB888 before GPU could blit it.
+ *
+ * @param px_buf destination buffer
+ * @param buf_stride destination buffer stride in bytes
+ * @param px_map source buffer
+ * @param map_stride source buffer stride in bytes
+ * @param header LVGL source image header
+ * @param recolor recolor to apply
+ * @param ckey color key for transparent pixel
+ *
+ * @return None
+ *
+ ****************************************************************************/
+void convert_rgb888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
+    lv_color32_t recolor, uint32_t ckey);
+
+/****************************************************************************
+ * Name: convert_argb8888_to_gpu
+ *
+ * Description:
+ *   Process ARGB8888 before GPU could blit it. The image may be preprocessed
+ *   and came here for recolor.
+ *
+ * @param px_buf destination buffer
+ * @param buf_stride destination buffer stride in bytes
+ * @param px_map source buffer
+ * @param map_stride source buffer stride in bytes
+ * @param header LVGL source image header
+ * @param recolor recolor to apply
+ * @param preprocessed mark if the image has already been pre-multiplied
+ *
+ * @return None
+ *
+ ****************************************************************************/
+void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
+    lv_color32_t recolor, bool preprocessed);
+
+#ifdef CONFIG_ARM_HAVE_MVE
+/****************************************************************************
+ * Name: blend_ARGB
+ *
+ * Description:
+ *   MVE-accelerated non-transformed ARGB image BLIT
+ *
+ * @param dst destination buffer
+ * @param dst_stride destination buffer stride in bytes
+ * @param src source image buffer
+ * @param src_stride source buffer stride in bytes
+ * @param draw_area target area
+ * @param opa extra opacity to apply to source
+ * @param premult mark if the image has already been pre-multiplied
+ *
+ * @return None
+ *
+ ****************************************************************************/
+LV_ATTRIBUTE_FAST_MEM void blend_ARGB(uint8_t* dst, lv_coord_t dst_stride,
+    const uint8_t* src, lv_coord_t src_stride, const lv_area_t* draw_area,
+    lv_opa_t opa, bool premult);
+
+/****************************************************************************
+ * Name: blend_transform
+ *
+ * Description:
+ *   MVE-accelerated transformed ARGB image BLIT
+ *
+ * @param dst destination buffer
+ * @param draw_area target area
+ * @param dst_stride destination buffer stride in bytes
+ * @param src source image buffer
+ * @param src_area source area
+ * @param src_stride source buffer stride in bytes
+ * @param dsc draw image descriptor
+ * @param premult mark if the image has already been pre-multiplied
+ *
+ * @return None
+ *
+ ****************************************************************************/
 LV_ATTRIBUTE_FAST_MEM void blend_transform(uint8_t* dst,
     const lv_area_t* draw_area, lv_coord_t dst_stride, const uint8_t* src,
     const lv_area_t* src_area, lv_coord_t src_stride,
