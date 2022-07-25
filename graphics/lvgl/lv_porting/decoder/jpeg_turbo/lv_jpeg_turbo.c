@@ -88,15 +88,18 @@ static lv_res_t decoder_info(lv_img_decoder_t * decoder, const void * src, lv_im
         lv_fs_res_t res = lv_fs_open(&f, fn, LV_FS_MODE_RD);
         if(res != LV_FS_RES_OK) return LV_RES_INV;
 
-        uint8_t buf[10];
+        uint32_t jpg_signature;
         uint32_t rn;
-        lv_fs_read(&f, buf, sizeof(buf), &rn);
+        lv_fs_read(&f, &jpg_signature, sizeof(jpg_signature), &rn);
         lv_fs_close(&f);
 
-        if(rn != sizeof(buf)) return LV_RES_INV;
+        if(rn != sizeof(jpg_signature)) return LV_RES_INV;
 
-        const uint8_t jpg_signature[] = {0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46};
-        if(memcmp(buf, jpg_signature, sizeof(jpg_signature)) != 0) return LV_RES_INV;
+        const uint32_t jpg_signature_JFIF = 0xE0FFD8FF;
+        const uint32_t jpg_signature_EXIF = 0xE1FFD8FF;
+        if(!(jpg_signature == jpg_signature_JFIF || jpg_signature == jpg_signature_EXIF)) {
+            return LV_RES_INV;
+        }
 
         uint32_t width;
         uint32_t height;
