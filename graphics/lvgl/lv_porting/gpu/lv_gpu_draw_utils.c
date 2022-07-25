@@ -23,12 +23,14 @@
  ****************************************************************************/
 
 #include "lv_gpu_draw_utils.h"
+#include "fast_gaussian_blur.h"
 #include "lv_color.h"
 #include "lv_gpu_decoder.h"
 #include "src/misc/lv_gc.h"
 #include "vg_lite.h"
 #include <math.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #ifdef CONFIG_ARM_HAVE_MVE
 #include "arm_mve.h"
 #endif
@@ -2284,6 +2286,215 @@ void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
     lv_memcpy(px_buf, px_map, header->h * map_stride);
   }
 #endif
+}
+
+void convert_indexed8_to_argb8888(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, const uint32_t* palette,
+    lv_img_header_t* header)
+{
+#ifdef CONFIG_ARM_HAVE_MVE
+  int32_t map_offset = map_stride - header->w;
+  int32_t buf_offset = buf_stride - (header->w << 2);
+  if (map_offset || buf_offset) {
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vmov.i32                q2, #0                              \n"
+        "   1:                                                          \n"
+        "   wlstp.32                lr, %[w], 3f                        \n"
+        "   2:                                                          \n"
+        "   vldrb.u32               q0, [%[pSource]], #4                \n"
+        "   vldrw.u32               q1, [%[palette], q0, uxtw #2]       \n"
+        "   vstrb.8                 q1, [%[pTarget]], #16               \n"
+        "   letp                    lr, 2b                              \n"
+        "   3:                                                          \n"
+        "   wlstp.8                 lr, %[dst_offset], 5f               \n"
+        "   4:                                                          \n"
+        "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+        "   letp                    lr, 4b                              \n"
+        "   5:                                                          \n"
+        "   adds                    %[pSource], %[src_offset]           \n"
+        "   subs                    %[h], #1                            \n"
+        "   bne                     1b                                  \n"
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [w] "r"(header->w), [src_offset] "r"(map_offset),
+        [dst_offset] "r"(buf_offset), [palette] "r"(palette)
+        : "q0", "q1", "q2", "lr", "memory");
+  } else {
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   wlstp.32                lr, %[size], 2f                     \n"
+        "   1:                                                          \n"
+        "   vldrb.u32               q0, [%[pSource]], #4                \n"
+        "   vldrw.u32               q1, [%[palette], q0, uxtw #2]       \n"
+        "   vstrb.8                 q1, [%[pTarget]], #16               \n"
+        "   letp                    lr, 1b                              \n"
+        "   2:                                                          \n"
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf)
+        : [size] "r"(header->w * header->h), [palette] "r"(palette)
+        : "q0", "q1", "lr", "memory");
+  }
+#else
+  for (int i = 0; i < header->h; i++) {
+    uint32_t* dst = (uint32_t*)px_buf;
+    for (int j = 0; j < header->w; j++) {
+      dst[j] = palette[px_map[j]];
+    }
+    lv_memset_00(px_buf + (map_stride << 2), buf_stride - (map_stride << 2));
+    px_map += map_stride;
+    px_buf += buf_stride;
+  }
+#endif
+}
+
+lv_res_t pre_zoom_gaussian_filter(uint8_t* dst, const uint8_t* src,
+    lv_img_header_t* header, const char* ext)
+{
+  lv_img_cf_t cf = header->cf;
+  uint32_t stride = header->w;
+  lv_area_t area = { 0, 0, header->w - 1, header->h - 1 };
+  bool gpu_format = (strcmp(ext, "gpu") == 0);
+  if (gpu_format) {
+    memcpy(dst, src, sizeof(gpu_data_header_t));
+    gpu_data_header_t* gpu_header = (gpu_data_header_t*)dst;
+    GPU_ERROR("vgbuf:%d(%ld,%ld)", gpu_header->vgbuf.format, gpu_header->vgbuf.width, gpu_header->vgbuf.height);
+    stride = gpu_header->vgbuf.width;
+    if (cf == LV_IMG_CF_INDEXED_8BIT) {
+      gpu_header->vgbuf.format = VG_LITE_BGRA8888;
+    }
+    src += sizeof(gpu_data_header_t);
+    dst += sizeof(gpu_data_header_t);
+  }
+  if (cf == LV_IMG_CF_TRUE_COLOR || cf == LV_IMG_CF_TRUE_COLOR_ALPHA) {
+    fast_gaussian_blur((void*)dst, stride, (void*)src, stride, &area, 1);
+  } else if (cf == LV_IMG_CF_INDEXED_8BIT) {
+    const uint32_t* palette = (const uint32_t*)src;
+    if (gpu_format) {
+      palette += header->h * stride;
+    } else {
+      src += 1024;
+    }
+    convert_indexed8_to_argb8888((void*)dst, stride << 2, (void*)src, stride,
+        palette, header);
+    fast_gaussian_blur((void*)dst, stride, (void*)dst, stride, &area, 1);
+  } else {
+    GPU_ERROR("Filter does not support this color format!");
+    return LV_RES_INV;
+  }
+  return LV_RES_OK;
+}
+
+const char* generate_filtered_image(const char* src)
+{
+    char mander[PATH_MAX];
+    char path[PATH_MAX];
+    strncpy(mander, src, PATH_MAX - 1);
+    char* name = (char*)strrchr(mander, '/');
+    while (name) {
+        *name = '_';
+        name = (char*)strrchr(mander, '/');
+    }
+    name = mander;
+    int16_t name_len = strlen(name);
+    int16_t path_length = name_len + sizeof(CONFIG_GPU_IMG_CACHE_PATH);
+    name += LV_MAX(0, path_length - PATH_MAX);
+    snprintf(path, path_length, CONFIG_GPU_IMG_CACHE_PATH "%s", name);
+    char* dst = strdup(path);
+    if (!dst) {
+        GPU_ERROR("malloc failed\n");
+        return src;
+    }
+    if (access(CONFIG_GPU_IMG_CACHE_PATH, F_OK) != 0) {
+      mkdir(CONFIG_GPU_IMG_CACHE_PATH, 0755);
+    } else if (access(dst, F_OK) == 0) {
+      GPU_ERROR("%s exists!", dst);
+      return dst;
+    }
+    lv_fs_file_t file;
+    lv_fs_res_t res;
+    uint32_t bytes_done;
+    lv_img_header_t header;
+    uint8_t* data = NULL;
+    uint8_t* dst_buf = NULL;
+    res = lv_fs_open(&file, src, LV_FS_MODE_RD);
+    if (res != LV_FS_RES_OK) {
+        GPU_ERROR("open %s failed\n", src);
+        goto Error;
+    }
+    res = lv_fs_read(&file, &header, 4, &bytes_done);
+    if (res != LV_FS_RES_OK || bytes_done != 4) {
+        GPU_ERROR("read header failed\n");
+        goto Error_file;
+    }
+    uint32_t dst_size = header.w * header.h << 2;
+    uint32_t data_size = (header.cf == LV_IMG_CF_INDEXED_8BIT)
+        ? header.w * header.h + 1024
+        : dst_size;
+    const char* ext = lv_fs_get_ext(mander);
+    if (strcmp(ext, "gpu") == 0) {
+        data_size = gpu_img_buf_get_img_size(header.w, header.h, header.cf);
+        dst_size = gpu_img_buf_get_img_size(header.w, header.h,
+                                            LV_IMG_CF_TRUE_COLOR_ALPHA);
+    }
+    if (header.cf == LV_IMG_CF_INDEXED_8BIT) {
+        dst_buf = malloc(dst_size);
+        if (!dst_buf) {
+            GPU_ERROR("malloc failed");
+            goto Error_file;
+        }
+    } else if (header.cf != LV_IMG_CF_TRUE_COLOR
+               && header.cf != LV_IMG_CF_TRUE_COLOR_ALPHA) {
+        GPU_ERROR("unsupported format");
+        goto Error_file;
+    }
+    data = malloc(data_size);
+    if (!data) {
+        GPU_ERROR("malloc data failed\n");
+        goto Error_file;
+    }
+    res = lv_fs_read(&file, data, data_size, &bytes_done);
+    if (res != LV_FS_RES_OK || bytes_done != data_size) {
+        GPU_ERROR("read data failed\n");
+        goto Error_file;
+    }
+    lv_fs_close(&file);
+    res = lv_fs_open(&file, dst, LV_FS_MODE_WR);
+    if (res != LV_FS_RES_OK) {
+        GPU_ERROR("open %s failed\n", dst);
+        goto Error;
+    }
+    lv_img_header_t new_header = header;
+    new_header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
+    res = lv_fs_write(&file, &new_header, 4, &bytes_done);
+    if (res != LV_FS_RES_OK || bytes_done != 4) {
+        GPU_ERROR("write header failed\n");
+        goto Error_file;
+    }
+    if (!dst_buf) {
+        dst_buf = data;
+    }
+    pre_zoom_gaussian_filter(dst_buf, data, &header, ext);
+    res = lv_fs_write(&file, dst_buf, dst_size, &bytes_done);
+    if (dst_buf == data) {
+        dst_buf = NULL;
+    }
+    if (res != LV_FS_RES_OK || bytes_done != dst_size) {
+        GPU_ERROR("write data failed\n");
+        goto Error_file;
+    }
+    lv_fs_close(&file);
+    free(data);
+    return dst;
+Error_file:
+    lv_fs_close(&file);
+Error:
+    free(dst);
+    if (data) {
+        free(data);
+    }
+    if (dst_buf) {
+        free(dst_buf);
+    }
+    return src;
 }
 
 #ifdef CONFIG_ARM_HAVE_MVE

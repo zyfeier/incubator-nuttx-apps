@@ -15,6 +15,5 @@
  * @param r filter width, r=1 is accelerated by MVE
  *
  ****************************************************************************/
-void fast_gaussian_blur(lv_color_t* src, lv_color_t* dst,
-    lv_coord_t src_stride, lv_coord_t dst_stride,
-    lv_area_t* blur_area, int r);
+void fast_gaussian_blur(lv_color_t* dst, uint32_t dst_stride,
+    lv_color_t* src, uint32_t src_stride, lv_area_t* blur_area, int r);

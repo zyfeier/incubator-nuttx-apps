@@ -588,6 +588,15 @@ void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
     const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
     lv_color32_t recolor, bool preprocessed);
 
+void convert_indexed8_to_argb8888(uint8_t* px_buf, uint32_t buf_stride,
+    const uint8_t* px_map, uint32_t map_stride, const uint32_t* palette,
+    lv_img_header_t* header);
+
+lv_res_t pre_zoom_gaussian_filter(uint8_t* dst, const uint8_t* src,
+    lv_img_header_t* header, const char* ext);
+
+const char* generate_filtered_image(const char* src);
+
 #ifdef CONFIG_ARM_HAVE_MVE
 /****************************************************************************
  * Name: blend_ARGB

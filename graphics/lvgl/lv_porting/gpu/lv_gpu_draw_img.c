@@ -22,7 +22,6 @@
  * Included Files
  ****************************************************************************/
 
-#include "fast_gaussian_blur.h"
 #include "lv_color.h"
 #include "lv_gpu_decoder.h"
 #include "lv_gpu_draw_utils.h"
@@ -36,9 +35,6 @@
 /****************************************************************************
  * Preprocessor Definitions
  ****************************************************************************/
-
-#define IMG_BLUR_SIZE_LIMIT 26000 /* takes 10ms on 200MHz Cortex-M55 MCU */
-#define IMG_ZOOM_BLUR 64 /* the backend app top icon zoom */
 
 /****************************************************************************
  * Macros
@@ -270,31 +266,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     }
     allocated_src = true;
     pre_recolor.full = ((gpu_data_header_t*)map_p)->recolor;
-  }
-
-  if (zoom == IMG_ZOOM_BLUR && src_vgbuf.format == VGLITE_PX_FMT
-      && src_vgbuf.width * src_vgbuf.height <= IMG_BLUR_SIZE_LIMIT) {
-    lv_area_t map_area = { 0, 0, src_vgbuf.width - 1, src_vgbuf.height - 1 };
-    if (allocated_src) {
-      fast_gaussian_blur(src_vgbuf.memory, NULL, src_vgbuf.width, 0, &map_area,
-          1);
-    } else {
-      uint32_t vgbuf_size = src_vgbuf.height * src_vgbuf.stride;
-      void* mem = gpu_heap_aligned_alloc(8, vgbuf_size);
-      if (mem) {
-        allocated_src = true;
-        lv_memset_00(mem, vgbuf_size);
-        GPU_WARN("blur (%ld,%ld)", src_vgbuf.width, src_vgbuf.height);
-        TC_INIT
-        TC_START
-        fast_gaussian_blur(src_vgbuf.memory, mem, src_vgbuf.width,
-            src_vgbuf.width, &map_area, 1);
-        TC_END
-        TC_REP(blur)
-        src_vgbuf.memory = mem;
-        src_vgbuf.address = (uint32_t)mem;
-      }
-    }
   }
 
   vg_lite_matrix_t matrix;
