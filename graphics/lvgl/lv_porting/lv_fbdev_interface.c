@@ -70,9 +70,11 @@ struct fbdev_obj_s
   lv_disp_draw_buf_t disp_draw_buf;
   lv_disp_drv_t disp_drv;
   FAR lv_disp_t *disp;
-  FAR lv_color_t *last_buffer;
+  FAR void *last_buffer;
+  FAR void *act_buffer;
   lv_area_t inv_areas[LV_INV_BUF_SIZE];
   uint16_t inv_areas_len;
+  lv_area_t final_area;
 
   int fd;
   FAR void *fbmem;
@@ -104,12 +106,16 @@ static void fbdev_update_area(FAR struct fbdev_obj_s *fbdev_obj,
   fb_area.y = area_p->y1;
   fb_area.w = area_p->x2 - area_p->x1 + 1;
   fb_area.h = area_p->y2 - area_p->y1 + 1;
+
+  LV_LOG_TRACE("area: (%d, %d) %d x %d",
+               fb_area.x, fb_area.y, fb_area.w, fb_area.h);
+
   ioctl(fbdev_obj->fd, FBIO_UPDATE,
         (unsigned long)((uintptr_t)&fb_area));
+
+  LV_LOG_TRACE("finished");
 }
 #endif
-
-#if defined(CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER)
 
 /****************************************************************************
  * Name: fbdev_copy_areas
@@ -149,30 +155,15 @@ static void fbdev_copy_areas(FAR lv_color_t *fb_dest,
 }
 
 /****************************************************************************
- * Name: fbdev_flush_direct
+ * Name: fbdev_switch_buffer
  ****************************************************************************/
 
-static void fbdev_flush_direct(FAR lv_disp_drv_t *disp_drv,
-                               FAR const lv_area_t *area_p,
-                               FAR lv_color_t *color_p)
+static void fbdev_switch_buffer(FAR struct fbdev_obj_s *fbdev_obj)
 {
-  FAR struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
   FAR lv_disp_t *disp_refr = fbdev_obj->disp;
   uint16_t inv_index;
 
-  /* Commit the buffer after the last flush */
-
-  if (!lv_disp_flush_is_last(disp_drv))
-    {
-      lv_disp_flush_ready(disp_drv);
-      return;
-    }
-
-  /* Save the buffer address for the next synchronization */
-
-  fbdev_obj->last_buffer = color_p;
-
-  /* inv_areas_len must be equal to 0 */
+  /* check inv_areas_len, it must == 0 */
 
   if (fbdev_obj->inv_areas_len != 0)
     {
@@ -194,26 +185,35 @@ static void fbdev_flush_direct(FAR lv_disp_drv_t *disp_drv,
         }
     }
 
-  /* Set fb to display y offset */
+  /* Save the buffer address for the next synchronization */
 
-  fbdev_obj->pinfo.yoffset = (color_p == fbdev_obj->fbmem)
-                              ? 0 : fbdev_obj->vinfo.yres;
+  fbdev_obj->last_buffer = fbdev_obj->act_buffer;
 
   LV_LOG_TRACE("Commit buffer = %p, yoffset = %" PRIu32,
-               color_p,
+               fbdev_obj->act_buffer,
                fbdev_obj->pinfo.yoffset);
+
+  if (fbdev_obj->act_buffer == fbdev_obj->fbmem)
+    {
+      fbdev_obj->pinfo.yoffset = 0;
+      fbdev_obj->act_buffer = fbdev_obj->fbmem
+          + fbdev_obj->vinfo.yres * fbdev_obj->pinfo.stride;
+    }
+  else
+    {
+      fbdev_obj->pinfo.yoffset = fbdev_obj->vinfo.yres;
+      fbdev_obj->act_buffer = fbdev_obj->fbmem;
+    }
 
   /* Commit buffer to fb driver */
 
   ioctl(fbdev_obj->fd, FBIOPAN_DISPLAY,
         (unsigned long)((uintptr_t)&(fbdev_obj->pinfo)));
 
-  FBDEV_UPDATE_AREA(fbdev_obj, area_p);
-
-  /* Tell the flushing is ready */
-
-  lv_disp_flush_ready(disp_drv);
+  LV_LOG_TRACE("finished");
 }
+
+#ifdef CONFIG_FB_SYNC
 
 /****************************************************************************
  * Name: fbdev_check_sync
@@ -224,12 +224,7 @@ static bool fbdev_check_sync(FAR struct fbdev_obj_s *fbdev_obj)
   int ret;
   LV_LOG_TRACE("Check sync");
 
-#ifdef CONFIG_FB_SYNC
   ret = ioctl(fbdev_obj->fd, FBIO_WAITFORVSYNC, NULL);
-#else
-#error "FB_SYNC must be supported"
-#endif
-
   if (ret != OK)
     {
       LV_LOG_TRACE("No sync signal detect");
@@ -240,18 +235,22 @@ static bool fbdev_check_sync(FAR struct fbdev_obj_s *fbdev_obj)
   return true;
 }
 
+#endif /* CONFIG_FB_SYNC */
+
 /****************************************************************************
  * Name: fbdev_disp_refr
  ****************************************************************************/
 
 static void fbdev_disp_refr(FAR lv_timer_t *timer)
 {
+#ifdef CONFIG_FB_SYNC
   FAR struct fbdev_obj_s *fbdev_obj = timer->user_data;
 
   if (!fbdev_check_sync(fbdev_obj))
     {
       return;
     }
+#endif
 
   _lv_disp_refr_timer(NULL);
 }
@@ -263,16 +262,36 @@ static void fbdev_disp_refr(FAR lv_timer_t *timer)
 static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
 {
   FAR struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
-  FAR lv_disp_t *disp_refr = _lv_refr_get_disp_refreshing();
-  FAR lv_disp_draw_buf_t *draw_buf;
-  lv_coord_t hor_res = LV_HOR_RES;
-  lv_coord_t ver_res = LV_VER_RES;
+  FAR lv_disp_t *disp_refr;
+  lv_coord_t hor_res;
+  lv_coord_t ver_res;
   int i;
+
+  /* No need sync buffer */
 
   if (fbdev_obj->inv_areas_len == 0)
     {
       return;
     }
+
+  disp_refr = _lv_refr_get_disp_refreshing();
+
+#if !defined(CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER)
+  if (disp_refr->driver->sw_rotate)
+    {
+      LV_LOG_TRACE("Copy full screen buffer %p -> %p",
+                   fbdev_obj->last_buffer, fbdev_obj->act_buffer);
+      lv_memcpy(fbdev_obj->act_buffer,
+                fbdev_obj->last_buffer,
+                fbdev_obj->vinfo.xres
+                * fbdev_obj->vinfo.yres * sizeof(lv_color_t));
+      fbdev_obj->inv_areas_len = 0;
+      return;
+    }
+#endif
+
+  hor_res = LV_HOR_RES;
+  ver_res = LV_VER_RES;
 
   for (i = 0; i < disp_refr->inv_p; i++)
     {
@@ -294,12 +313,40 @@ static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
 
   /* Sync the dirty area of ​​the previous frame */
 
-  draw_buf = lv_disp_get_draw_buf(disp_refr);
-
-  fbdev_copy_areas(draw_buf->buf_act, fbdev_obj->last_buffer,
+  fbdev_copy_areas(fbdev_obj->act_buffer, fbdev_obj->last_buffer,
                    fbdev_obj->inv_areas, fbdev_obj->inv_areas_len,
                    fbdev_obj->vinfo.xres);
+
   fbdev_obj->inv_areas_len = 0;
+}
+
+#if defined(CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER)
+
+/****************************************************************************
+ * Name: fbdev_flush_direct
+ ****************************************************************************/
+
+static void fbdev_flush_direct(FAR lv_disp_drv_t *disp_drv,
+                               FAR const lv_area_t *area_p,
+                               FAR lv_color_t *color_p)
+{
+  FAR struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
+
+  /* Commit the buffer after the last flush */
+
+  if (!lv_disp_flush_is_last(disp_drv))
+    {
+      lv_disp_flush_ready(disp_drv);
+      return;
+    }
+
+  fbdev_switch_buffer(fbdev_obj);
+
+  FBDEV_UPDATE_AREA(fbdev_obj, area_p);
+
+  /* Tell the flushing is ready */
+
+  lv_disp_flush_ready(disp_drv);
 }
 
 #else
@@ -310,6 +357,7 @@ static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
 
 static FAR lv_color_t *fbdev_get_buffer(int hor_res, int ver_res)
 {
+  FAR lv_color_t *retval;
 #if defined(CONFIG_LV_FBDEV_USE_STATIC_BUFFER)
   static lv_color_t buffer[LV_FBDEV_BUFFER_SIZE] LV_FBDEV_BUFFER_SECTION;
 
@@ -324,10 +372,53 @@ static FAR lv_color_t *fbdev_get_buffer(int hor_res, int ver_res)
       return NULL;
     }
 
-  return buffer;
+  retval = buffer;
 #else
-  return malloc(hor_res * ver_res * sizeof(lv_color_t));
+  retval = malloc(hor_res * ver_res * sizeof(lv_color_t));
 #endif
+  LV_LOG_TRACE("%p", retval);
+  return retval;
+}
+
+/****************************************************************************
+ * Name: fbdev_update_part
+ ****************************************************************************/
+
+static void fbdev_update_part(FAR struct fbdev_obj_s *fbdev_obj,
+                              FAR lv_disp_drv_t *disp_drv,
+                              FAR const lv_area_t *area_p)
+{
+  FAR lv_area_t *final_area = &fbdev_obj->final_area;
+
+  if (final_area->x1 < 0)
+    {
+      *final_area = *area_p;
+    }
+  else
+    {
+      _lv_area_join(final_area, final_area, area_p);
+    }
+
+  if (!lv_disp_flush_is_last(disp_drv))
+    {
+      lv_disp_flush_ready(disp_drv);
+      return;
+    }
+
+  if (fbdev_obj->double_buffer)
+    {
+      fbdev_switch_buffer(fbdev_obj);
+    }
+
+  FBDEV_UPDATE_AREA(fbdev_obj, final_area);
+
+  /* Mark it is invalid */
+
+  final_area->x1 = -1;
+
+  /* Tell the flushing is ready */
+
+  lv_disp_flush_ready(disp_drv);
 }
 
 /****************************************************************************
@@ -346,7 +437,7 @@ static void fbdev_flush_normal(FAR lv_disp_drv_t *disp_drv,
   const int w = lv_area_get_width(area_p);
   const int hor_size = w * sizeof(lv_color_t);
   const fb_coord_t xres = fbdev_obj->vinfo.xres;
-  FAR lv_color_t *fbp = fbdev_obj->fbmem;
+  FAR lv_color_t *fbp = fbdev_obj->act_buffer;
 
   for (y = y1; y <= y2; y++)
     {
@@ -355,11 +446,7 @@ static void fbdev_flush_normal(FAR lv_disp_drv_t *disp_drv,
       color_p += w;
     }
 
-  FBDEV_UPDATE_AREA(fbdev_obj, area_p);
-
-  /* Tell the flushing is ready */
-
-  lv_disp_flush_ready(disp_drv);
+  fbdev_update_part(fbdev_obj, disp_drv, area_p);
 }
 
 /****************************************************************************
@@ -386,7 +473,7 @@ static void fbdev_flush_convert(FAR lv_disp_drv_t *disp_drv,
       case 32:
       case 24:
         {
-          FAR uint32_t *fbp = fbdev_obj->fbmem;
+          FAR uint32_t *fbp = fbdev_obj->act_buffer;
           for (y = y1; y <= y2; y++)
             {
               FAR uint32_t *cur_pos = fbp + (y * xres) + x1;
@@ -401,7 +488,7 @@ static void fbdev_flush_convert(FAR lv_disp_drv_t *disp_drv,
         break;
       case 16:
         {
-          FAR uint16_t *fbp = fbdev_obj->fbmem;
+          FAR uint16_t *fbp = fbdev_obj->act_buffer;
           for (y = y1; y <= y2; y++)
             {
               FAR uint16_t *cur_pos = fbp + (y * xres) + x1;
@@ -416,7 +503,7 @@ static void fbdev_flush_convert(FAR lv_disp_drv_t *disp_drv,
         break;
       case 8:
         {
-          FAR uint8_t *fbp = fbdev_obj->fbmem;
+          FAR uint8_t *fbp = fbdev_obj->act_buffer;
           for (y = y1; y <= y2; y++)
             {
               FAR uint8_t *cur_pos = fbp + (y * xres) + x1;
@@ -433,11 +520,7 @@ static void fbdev_flush_convert(FAR lv_disp_drv_t *disp_drv,
         break;
     }
 
-  FBDEV_UPDATE_AREA(fbdev_obj, area_p);
-
-  /* Tell the flushing is ready */
-
-  lv_disp_flush_ready(disp_drv);
+  fbdev_update_part(fbdev_obj, disp_drv, area_p);
 }
 
 #endif /* CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER */
@@ -496,7 +579,6 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state)
 
   disp_drv->direct_mode = true;
   disp_drv->flush_cb = fbdev_flush_direct;
-  disp_drv->render_start_cb = fbdev_render_start;
 #else
   buf = fbdev_get_buffer(hor_res, ver_res);
 
@@ -509,7 +591,6 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state)
   lv_disp_draw_buf_init(&(fbdev_obj->disp_draw_buf), buf, NULL,
                         hor_res * ver_res);
 
-  disp_drv->direct_mode = fbdev_obj->color_match;
   disp_drv->flush_cb = fbdev_obj->color_match
                         ? fbdev_flush_normal
                         : fbdev_flush_convert;
@@ -527,15 +608,26 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state)
 
 #endif /* CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER */
 
+  if (fbdev_obj->double_buffer)
+    {
+      disp_drv->render_start_cb = fbdev_render_start;
+    }
+
+  fbdev_obj->act_buffer = fbdev_obj->fbmem;
   fbdev_obj->disp = lv_disp_drv_register(&(fbdev_obj->disp_drv));
 
-#if defined(CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER)
-  FAR lv_timer_t *refr_timer = _lv_disp_get_refr_timer(fbdev_obj->disp);
-  lv_timer_del(refr_timer);
-  fbdev_obj->disp->refr_timer = NULL;
-  lv_timer_create(fbdev_disp_refr, LV_DISP_DEF_REFR_PERIOD / 4, fbdev_obj);
-  LV_LOG_INFO("Enable direct mode in double framebuffer");
-#endif /* CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER */
+  /* If double buffer is supported, use active refresh method */
+
+  if (fbdev_obj->double_buffer)
+    {
+      FAR lv_timer_t *refr_timer = _lv_disp_get_refr_timer(fbdev_obj->disp);
+      lv_timer_del(refr_timer);
+      fbdev_obj->disp->refr_timer = NULL;
+      lv_timer_create(fbdev_disp_refr,
+                      LV_DISP_DEF_REFR_PERIOD / 4,
+                      fbdev_obj);
+      LV_LOG_INFO("Enable double framebuffer mode");
+    }
 
   return fbdev_obj->disp;
 
