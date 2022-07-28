@@ -1235,7 +1235,7 @@ lv_img_dsc_t* gpu_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
   if (dsc->data == NULL) {
     goto Error_handler;
   }
-  lv_memset_00((uint8_t*)dsc->data, dsc->data_size);
+  ((gpu_data_header_t*)dsc->data)->magic = 0;
 
   /*Fill in header*/
   dsc->header.always_zero = 0;
