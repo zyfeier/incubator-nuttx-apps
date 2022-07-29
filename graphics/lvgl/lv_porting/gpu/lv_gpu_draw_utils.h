@@ -588,13 +588,56 @@ void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
     const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
     lv_color32_t recolor, bool preprocessed);
 
+/****************************************************************************
+ * Name: convert_indexed8_to_argb8888
+ *
+ * Description:
+ *   Convert indexed8 to ARGB8888. Target width must be larger than
+ *   ALIGN_UP(header->w, 4).
+ *
+ * @param px_buf destination buffer
+ * @param buf_stride destination buffer stride in bytes
+ * @param px_map source buffer
+ * @param map_stride source buffer stride in bytes
+ * @param header LVGL source image header
+ *
+ * @return None
+ *
+ ****************************************************************************/
 void convert_indexed8_to_argb8888(uint8_t* px_buf, uint32_t buf_stride,
     const uint8_t* px_map, uint32_t map_stride, const uint32_t* palette,
     lv_img_header_t* header);
 
+/****************************************************************************
+ * Name: pre_zoom_gaussian_filter
+ *
+ * Description:
+ *   Apply r=1 gaussian filter on src and save to dst. GPU format file (with
+ *   gpu data header beginning at src) will be handled if ext == "gpu".
+ *
+ * @param dst destination buffer
+ * @param src source buffer
+ * @param header LVGL source image header
+ * @param ext source file extension (only "gpu" will be handled atm)
+ *
+ * @return LV_RES_OK on success, LV_RES_INV on failure.
+ *
+ ****************************************************************************/
 lv_res_t pre_zoom_gaussian_filter(uint8_t* dst, const uint8_t* src,
     lv_img_header_t* header, const char* ext);
 
+/****************************************************************************
+ * Name: generate_filtered_image
+ *
+ * Description:
+ *   Image file at src will be read and filtered, then saved to
+ *   CONFIG_GPU_IMG_CACHE_PATH and return destination path.
+ *
+ * @param src source path
+ *
+ * @return destination path
+ *
+ ****************************************************************************/
 const char* generate_filtered_image(const char* src);
 
 #ifdef CONFIG_ARM_HAVE_MVE
