@@ -2439,6 +2439,7 @@ const char* generate_filtered_image(const char* src)
   char mander[PATH_MAX];
   char path[PATH_MAX];
   strncpy(mander, src, PATH_MAX - 1);
+  mander[PATH_MAX - 1] = '\0';
   char* name = (char*)strrchr(mander, '/');
   while (name) {
     *name = '_';
