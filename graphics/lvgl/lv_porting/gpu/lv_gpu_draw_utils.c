@@ -2423,6 +2423,37 @@ lv_res_t pre_zoom_gaussian_filter(uint8_t* dst, const uint8_t* src,
 }
 
 /****************************************************************************
+ * Name: get_filtered_image_path
+ *
+ * Description:
+ *   Generate filtered image cache path from source path. The returned path
+ *   is malloc'd and the caller is responsible for freeing it.
+ *
+ * @param src source path
+ *
+ * @return destination path
+ *
+ ****************************************************************************/
+const char* get_filtered_image_path(const char* src)
+{
+  char mander[PATH_MAX];
+  char path[PATH_MAX];
+  strlcpy(mander, src, PATH_MAX);
+  char* name = (char*)strrchr(mander, '/');
+  while (name) {
+    *name = '_';
+    name = (char*)strrchr(mander, '/');
+  }
+  name = mander;
+  int16_t name_len = strlen(name);
+  int16_t path_length = name_len + sizeof(CONFIG_GPU_IMG_CACHE_PATH);
+  name += LV_MAX(0, path_length - PATH_MAX);
+  snprintf(path, path_length, CONFIG_GPU_IMG_CACHE_PATH "%s", name);
+  char* dst = strdup(path);
+  return dst ? dst : src;
+}
+
+/****************************************************************************
  * Name: generate_filtered_image
  *
  * Description:
@@ -2436,22 +2467,8 @@ lv_res_t pre_zoom_gaussian_filter(uint8_t* dst, const uint8_t* src,
  ****************************************************************************/
 const char* generate_filtered_image(const char* src)
 {
-  char mander[PATH_MAX];
-  char path[PATH_MAX];
-  strncpy(mander, src, PATH_MAX - 1);
-  mander[PATH_MAX - 1] = '\0';
-  char* name = (char*)strrchr(mander, '/');
-  while (name) {
-    *name = '_';
-    name = (char*)strrchr(mander, '/');
-  }
-  name = mander;
-  int16_t name_len = strlen(name);
-  int16_t path_length = name_len + sizeof(CONFIG_GPU_IMG_CACHE_PATH);
-  name += LV_MAX(0, path_length - PATH_MAX);
-  snprintf(path, path_length, CONFIG_GPU_IMG_CACHE_PATH "%s", name);
-  char* dst = strdup(path);
-  if (!dst) {
+  const char* dst = get_filtered_image_path(src);
+  if (dst == src) {
     LV_LOG_ERROR("malloc failed");
     return src;
   }
@@ -2481,7 +2498,7 @@ const char* generate_filtered_image(const char* src)
   uint32_t data_size = (header.cf == LV_IMG_CF_INDEXED_8BIT)
       ? header.w * header.h + 1024
       : dst_size;
-  const char* ext = lv_fs_get_ext(mander);
+  const char* ext = lv_fs_get_ext(src);
   if (strcmp(ext, "gpu") == 0) {
     data_size = gpu_img_buf_get_img_size(header.w, header.h, header.cf);
     dst_size = gpu_img_buf_get_img_size(header.w, header.h,
@@ -2545,7 +2562,7 @@ const char* generate_filtered_image(const char* src)
 Error_file:
   lv_fs_close(&file);
 Error:
-  free(dst);
+  free((void*)dst);
   if (data) {
     free(data);
   }

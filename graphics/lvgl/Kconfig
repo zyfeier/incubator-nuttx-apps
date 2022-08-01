@@ -162,10 +162,6 @@ config GPU_IMG_CACHE_PATH
 	string "GPU image cache path"
 	default "/data/cache/"
 
-config GPU_IMG_CACHE_PATH
-	string "GPU image cache path"
-	default "/data/cache/"
-
 choice
 	prompt "Default power mode"
 	default GPU_MODE_PERFORMANCE

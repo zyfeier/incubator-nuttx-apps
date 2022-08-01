@@ -627,6 +627,20 @@ lv_res_t pre_zoom_gaussian_filter(uint8_t* dst, const uint8_t* src,
     lv_img_header_t* header, const char* ext);
 
 /****************************************************************************
+ * Name: get_filtered_image_path
+ *
+ * Description:
+ *   Generate filtered image cache path from source path. The returned path
+ *   is malloc'd and the caller is responsible for freeing it.
+ *
+ * @param src source path
+ *
+ * @return destination path
+ *
+ ****************************************************************************/
+const char* get_filtered_image_path(const char* src);
+
+/****************************************************************************
  * Name: generate_filtered_image
  *
  * Description:
