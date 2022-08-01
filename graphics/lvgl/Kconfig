@@ -65,11 +65,6 @@ config LV_FBDEV_USE_DOUBLE_BUFFER
 	bool "Use direct mode in double framebuffer"
 	default n
 
-config LV_FBDEV_USE_STATIC_BUFFER
-	bool "Use separate static draw buffer"
-	default n
-	depends on !LV_FBDEV_USE_DOUBLE_BUFFER
-
 choice
 	bool "Software screen rotation"
 	default LV_FBDEV_ROTATE_0
@@ -84,6 +79,11 @@ choice
 	config LV_FBDEV_ROTATE_270
 		bool "270 deg"
 endchoice
+
+config LV_FBDEV_USE_STATIC_BUFFER
+	bool "Use separate static draw buffer"
+	default n
+	depends on !LV_FBDEV_USE_DOUBLE_BUFFER
 
 if LV_FBDEV_USE_STATIC_BUFFER
 
@@ -301,7 +301,7 @@ config LV_KEYPAD_INTERFACE_KEY_END_MAP_BIT
 
 endif # LV_USE_KEYPAD_INTERFACE
 
-config LV_USE_TOUCHPAD_INTERFACE
+menuconfig LV_USE_TOUCHPAD_INTERFACE
 	bool "Touchpad input interface"
 	default n
 
@@ -310,6 +310,20 @@ if LV_USE_TOUCHPAD_INTERFACE
 config LV_TOUCHPAD_INTERFACE_DEFAULT_DEVICEPATH
 	string "Touchpad default device path"
 	default "/dev/input0"
+
+choice
+	bool "Touchpad rotation"
+	default LV_TOUCHPAD_ROTATE_0
+
+	config LV_TOUCHPAD_ROTATE_0
+		bool "0 deg"
+	config LV_TOUCHPAD_ROTATE_90
+		bool "90 deg"
+	config LV_TOUCHPAD_ROTATE_180
+		bool "180 deg"
+	config LV_TOUCHPAD_ROTATE_270
+		bool "270 deg"
+endchoice
 
 endif # LV_USE_TOUCHPAD_INTERFACE
 

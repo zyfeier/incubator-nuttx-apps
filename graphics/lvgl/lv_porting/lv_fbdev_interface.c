@@ -61,6 +61,56 @@
 #define FBDEV_UPDATE_AREA(obj, area)
 #endif
 
+#if  defined(CONFIG_LV_FBDEV_ROTATE_90)  \
+  || defined(CONFIG_LV_FBDEV_ROTATE_180) \
+  || defined(CONFIG_LV_FBDEV_ROTATE_270)
+#define FBDEV_ROTATE_ENABLE 1
+#else
+#define FBDEV_ROTATE_ENABLE 0
+#endif
+
+#define FB_GET_POS(x, y) (fbp + (y) * fb_xres + (x))
+
+#define REPEAT8(expr) expr expr expr expr expr expr expr expr
+
+#if defined(CONFIG_LV_FBDEV_ROTATE_90)
+
+#define FB_COPY             \
+  *cur_pos = *color_p++;    \
+  cur_pos += fb_xres;
+
+#elif defined(CONFIG_LV_FBDEV_ROTATE_180)
+
+#define FB_COPY             \
+  *cur_pos = *color_p++;    \
+  cur_pos--;
+
+#elif defined(CONFIG_LV_FBDEV_ROTATE_270)
+
+#define FB_COPY             \
+  *cur_pos = *color_p++;    \
+  cur_pos -= fb_xres;
+
+#endif
+
+#define FB_COPY_LINE(width) \
+  do {                      \
+    int len = width;        \
+    while (len > 32)        \
+      {                     \
+        REPEAT8(FB_COPY);   \
+        REPEAT8(FB_COPY);   \
+        REPEAT8(FB_COPY);   \
+        REPEAT8(FB_COPY);   \
+        len -= 32;          \
+      }                     \
+    while (len)             \
+      {                     \
+        FB_COPY             \
+        len--;              \
+      }                     \
+  } while(0)
+
 /****************************************************************************
  * Private Type Declarations
  ****************************************************************************/
@@ -97,11 +147,58 @@ struct fbdev_obj_s
  * Private Functions
  ****************************************************************************/
 
+#if FBDEV_ROTATE_ENABLE
+
+/****************************************************************************
+ * Name: rotate_area
+ ****************************************************************************/
+
+static void rotate_area(FAR lv_area_t *res,
+                        FAR const lv_area_t *ori,
+                        lv_coord_t hor_max,
+                        lv_coord_t ver_max)
+{
+#if defined(CONFIG_LV_FBDEV_ROTATE_90)
+    lv_coord_t h = lv_area_get_height(ori) - 1;
+    res->x1 = ver_max - ori->y1 - h;
+    res->y1 = ori->x1;
+    res->x2 = ver_max - ori->y2 + h;
+    res->y2 = ori->x2;
+#elif defined(CONFIG_LV_FBDEV_ROTATE_180)
+    res->x1 = hor_max - ori->x2;
+    res->y1 = ver_max - ori->y2;
+    res->x2 = hor_max - ori->x1;
+    res->y2 = ver_max - ori->y1;
+#elif defined(CONFIG_LV_FBDEV_ROTATE_270)
+    lv_coord_t w = lv_area_get_width(ori) - 1;
+    res->x1 = ori->y1;
+    res->y1 = hor_max - ori->x1 - w;
+    res->x2 = ori->y2;
+    res->y2 = hor_max - ori->x2 + w;
+#endif
+}
+
+#endif /* FBDEV_ROTATE_ENABLE */
+
+/****************************************************************************
+ * Name: buf_rotate_copy
+ ****************************************************************************/
+
 #if defined(CONFIG_FB_UPDATE)
 static void fbdev_update_area(FAR struct fbdev_obj_s *fbdev_obj,
                               FAR const lv_area_t *area_p)
 {
   struct fb_area_s fb_area;
+
+#if FBDEV_ROTATE_ENABLE
+  lv_area_t area_rot;
+  rotate_area(&area_rot,
+              area_p,
+              fbdev_obj->disp_drv.hor_res - 1,
+              fbdev_obj->disp_drv.ver_res - 1);
+  area_p = &area_rot;
+#endif
+
   fb_area.x = area_p->x1;
   fb_area.y = area_p->y1;
   fb_area.w = area_p->x2 - area_p->x1 + 1;
@@ -267,7 +364,7 @@ static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
   lv_coord_t ver_res;
   int i;
 
-  /* No need sync buffer */
+  /* No need sync buffer when inv_areas_len == 0 */
 
   if (fbdev_obj->inv_areas_len == 0)
     {
@@ -275,23 +372,8 @@ static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
     }
 
   disp_refr = _lv_refr_get_disp_refreshing();
-
-#if !defined(CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER)
-  if (disp_refr->driver->sw_rotate)
-    {
-      LV_LOG_TRACE("Copy full screen buffer %p -> %p",
-                   fbdev_obj->last_buffer, fbdev_obj->act_buffer);
-      lv_memcpy(fbdev_obj->act_buffer,
-                fbdev_obj->last_buffer,
-                fbdev_obj->vinfo.xres
-                * fbdev_obj->vinfo.yres * sizeof(lv_color_t));
-      fbdev_obj->inv_areas_len = 0;
-      return;
-    }
-#endif
-
-  hor_res = LV_HOR_RES;
-  ver_res = LV_VER_RES;
+  hor_res = disp_drv->hor_res;
+  ver_res = disp_drv->ver_res;
 
   for (i = 0; i < disp_refr->inv_p; i++)
     {
@@ -310,6 +392,20 @@ static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
             }
         }
     }
+
+#if FBDEV_ROTATE_ENABLE
+  /* Rotate inv_areas for buffer synchronization */
+
+  for (i = 0; i < fbdev_obj->inv_areas_len; i++)
+    {
+      lv_area_t area_rot;
+      rotate_area(&area_rot,
+                  &fbdev_obj->inv_areas[i],
+                  hor_res - 1,
+                  ver_res - 1);
+      fbdev_obj->inv_areas[i] = area_rot;
+    }
+#endif
 
   /* Sync the dirty area of ​​the previous frame */
 
@@ -430,21 +526,68 @@ static void fbdev_flush_normal(FAR lv_disp_drv_t *disp_drv,
                                FAR lv_color_t *color_p)
 {
   FAR struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
+
   int x1 = area_p->x1;
   int y1 = area_p->y1;
   int y2 = area_p->y2;
   int y;
-  const int w = lv_area_get_width(area_p);
-  const int hor_size = w * sizeof(lv_color_t);
-  const fb_coord_t xres = fbdev_obj->vinfo.xres;
-  FAR lv_color_t *fbp = fbdev_obj->act_buffer;
+  int w = lv_area_get_width(area_p);
 
+  FAR lv_color_t *fbp = fbdev_obj->act_buffer;
+  fb_coord_t fb_xres = fbdev_obj->vinfo.xres;
+  FAR lv_color_t *cur_pos;
+
+#if FBDEV_ROTATE_ENABLE
+  lv_coord_t hor_max = disp_drv->hor_res - 1;
+  lv_coord_t ver_max = disp_drv->ver_res - 1;
+#endif
+
+  LV_LOG_TRACE("start copy");
+
+#if !FBDEV_ROTATE_ENABLE
+  int hor_size = w * sizeof(lv_color_t);
+  cur_pos = FB_GET_POS(x1, y1);
   for (y = y1; y <= y2; y++)
     {
-      FAR lv_color_t *cur_pos = fbp + (y * xres) + x1;
       lv_memcpy(cur_pos, color_p, hor_size);
+      cur_pos += fb_xres;
       color_p += w;
     }
+#elif defined(CONFIG_LV_FBDEV_ROTATE_90)
+  LV_UNUSED(hor_max);
+  for (y = y1; y <= y2; y++)
+    {
+      /* x' = ver_max - y
+       * y' = x
+       */
+
+      cur_pos = FB_GET_POS(ver_max - y, x1);
+      FB_COPY_LINE(w);
+    }
+#elif defined(CONFIG_LV_FBDEV_ROTATE_180)
+  for (y = y1; y <= y2; y++)
+    {
+      /* x' = hor_max - x
+       * y' = ver_max - y
+       */
+
+      cur_pos = FB_GET_POS(hor_max - x1, ver_max - y);
+      FB_COPY_LINE(w);
+    }
+#elif defined(CONFIG_LV_FBDEV_ROTATE_270)
+  LV_UNUSED(ver_max);
+  for (y = y1; y <= y2; y++)
+    {
+      /* x' = y
+       * y' = hor_max - x
+       */
+
+      cur_pos = FB_GET_POS(y, hor_max - x1);
+      FB_COPY_LINE(w);
+    }
+#endif
+
+  LV_LOG_TRACE("end copy");
 
   fbdev_update_part(fbdev_obj, disp_drv, area_p);
 }
@@ -534,8 +677,8 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state)
   FAR struct fbdev_obj_s *fbdev_obj = malloc(sizeof(struct fbdev_obj_s));
   FAR lv_disp_drv_t *disp_drv;
   FAR lv_color_t *buf;
-  int hor_res = state->vinfo.xres;
-  int ver_res = state->vinfo.yres;
+  int fb_xres = state->vinfo.xres;
+  int fb_yres = state->vinfo.yres;
 
   if (fbdev_obj == NULL)
     {
@@ -548,8 +691,6 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state)
 
   lv_disp_drv_init(disp_drv);
   disp_drv->draw_buf = &(fbdev_obj->disp_draw_buf);
-  disp_drv->hor_res = hor_res;
-  disp_drv->ver_res = ver_res;
   disp_drv->screen_transp = false;
   disp_drv->user_data = fbdev_obj;
 
@@ -574,13 +715,15 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state)
   buf = fbdev_obj->fbmem;
 
   lv_disp_draw_buf_init(&(fbdev_obj->disp_draw_buf),
-                        buf, buf + hor_res * ver_res,
-                        hor_res * ver_res);
+                        buf, buf + fb_xres * fb_yres,
+                        fb_xres * fb_yres);
 
   disp_drv->direct_mode = true;
   disp_drv->flush_cb = fbdev_flush_direct;
+  disp_drv->hor_res = fb_xres;
+  disp_drv->ver_res = fb_yres;
 #else
-  buf = fbdev_get_buffer(hor_res, ver_res);
+  buf = fbdev_get_buffer(fb_xres, fb_yres);
 
   if (!buf)
     {
@@ -589,21 +732,18 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state)
     }
 
   lv_disp_draw_buf_init(&(fbdev_obj->disp_draw_buf), buf, NULL,
-                        hor_res * ver_res);
+                        fb_xres * fb_yres);
 
   disp_drv->flush_cb = fbdev_obj->color_match
                         ? fbdev_flush_normal
                         : fbdev_flush_convert;
 
-#if defined(CONFIG_LV_FBDEV_ROTATE_90)
-  disp_drv->sw_rotate = true;
-  disp_drv->rotated = LV_DISP_ROT_90;
-#elif defined(CONFIG_LV_FBDEV_ROTATE_180)
-  disp_drv->sw_rotate = true;
-  disp_drv->rotated = LV_DISP_ROT_180;
-#elif defined(CONFIG_LV_FBDEV_ROTATE_270)
-  disp_drv->sw_rotate = true;
-  disp_drv->rotated = LV_DISP_ROT_270;
+#if defined(CONFIG_LV_FBDEV_ROTATE_90) || defined(CONFIG_LV_FBDEV_ROTATE_270)
+  disp_drv->hor_res = fb_yres;
+  disp_drv->ver_res = fb_xres;
+#else
+  disp_drv->hor_res = fb_xres;
+  disp_drv->ver_res = fb_yres;
 #endif
 
 #endif /* CONFIG_LV_FBDEV_USE_DOUBLE_BUFFER */
