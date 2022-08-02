@@ -516,12 +516,14 @@ LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area);
  * @param px_map source buffer
  * @param map_stride source buffer stride in bytes
  * @param header LVGL source image header
+ * @param recolor recolor in lv_color32_t
  *
  * @return None
  *
  ****************************************************************************/
 void convert_argb8565_to_8888(uint8_t* px_buf, uint32_t buf_stride,
-    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header);
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
+    lv_color32_t recolor);
 
 /****************************************************************************
  * Name: convert_rgb565_to_gpu

@@ -1583,150 +1583,97 @@ LV_ATTRIBUTE_FAST_MEM void gpu_wait_area(const lv_area_t* area)
  * @param px_map source buffer
  * @param map_stride source buffer stride in bytes
  * @param header LVGL source image header
+ * @param recolor recolor in lv_color32_t
  *
  * @return None
  *
  ****************************************************************************/
 void convert_argb8565_to_8888(uint8_t* px_buf, uint32_t buf_stride,
-    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header)
+    const uint8_t* px_map, uint32_t map_stride, lv_img_header_t* header,
+    lv_color32_t recolor)
 {
-#ifdef CONFIG_ARM_HAVE_MVE
-  int32_t blkCnt;
-  const uint32_t _maskA[4] = { 0xff000000, 0xff0000, 0xff00, 0xff };
-  const uint32_t _maskRB[4] = { 0xf8000000, 0xf80000, 0xf800, 0xf8 };
-  const uint32_t _maskG[4] = { 0xfc000000, 0xfc0000, 0xfc00, 0xfc };
-  const uint32_t _shiftC[4] = { 0x1, 0x100, 0x10000, 0x1000000 };
-
-  for (int_fast16_t y = 0; y < header->h; y++) {
-    const uint8_t* phwSource = px_map;
-    uint32_t* pwTarget = (uint32_t*)px_buf;
-
-    blkCnt = header->w;
-    while (!IS_ALIGNED(phwSource, 4)) {
-      lv_color32_t* c32 = (lv_color32_t*)pwTarget;
-      const lv_color16_t* c16 = (const lv_color16_t*)phwSource;
-      c32->ch.red = c16->ch.red << 3 | c16->ch.red >> 2;
-      c32->ch.green = c16->ch.green << 2 | c16->ch.green >> 4;
-      c32->ch.blue = c16->ch.blue << 3 | c16->ch.blue >> 2;
-      c32->ch.alpha = phwSource[LV_IMG_PX_SIZE_ALPHA_BYTE - 1];
-      phwSource += 3;
-      pwTarget++;
-      blkCnt--;
-    }
-/* (disabled due to intrinsics being much slower than hand-written asm) */
-// #define USE_MVE_INTRINSICS
-#ifdef USE_MVE_INTRINSICS
-    uint32x4_t maskA = vldrwq_u32(_maskA);
-    uint32x4_t maskRB = vldrwq_u32(_maskRB);
-    uint32x4_t maskG = vldrwq_u32(_maskG);
-    uint32x4_t shiftC = vldrwq_u32(_shiftC);
-    do {
-      mve_pred16_t tailPred = vctp32q(blkCnt);
-
-      /* load a vector of 4 argb8565 pixels
-       * (residuals are processed in the next loop) */
-      uint32x4_t vecIn = vld1q_z_u32((const uint32_t*)phwSource, tailPred);
-      /* extract individual channels and place them in high 8bits
-       * (P=GlB, Q=RGh) */
-
-      uint32_t carry = 0;
-      vecIn = vshlcq(vecIn, &carry, 8); /* |***A|QPAQ|PAQP|AQP0| */
-      uint32x4_t vecA = vandq(vecIn, maskA); /* |000A|00A0|0A00|A000| */
-      vecA = vmulq(vecA, shiftC); /* |A000|A000|A000|A000| */
-      vecIn = vshlcq(vecIn, &carry, 8); /* |**AQ|PAQP|AQPA|QP**| */
-      uint32x4_t vecR = vandq(vecIn, maskRB); /* |000R|00R0|0R00|R000| */
-      vecR = vmulq(vecR, shiftC); /* |R000|R000|R000|R000| */
-      vecIn = vshlcq(vecIn, &carry, 5); /* Similar operation on G channel */
-      uint32x4_t vecG = vandq(vecIn, maskG);
-      vecG = vmulq(vecG, shiftC);
-      vecIn = vshlcq(vecIn, &carry, 6);
-      uint32x4_t vecB = vandq(vecIn, maskRB);
-      vecB = vmulq(vecB, shiftC);
-      /* pre-multiply alpha to all channels */
-      vecR = vmulhq(vecR, vecA);
-      vecG = vmulhq(vecG, vecA);
-      vecB = vmulhq(vecB, vecA);
-      /* merge channels */
-      vecG = vsriq(vecG, vecB, 8);
-      vecR = vsriq(vecR, vecG, 8);
-      vecA = vsriq(vecA, vecR, 8);
-      /* store a vector of 4 bgra8888 pixels */
-      vst1q_p(pwTarget, vecA, tailPred);
-      phwSource += 6;
-      pwTarget += 4;
-      blkCnt -= 4;
-    } while (blkCnt > 0);
-#else
-    __asm volatile(
-        "   .p2align 2                                                  \n"
-        "   wlstp.32                lr, %[loopCnt], 1f                  \n"
-        "   2:                                                          \n"
-        /* load a vector of 4 argb8565 pixels */
-        "   vldrw.32                q0, [%[pSource]], #12               \n"
-        /* q0 => |****|AQPA|QPAQ|PAQP| */
-        "   vshlc                   q0, r0, #8                          \n"
-        /* q0 => |***A|QPAQ|PAQP|AQP0| */
-        "   vldrw.32                q1, [%[maskA]]                      \n"
-        "   vand                    q2, q0, q1                          \n"
-        /* q2 => |000A|00A0|0A00|A000| */
-        "   vldrw.32                q4, [%[shiftC]]                     \n"
-        "   vmul.i32                q1, q2, q4                          \n"
-        /* q1 => |A000|A000|A000|A000|, use q1 as final output */
-        "   vshlc                   q0, r0, #8                          \n"
-        /* q0 => |**AQ|PAQP|AQPA|QP**| */
-        "   vldrw.32                q3, [%[maskRB]]                     \n"
-        "   vand                    q2, q0, q3                          \n"
-        /* q2 => |000r|00r0|0r00|r000| */
-        "   vmul.i32                q3, q2, q4                          \n"
-        /* q3 => |r000|r000|r000|r000| */
-        "   vsri.32                 q1, q3, #8                          \n"
-        /* q1 => |Ar00|Ar00|Ar00|Ar00| */
-        "   vsri.32                 q1, q3, #13                         \n"
-        /* q1 => |AR*0|AR*0|AR*0|AR*0| */
-        "   vshlc                   q0, r0, #5                          \n"
-        /* Similar operation on G channel */
-        "   vldrw.32                q3, [%[maskG]]                      \n"
-        "   vand                    q2, q0, q3                          \n"
-        /* q2 => |000g|00g0|0g00|g000| */
-        "   vmul.i32                q3, q2, q4                          \n"
-        /* q3 => |g000|g000|g000|g000| */
-        "   vsri.32                 q1, q3, #16                         \n"
-        /* q1 => |ARg0|ARg0|ARg0|ARg0| */
-        "   vsri.32                 q1, q3, #22                         \n"
-        /* q1 => |ARG*|ARG*|ARG*|ARG*| */
-        "   vshlc                   q0, r0, #6                          \n"
-        /* Similar operation on B channel */
-        "   vldrw.32                q3, [%[maskRB]]                     \n"
-        "   vand                    q2, q0, q3                          \n"
-        /* q2 => |000b|00b0|0b00|b000| */
-        "   vmul.i32                q3, q2, q4                          \n"
-        /* q3 => |b000|b000|b000|b000| */
-        "   vsri.32                 q1, q3, #24                         \n"
-        /* q1 => |ARGb|ARGb|ARGb|ARGb| */
-        "   vsri.32                 q1, q3, #29                         \n"
-        /* q1 => |ARGB|ARGB|ARGB|ARGB| */
-        "   vsri.32                 q3, q1, #8                          \n"
-        "   vsri.32                 q3, q1, #16                         \n"
-        "   vsri.32                 q3, q1, #24                         \n"
-        /* pre-multiply alpha to all channels */
-        "   vrmulh.u8               q2, q1, q3                          \n"
-        "   vsli.32                 q2, q3, #24                         \n"
-        /* store a vector of 4 bgra8888 pixels */
-        "   vstrw.32                q2, [%[pTarget]], #16               \n"
-        "   letp                    lr, 2b                              \n"
-        "   1:                                                          \n"
-
-        : [pSource] "+r"(phwSource), [pTarget] "+r"(pwTarget)
-        : [loopCnt] "r"(blkCnt), [maskA] "r"(_maskA), [shiftC] "r"(_shiftC),
-        [maskRB] "r"(_maskRB), [maskG] "r"(_maskG)
-        : "q0", "q1", "q2", "q3", "q4", "r0", "lr", "memory");
-#endif
-    px_map += map_stride;
-    px_buf += buf_stride;
-  }
-#else
   lv_opa_t opa = recolor.ch.alpha;
   lv_opa_t mix = 255 - opa;
+#ifdef CONFIG_ARM_HAVE_MVE
+  uint32_t ww = ALIGN_UP(header->w, 4);
+  int32_t h = header->h;
+  int32_t map_offset = map_stride - ww * 3;
+  int32_t buf_offset = buf_stride - ww * 4;
+  lv_color32_t recolor_premult = {
+    .ch.alpha = opa,
+    .ch.red = LV_UDIV255(opa * recolor.ch.red),
+    .ch.green = LV_UDIV255(opa * recolor.ch.green),
+    .ch.blue = LV_UDIV255(opa * recolor.ch.blue)
+  };
+  __asm volatile(
+      "   .p2align 2                                                  \n"
+      "   movs                    r0, #6                              \n"
+      "   vddup.u32               q0, r0, #2                          \n" /* q0 = [6 4 2 0] */
+      "   movs                    r0, #0                              \n"
+      "   vidup.u32               q4, r0, #2                          \n" /* q4 = [0 2 4 6] */
+      "   movs                    r0, #0xFF                           \n"
+      "   movs                    r1, #0xF8                           \n"
+      "   vdup.32                 q5, r0                              \n"
+      "   vdup.32                 q6, r1                              \n"
+      "   movs                    r0, #0xFC                           \n"
+      "   vshl.u32                q5, q5, q0                          \n" /* q5 = [0xFF000000 0xFF0000 0xFF00 0xFF] */
+      "   vdup.32                 q7, r0                              \n"
+      "   vshl.u32                q6, q6, q0                          \n" /* q6 = [0xF8000000 0xF80000 0xF800 0xF8] */
+      "   vshl.u32                q7, q7, q0                          \n" /* q7 = [0xFC000000 0xFC0000 0xFC00 0xFC] */
+      "   movs                    r1, %[opa]                          \n"
+      "   1:                                                          \n"
+      "   wlstp.8                 lr, %[w], 4f                        \n"
+      "   2:                                                          \n"
+      "   vldrb.8                 q0, [%[pSource]], #12               \n" /* q0 = |****|AQPA|QPAQ|PAQP| */
+      "   vshlc                   q0, r0, #8                          \n" /* q0 = |***A|QPAQ|PAQP|AQP0| */
+      "   vand                    q2, q0, q5                          \n" /* q2 = |000A|00A0|0A00|A000| */
+      "   vshl.u32                q1, q2, q4                          \n" /* q1 = |A000|A000|A000|A000| */
+      "   vshlc                   q0, r0, #8                          \n" /* q0 = |**AQ|PAQP|AQPA|QP**| */
+      "   vand                    q2, q0, q6                          \n" /* q2 = |000r|00r0|0r00|r000| */
+      "   vshl.u32                q3, q2, q4                          \n" /* q3 = |r000|r000|r000|r000| */
+      "   vsri.32                 q1, q3, #8                          \n" /* q1 = |Ar00|Ar00|Ar00|Ar00| */
+      "   vsri.32                 q1, q3, #13                         \n" /* q1 = |AR*0|AR*0|AR*0|AR*0| */
+      "   vshlc                   q0, r0, #5                          \n" /* Similar operation on G channel */
+      "   vand                    q2, q0, q7                          \n" /* q2 = |000g|00g0|0g00|g000| */
+      "   vshl.u32                q3, q2, q4                          \n" /* q3 = |g000|g000|g000|g000| */
+      "   vsri.32                 q1, q3, #16                         \n" /* q1 = |ARg0|ARg0|ARg0|ARg0| */
+      "   vsri.32                 q1, q3, #22                         \n" /* q1 = |ARG*|ARG*|ARG*|ARG*| */
+      "   vshlc                   q0, r0, #6                          \n" /* Similar operation on B channel */
+      "   vand                    q2, q0, q6                          \n" /* q2 = |000b|00b0|0b00|b000| */
+      "   vshl.u32                q3, q2, q4                          \n" /* q3 = |b000|b000|b000|b000| */
+      "   vsri.32                 q1, q3, #24                         \n" /* q1 = |ARGb|ARGb|ARGb|ARGb| */
+      "   vsri.32                 q1, q3, #29                         \n" /* q1 = |ARGB|ARGB|ARGB|ARGB| */
+      "   vsri.32                 q3, q1, #8                          \n"
+      "   vsri.32                 q3, q1, #16                         \n"
+      "   vsri.32                 q3, q1, #24                         \n" /* q3 = |0AAA|0AAA|0AAA|0AAA| */
+      "   vrmulh.u8               q2, q1, q3                          \n" /* pre-multiply alpha to all channels */
+      "   vsli.32                 q2, q3, #24                         \n" /* q2 = |AR'G'B'|AR'G'B'|AR'G'B'|AR'G'B'| */
+      "   cbz                     r1, 3f                              \n" /* recolor */
+      "   vdup.32                 q0, %[recolor]                      \n"
+      "   vdup.8                  q1, %[mix]                          \n"
+      "   vrmulh.u8               q2, q2, q1                          \n"
+      "   vadd.i8                 q2, q2, q0                          \n"
+      "   3:                                                          \n"
+      "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+      "   letp                    lr, 2b                              \n"
+      "   4:                                                          \n"
+      "   vstrb.8                 q2, [%[pTarget], #-16]              \n"
+      "   wlstp.8                 lr, %[dst_offset], 6f               \n"
+      "   5:                                                          \n"
+      "   vstrb.8                 q2, [%[pTarget]], #16               \n"
+      "   letp                    lr, 5b                              \n"
+      "   6:                                                          \n"
+      "   adds                    %[pSource], %[src_offset]           \n"
+      "   subs                    %[h], #1                            \n"
+      "   bne                     1b                                  \n"
+
+      : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
+      : [w] "r"(header->w << 2), [recolor] "r"(recolor_premult),
+      [opa] "r"(opa), [mix] "r"(mix), [src_offset] "r"(map_offset),
+      [dst_offset] "r"(buf_offset)
+      : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "r0", "r1",
+      "lr", "memory");
+#else
   uint32_t recolor_premult[3];
   if (opa != LV_OPA_TRANSP) {
     recolor_premult[0] = recolor.ch.red * opa;
