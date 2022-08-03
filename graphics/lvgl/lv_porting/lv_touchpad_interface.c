@@ -76,39 +76,39 @@ static void touchpad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
       if (touch_flags & TOUCH_DOWN || touch_flags & TOUCH_MOVE)
         {
-#if !defined(CONFIG_LV_TOUCHPAD_ROTATE_0)
           const FAR lv_disp_drv_t *disp_drv = drv->disp->driver;
-#endif
+          lv_coord_t ver_max = disp_drv->ver_res - 1;
+          lv_coord_t hor_max = disp_drv->hor_res - 1;
+          int x;
+          int y;
 
 #if defined(CONFIG_LV_TOUCHPAD_ROTATE_0)
-          touchpad_obj->last_x = sample.point[0].x;
-          touchpad_obj->last_y = sample.point[0].y;
+          x = sample.point[0].x;
+          y = sample.point[0].y;
 #elif defined(CONFIG_LV_TOUCHPAD_ROTATE_90)
           /* x = y'
            * y = ver_max - x'
            */
 
-          lv_coord_t ver_max = disp_drv->ver_res - 1;
-          touchpad_obj->last_x = sample.point[0].y;
-          touchpad_obj->last_y = ver_max - sample.point[0].x;
+          x = sample.point[0].y;
+          y = ver_max - sample.point[0].x;
 #elif defined(CONFIG_LV_TOUCHPAD_ROTATE_180)
           /* x = hor_max - x'
            * y = ver_max - y'
            */
 
-          lv_coord_t hor_max = disp_drv->hor_res - 1;
-          lv_coord_t ver_max = disp_drv->ver_res - 1;
-          touchpad_obj->last_x = hor_max - sample.point[0].x;
-          touchpad_obj->last_y = ver_max - sample.point[0].y;
+          x = hor_max - sample.point[0].x;
+          y = ver_max - sample.point[0].y;
 #elif defined(CONFIG_LV_TOUCHPAD_ROTATE_270)
           /* x = hor_max - y'
            * y = x'
            */
 
-          lv_coord_t hor_max = disp_drv->hor_res - 1;
-          touchpad_obj->last_x = hor_max - sample.point[0].y;
-          touchpad_obj->last_y = sample.point[0].x;
+          x = hor_max - sample.point[0].y;
+          y = sample.point[0].x;
 #endif
+          touchpad_obj->last_x = LV_CLAMP(0, x, hor_max);
+          touchpad_obj->last_y = LV_CLAMP(0, y, ver_max);
           touchpad_obj->last_state = LV_INDEV_STATE_PR;
         }
       else if (touch_flags & TOUCH_UP)
