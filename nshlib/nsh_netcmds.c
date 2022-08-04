@@ -971,6 +971,9 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 #ifdef CONFIG_NET_IPv4
   UNUSED(gip);
 #endif
+#ifdef CONFIG_NET_IPv6
+  UNUSED(gip6);
+#endif
 
   return OK;
 }
