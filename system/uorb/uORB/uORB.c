@@ -59,7 +59,8 @@ static int orb_advsub_open(FAR const struct orb_metadata *meta, int flags,
   int fd;
   int ret;
 
-  snprintf(path, ORB_PATH_MAX, ORB_SENSOR_PATH"%s%d", meta->o_name, instance);
+  snprintf(path, ORB_PATH_MAX, ORB_SENSOR_PATH"%s%d", meta->o_name,
+           instance);
 
   /* Check existance before open */
 

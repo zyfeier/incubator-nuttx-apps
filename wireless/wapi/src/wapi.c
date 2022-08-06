@@ -270,6 +270,7 @@ static int wapi_show_cmd(int sock, int argc, FAR char **argv)
   int sense;
   int chan;
   int ret;
+  char inetaddr[INET_ADDRSTRLEN];
 
   printf("%s Configuration:\n", ifname);
 
@@ -284,7 +285,8 @@ static int wapi_show_cmd(int sock, int argc, FAR char **argv)
     }
   else
     {
-      printf("       IP: %s\n", inet_ntoa(addr));
+      printf("       IP: %s\n", inet_ntoa_r(addr, inetaddr,
+                                            sizeof(inetaddr)));
     }
 
   /* Get netmask */
@@ -297,7 +299,8 @@ static int wapi_show_cmd(int sock, int argc, FAR char **argv)
     }
   else
     {
-      printf("  NetMask: %s\n", inet_ntoa(addr));
+      printf("  NetMask: %s\n", inet_ntoa_r(addr, inetaddr,
+                                            sizeof(inetaddr)));
     }
 
   /* Get frequency */
@@ -924,6 +927,7 @@ static int wapi_reconnect_cmd(int sock, int argc, FAR char **argv)
 static int wapi_save_config_cmd(int sock, int argc, FAR char **argv)
 {
   char essid[WAPI_ESSID_MAX_SIZE + 1];
+  char bssid[20];
   enum wapi_essid_flag_e essid_flag;
   struct wpa_wconfig_s conf;
   struct ether_addr ap;
@@ -969,7 +973,7 @@ static int wapi_save_config_cmd(int sock, int argc, FAR char **argv)
       return ret;
     }
 
-  conf.bssid = ether_ntoa(&ap);
+  conf.bssid = ether_ntoa_r(&ap, bssid);
 
   memset(psk, 0, sizeof(psk));
   ret = wpa_driver_wext_get_key_ext(sock,

@@ -23,9 +23,9 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <fcntl.h>
 
 #include "nsh.h"
-#include <fcntl.h>
 #include "nsh_console.h"
 
 #if defined(CONFIG_FILE_STREAM) && !defined(CONFIG_NSH_DISABLESCRIPT)
@@ -43,9 +43,9 @@ static int nsh_script_redirect(FAR struct nsh_vtbl_s *vtbl,
   int fd = -1;
   int ret;
 
-  if (CONFIG_NSH_SCRIRT_REDIRECT_PATH[0])
+  if (CONFIG_NSH_SCRIPT_REDIRECT_PATH[0])
     {
-      fd = open(CONFIG_NSH_SCRIRT_REDIRECT_PATH, 0666);
+      fd = open(CONFIG_NSH_SCRIPT_REDIRECT_PATH, 0666);
       if (fd > 0)
         {
           nsh_redirect(vtbl, fd, save);
@@ -53,10 +53,13 @@ static int nsh_script_redirect(FAR struct nsh_vtbl_s *vtbl,
     }
 
   ret = nsh_script(vtbl, cmd, path);
-  if (fd >= 0)
+  if (CONFIG_NSH_SCRIPT_REDIRECT_PATH[0])
     {
-      nsh_undirect(vtbl, save);
-      close(fd);
+      if (fd > 0)
+        {
+          nsh_undirect(vtbl, save);
+          close(fd);
+        }
     }
 
   return ret;

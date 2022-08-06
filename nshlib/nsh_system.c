@@ -88,7 +88,7 @@ int nsh_system(int argc, FAR char *argv[])
  *   This is the NSH-specific implementation of the standard system()
  *   command.
  *
- *   NOTE: 
+ *   NOTE:
  *   This difference with nsh_system: newconsole set isctty true
  *
  * Input Parameters:

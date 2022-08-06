@@ -121,7 +121,7 @@
 /* Get the larger value */
 
 #ifndef MAX
-#  define MAX(a,b) (a > b ? a : b)
+#  define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
 /****************************************************************************
@@ -377,8 +377,9 @@ static int nsh_foreach_netdev(nsh_netdev_callback_t callback,
   if (dir == NULL)
     {
       nsh_error(vtbl,
-                "nsh: %s: Could not open %s/net (is procfs mounted?): %d\n",
-                cmd, CONFIG_NSH_PROC_MOUNTPOINT, NSH_ERRNO);
+                "nsh: %s: Could not open %s/net (is procfs mounted?)\n",
+                cmd, CONFIG_NSH_PROC_MOUNTPOINT);
+      nsh_error(vtbl, g_fmtcmdfailed, cmd, "opendir", NSH_ERRNO);
       return ERROR;
     }
 
@@ -1129,6 +1130,8 @@ int cmd_arp(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 #endif
   if (strcmp(argv[1], "-a") == 0)
     {
+      char hwaddr[20];
+
       if (argc != 3)
         {
           goto errout_toomany;
@@ -1146,7 +1149,7 @@ int cmd_arp(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
           goto errout_cmdfaild;
         }
 
-      nsh_output(vtbl, "HWaddr: %s\n",  ether_ntoa(&mac));
+      nsh_output(vtbl, "HWaddr: %s\n", ether_ntoa_r(&mac, hwaddr));
     }
   else if (strcmp(argv[1], "-d") == 0)
     {

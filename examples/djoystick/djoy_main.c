@@ -1,5 +1,5 @@
 /****************************************************************************
- * examplex/djoystick/djoy_main.c
+ * apps/examples/djoystick/djoy_main.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -54,10 +54,10 @@
 /* Helpers ******************************************************************/
 
 #ifndef MIN
-#  define MIN(a,b) (a < b ? a : b)
+#  define MIN(a,b) ((a) < (b) ? (a) : (b))
 #endif
 #ifndef MAX
-#  define MAX(a,b) (a > b ? a : b)
+#  define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
 /****************************************************************************

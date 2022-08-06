@@ -116,7 +116,8 @@ listener <command> [arguments...]\n\
 \t[-h       ]  Listener commands help\n\
 \t[-n <val> ]  Number of messages, default: 0\n\
 \t[-r <val> ]  Subscription rate (unlimited if 0), default: 0\n\
-\t[-b <val> ]  Subscription maximum report latency in us(unlimited if 0), default: 0\n\
+\t[-b <val> ]  Subscription maximum report latency in us(unlimited if 0),\n\
+\t             default: 0\n\
 \t[-t <val> ]  Time of listener, in seconds, default: 5\n\
 \t[-T       ]  Top, continuously print updating objects\n\
 \t[-l       ]  Top only execute once.\n\
@@ -247,7 +248,8 @@ static int listener_update(FAR struct list_node *objlist,
 
           frequency = (state.max_frequency ? state.max_frequency : 1000000)
                       * delta_generation / delta_time;
-          uorbinfo_raw("\033[K" "%-*s %2u %4" PRIu32 " %4lu %2" PRIu32 " %4u",
+          uorbinfo_raw("\033[K" "%-*s %2u %4" PRIu32 " %4lu "
+                       "%2" PRIu32 " %4u",
                        ORB_MAX_PRINT_NAME,
                        object->meta->o_name,
                        object->instance,

@@ -97,6 +97,7 @@ static void *rpsock_thread(pthread_addr_t pvarg)
               printf("server: poll failure: %d\n", errno);
               break;
             }
+
           continue;
         }
       else if (ret < 0)

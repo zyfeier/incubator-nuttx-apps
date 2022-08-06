@@ -35,9 +35,9 @@ static void print_sensor_noise_message(FAR const struct orb_metadata *meta,
   FAR const struct sensor_noise *message = buffer;
   const orb_abstime now = orb_absolute_time();
 
-  uorbinfo_raw("%s:\ttimestamp: %" PRIu64 " (%" PRIu64 " us ago) noise: %.4f",
-               meta->o_name, message->timestamp, now - message->timestamp,
-               message->db);
+  uorbinfo_raw("%s:\ttimestamp: %" PRIu64 " (%" PRIu64 " us ago) "
+               "noise: %.4f", meta->o_name, message->timestamp,
+               now - message->timestamp, message->db);
 }
 #endif
 

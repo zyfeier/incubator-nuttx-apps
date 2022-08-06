@@ -390,7 +390,8 @@ uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename)
 static int js_eval_file(JSContext *ctx, const char *filename, int module)
 {
   uint8_t *buf;
-  int ret, eval_flags;
+  int ret;
+  int eval_flags;
   size_t buf_len;
 
   buf = js_load_file(ctx, &buf_len, filename);
