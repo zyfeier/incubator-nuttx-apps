@@ -34,7 +34,6 @@
 #include <time.h>
 
 #include <nuttx/kmalloc.h>
-#include <nuttx/fs/dirent.h>
 
 /****************************************************************************
  * Pre-processor Definitions
