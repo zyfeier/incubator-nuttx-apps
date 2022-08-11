@@ -98,7 +98,7 @@ endif
 endif
 
 ifneq ($(CONFIG_LV_USE_DECODER_JPEG_TURBO),)
-CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/libjpeg-turbo}
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/libjpeg-turbo/libjpeg-turbo}
 CSRCS += lv_porting/decoder/jpeg_turbo/lv_jpeg_turbo.c
 endif
 
@@ -108,11 +108,11 @@ CSRCS += lv_porting/decoder/lodepng/lv_lodepng.c
 endif
 
 ifneq ($(CONFIG_LV_USE_FFMPEG),)
-CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/ffmpeg}
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/ffmpeg/ffmpeg}
 endif
 
 ifneq ($(CONFIG_LV_USE_RLOTTIE),)
-CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/rlottie/inc}
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/rlottie/rlottie/inc}
 endif
 
 ifneq ($(CONFIG_LV_ATTRIBUTE_FAST_MEM_CUSTOM_SECTION_NAME), "")
