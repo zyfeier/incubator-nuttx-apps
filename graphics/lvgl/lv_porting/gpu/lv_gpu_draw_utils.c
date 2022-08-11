@@ -1810,6 +1810,7 @@ void convert_rgb888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
 {
 #ifdef CONFIG_ARM_HAVE_MVE
   uint32_t ww = ALIGN_UP(header->w, 4) << 2;
+  uint32_t h = header->h;
   int32_t map_offset = map_stride - ww;
   int32_t buf_offset = buf_stride - ww;
   if (recolor.ch.alpha != LV_OPA_TRANSP) {
@@ -1846,7 +1847,7 @@ void convert_rgb888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
           "   adds                    %[pSource], %[src_offset]           \n"
           "   subs                    %[h], #1                            \n"
           "   bne                     1b                                  \n"
-          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
           : [w] "r"(header->w << 2), [recolor] "r"(recolor), [ckey] "r"(ckey),
           [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
           : "q0", "q1", "q2", "q3", "r0", "lr", "memory");
@@ -1879,7 +1880,7 @@ void convert_rgb888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
           "   adds                    %[pSource], %[src_offset]           \n"
           "   subs                    %[h], #1                            \n"
           "   bne                     1b                                  \n"
-          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
           : [w] "r"(header->w << 2), [recolor] "r"(recolor),
           [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
           : "q0", "q1", "q2", "q3", "r0", "lr", "memory");
@@ -1909,7 +1910,7 @@ void convert_rgb888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
         "   adds                    %[pSource], %[src_offset]           \n"
         "   subs                    %[h], #1                            \n"
         "   bne                     1b                                  \n"
-        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
         : [w] "r"(header->w << 2), [ckey] "r"(ckey),
         [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
         : "q0", "q1", "lr", "memory");
@@ -1935,7 +1936,7 @@ void convert_rgb888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
         "   adds                    %[pSource], %[src_offset]           \n"
         "   subs                    %[h], #1                            \n"
         "   bne                     1b                                  \n"
-        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
         : [w] "r"(header->w << 2), [src_offset] "r"(map_offset),
         [dst_offset] "r"(buf_offset)
         : "q0", "q1", "lr", "memory");
@@ -2004,6 +2005,7 @@ void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
 {
 #ifdef CONFIG_ARM_HAVE_MVE
   uint32_t ww = ALIGN_UP(header->w, 4) << 2;
+  uint32_t h = header->h;
   int32_t map_offset = map_stride - ww;
   int32_t buf_offset = buf_stride - ww;
   if (recolor.ch.alpha != LV_OPA_TRANSP) {
@@ -2040,7 +2042,7 @@ void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
           "   adds                    %[pSource], %[src_offset]           \n"
           "   subs                    %[h], #1                            \n"
           "   bne                     1b                                  \n"
-          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
           : [w] "r"(header->w << 2), [recolor] "r"(recolor),
           [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
           : "q0", "q1", "q2", "q3", "r0", "lr", "memory");
@@ -2077,7 +2079,7 @@ void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
           "   adds                    %[pSource], %[src_offset]           \n"
           "   subs                    %[h], #1                            \n"
           "   bne                     1b                                  \n"
-          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+          : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
           : [w] "r"(header->w << 2), [recolor] "r"(recolor),
           [src_offset] "r"(map_offset), [dst_offset] "r"(buf_offset)
           : "q0", "q1", "q2", "q3", "q4", "r0", "lr", "memory");
@@ -2108,7 +2110,7 @@ void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
         "   adds                    %[pSource], %[src_offset]           \n"
         "   subs                    %[h], #1                            \n"
         "   bne                     1b                                  \n"
-        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
         : [w] "r"(header->w << 2), [src_offset] "r"(map_offset),
         [dst_offset] "r"(buf_offset)
         : "q0", "q1", "q2", "lr", "memory");
@@ -2133,7 +2135,7 @@ void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
         "   adds                    %[pSource], %[src_offset]           \n"
         "   subs                    %[h], #1                            \n"
         "   bne                     1b                                  \n"
-        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
         : [w] "r"(header->w << 2), [src_offset] "r"(map_offset),
         [dst_offset] "r"(buf_offset)
         : "q0", "q1", "lr", "memory");
@@ -2148,7 +2150,7 @@ void convert_argb8888_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
         "   letp                    lr, 1b                              \n"
         "   2:                                                          \n"
         : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf)
-        : [size] "r"(ww * header->h)
+        : [size] "r"(ww * h)
         : "q0", "lr", "memory");
   }
 #else
