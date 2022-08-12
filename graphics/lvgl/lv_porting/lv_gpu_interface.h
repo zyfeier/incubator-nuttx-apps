@@ -52,6 +52,7 @@
 #endif
 
 #define GPU_SIZE_LIMIT 5000
+#define GPU_TRANSFORM_SIZE_LIMIT 2500
 
 #ifndef POSSIBLY_UNUSED
 #define POSSIBLY_UNUSED __attribute__((unused))

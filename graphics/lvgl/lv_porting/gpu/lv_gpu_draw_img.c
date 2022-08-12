@@ -167,10 +167,10 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     return LV_RES_OK;
   }
 
-  // GPU_WARN("fmt:%d map_tf: (%d %d)[%d,%d] draw_area:(%d %d)[%d,%d] zoom:%d recolor:%lx\n",
+  // GPU_WARN("fmt:%d map_tf: (%d %d)[%d,%d] draw_area:(%d %d)[%d,%d] coords:(%d %d) zoom:%d recolor:%lx pivot:(%d,%d)\n",
   //     color_format, map_tf.x1, map_tf.y1, lv_area_get_width(&map_tf),
   //     lv_area_get_height(&map_tf), draw_area.x1, draw_area.y1,
-  //     lv_area_get_width(&draw_area), lv_area_get_height(&draw_area), zoom, recolor.full);
+  //     lv_area_get_width(&draw_area), lv_area_get_height(&draw_area), coords->x1, coords->y1, zoom, recolor.full, pivot.x, pivot.y);
 
   bool indexed = false, alpha = false;
   bool allocated_src = false;
@@ -204,7 +204,8 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     lv_draw_sw_blend(draw_ctx, &blend_dsc);
     return LV_RES_OK;
   }
-  if (!transformed && lv_area_get_size(&draw_area) < GPU_SIZE_LIMIT && !masked
+  uint32_t draw_size =  lv_area_get_size(&draw_area);
+  if (!transformed && draw_size < GPU_SIZE_LIMIT && !masked
       && ((!vgbuf && !dsc->recolor_opa && color_format != LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED)
           || (vgbuf && vgbuf->format == VGLITE_PX_FMT && pre_recolor.full == recolor.full))) {
     const uint8_t* src = vgbuf ? vgbuf->memory : map_p;
@@ -217,19 +218,19 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
         + (draw_area.x1 - disp_area->x1) * sizeof(lv_color_t);
     gpu_wait_area(&draw_area);
     preprocessed |= color_format == LV_IMG_CF_TRUE_COLOR;
+    lv_area_move(&draw_area, -disp_area->x1, -disp_area->y1);
     blend_ARGB(dst, dst_stride, src, src_stride, &draw_area, opa, preprocessed);
     return LV_RES_OK;
   }
-#if 0
-  if (transformed && !indexed && !alpha && !masked) {
+  if (transformed && !indexed && !alpha && !masked && draw_size < GPU_TRANSFORM_SIZE_LIMIT) {
     const uint8_t* src = vgbuf ? vgbuf->memory : map_p;
     uint8_t* dst = (uint8_t*)disp_buf;
     lv_coord_t src_stride = vgbuf ? vgbuf->width: map_w;
+    gpu_wait_area(&draw_area);
     lv_area_move(&draw_area, -disp_area->x1, -disp_area->y1);
     blend_transform(dst, &draw_area, disp_w, src, &coords_rel, src_stride, dsc, preprocessed);
     return LV_RES_OK;
   }
-#endif // #if 0
 #endif
   if (vgbuf) {
     if (!indexed && !alpha && dsc->recolor_opa != LV_OPA_TRANSP
