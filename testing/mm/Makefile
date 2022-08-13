@@ -29,6 +29,4 @@ MODULE    = $(CONFIG_TESTING_MM)
 
 MAINSRC = mm_main.c
 
-CFLAGS += -I$(TOPDIR)/mm/mm_heap
-
 include $(APPDIR)/Application.mk
