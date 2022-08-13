@@ -29,8 +29,9 @@
  ****************************************************************************/
 
 #ifdef CONFIG_DEBUG_UORB
-static void print_sensor_wake_gesture_message(FAR const struct orb_metadata *meta,
-                                              FAR const void *buffer)
+static void
+print_sensor_wake_gesture_message(FAR const struct orb_metadata *meta,
+                                  FAR const void *buffer)
 {
   FAR const struct sensor_wake_gesture *message = buffer;
   const orb_abstime now = orb_absolute_time();

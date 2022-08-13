@@ -71,6 +71,10 @@
                         UNAME_MACHINE | UNAME_PLATFORM)
 #endif
 
+#ifndef CONFIG_NSH_PROC_MOUNTPOINT
+#  define CONFIG_NSH_PROC_MOUNTPOINT "/proc"
+#endif
+
 /****************************************************************************
  * Private Data
  ****************************************************************************/
@@ -618,7 +622,7 @@ int cmd_uname(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
               nsh_output(vtbl, " ");
             }
 
-          nsh_output(vtbl, str);
+          nsh_output(vtbl, "%s", str);
           first = false;
         }
     }

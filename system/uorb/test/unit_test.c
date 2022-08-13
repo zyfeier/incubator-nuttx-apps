@@ -241,8 +241,10 @@ static int test_single(void)
   struct orb_test_s sample;
   struct orb_test_s sub_sample;
   int instance = 0;
-  int afd, sfd, ret;
   bool updated;
+  int afd;
+  int sfd;
+  int ret;
 
   test_note("try single-topic support");
 
@@ -271,15 +273,18 @@ static int test_single(void)
     {
       return test_fail("copy(1) failed: %d", errno);
     }
+
   if (sample.val != sub_sample.val)
     {
       return test_fail("copy(1) mismatch: %d expected %d",
                        sub_sample.val, sample.val);
     }
+
   if (OK != orb_check(sfd, &updated))
     {
       return test_fail("check(1) failed");
     }
+
   if (updated)
     {
       return test_fail("spurious updated flag");
@@ -337,7 +342,8 @@ static int test_multi_inst10(void)
   const int max_inst = 10;
   int sfd[max_inst];
   int afd[max_inst];
-  int i, j;
+  int i;
+  int j;
 
   for (i = 0; i < max_inst; i++)
     {
@@ -346,7 +352,7 @@ static int test_multi_inst10(void)
 
   /* verify not advertised yet */
 
-  for(i = 0; i < max_inst; i++)
+  for (i = 0; i < max_inst; i++)
     {
       if (OK == orb_exists(ORB_ID(orb_test), i))
         {
@@ -372,7 +378,8 @@ static int test_multi_inst10(void)
     {
       for (j = 0; j < 10; j++)
         {
-          int instance, sub_instance;
+          int instance;
+          int sub_instance;
 
           for (instance = 0; instance < max_inst; instance++)
             {
@@ -584,7 +591,8 @@ static int test_multi_reversed(int *afds, int *sfds)
 
 static int test_unadvertise(int *afds)
 {
-  int i, ret;
+  int ret;
+  int i;
 
   test_note("Testing unadvertise");
 
@@ -604,7 +612,7 @@ static int test_unadvertise(int *afds)
 
 static int pub_test_multi2_entry(int argc, char *argv[])
 {
-  struct orb_test_medium_s data_topic = {};
+  struct orb_test_medium_s data_topic;
   const int num_instances = 3;
   int data_next_idx = 0;
   int orb_pub[num_instances];
@@ -612,6 +620,7 @@ static int pub_test_multi2_entry(int argc, char *argv[])
   int num_messages = 50 * num_instances;
   int i;
 
+  memset(&data_topic, '\0', sizeof(data_topic));
   for (i = 0; i < num_instances; ++i)
     {
       orb_pub[i] = orb_advertise_multi_queue_persist(
@@ -655,7 +664,7 @@ static int test_multi2(void)
   int orb_data_fd[num_instances];
   int orb_data_next     = 0;
   orb_abstime last_time = 0;
-  char *const args[1] = { NULL };
+  FAR char *const args[1] = {NULL};
   int pubsub_task;
   int i;
 
@@ -694,7 +703,10 @@ static int test_multi2(void)
       orb_check(orb_data_cur_fd, &updated);
       if (updated)
         {
-          struct orb_test_medium_s msg = {0, 0};
+          struct orb_test_medium_s msg =
+            {
+              0, 0
+            };
 
           orb_copy(ORB_ID(orb_test_medium_multi), orb_data_cur_fd, &msg);
           if (last_time >= msg.timestamp && last_time != 0)
@@ -749,7 +761,7 @@ int test_queue(void)
           orb_copy(ORB_ID(orb_test_medium_queue), sfd, &sub_sample);
         }
     }
-  while(updated);
+  while (updated);
 
   ptopic = orb_advertise_multi_queue_persist(
     ORB_ID(orb_test_medium_queue), &sample, &instance, queue_size);
@@ -865,12 +877,13 @@ int test_queue(void)
 static int pub_test_queue_entry(int argc, char *argv[])
 {
   const int queue_size = 50;
-  struct orb_test_medium_s t = {};
+  struct orb_test_medium_s t;
   int num_messages = 20 * queue_size;
   int message_counter = 0;
   int instance = 0;
   int ptopic;
 
+  memset(&t, '\0', sizeof(t));
   ptopic = orb_advertise_multi_queue_persist(
     ORB_ID(orb_test_medium_queue_poll), &t, &instance, queue_size);
   if (ptopic < 0)
@@ -909,9 +922,9 @@ static int pub_test_queue_entry(int argc, char *argv[])
 
 static int test_queue_poll_notify(void)
 {
-  char *const args[1] = { NULL };
+  FAR char *const args[1] = {NULL};
   struct pollfd fds[1];
-  struct orb_test_medium_s t = {};
+  struct orb_test_medium_s t;
   bool updated;
   int next_expected_val = 0;
   int pubsub_task;
@@ -936,7 +949,7 @@ static int test_queue_poll_notify(void)
           orb_copy(ORB_ID(orb_test_medium_queue_poll), sfd, &t);
         }
     }
-  while(updated);
+  while (updated);
 
   g_thread_should_exit = false;
 
@@ -981,6 +994,7 @@ static int test_queue_poll_notify(void)
               return test_fail("copy mismatch: %d expected %d",
                                t.val, next_expected_val);
             }
+
           ++next_expected_val;
         }
     }
@@ -999,32 +1013,32 @@ static int test_queue_poll_notify(void)
 
 static int test(void)
 {
-  int afds[4] = {0};
-  int sfds[4] = {0};
+  int afds[4];
+  int sfds[4];
   int ret;
 
   ret = test_single();
   if (ret != OK)
     {
-     return ret;
+      return ret;
     }
 
   ret = test_multi_inst10();
   if (ret != OK)
     {
-    return ret;
+      return ret;
     }
 
   ret = test_multi(afds, sfds);
   if (ret != OK)
     {
-    return ret;
+      return ret;
     }
 
   ret = test_multi_reversed(afds, sfds);
   if (ret != OK)
     {
-    return ret;
+      return ret;
     }
 
   ret = test_unadvertise(afds);

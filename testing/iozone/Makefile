@@ -43,8 +43,6 @@ IOZONE_UNPACKNAME = iozone
 IOZONE_VERSION = $(patsubst "%",%,$(strip $(CONFIG_TESTING_IOZONE_VERSION)))
 IOZONE_ZIP = iozone$(IOZONE_VERSION).tgz
 
-UNPACK ?= tar zxvf
-
 $(IOZONE_ZIP):
 	@echo "Downloading: $(IOZONE_ZIP)"
 	$(Q) curl -O -L $(CONFIG_TESTING_IOZONE_URL)/$(IOZONE_ZIP)
@@ -60,7 +58,7 @@ $(IOZONE_UNPACKNAME): $(IOZONE_ZIP)
 context::# $(IOZONE_UNPACKNAME)
 
 distclean::
-	# $(call DELDIR, $(IOZONE_UNPACKNAME))
-	# $(call DELFILE, $(IOZONE_ZIP))
+#	$(call DELDIR, $(IOZONE_UNPACKNAME))
+#	$(call DELFILE, $(IOZONE_ZIP))
 
 include $(APPDIR)/Application.mk

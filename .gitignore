@@ -18,6 +18,7 @@
 *.sym
 *~
 .built
+.context
 .depend
 .kconfig
 /*.lock
@@ -32,3 +33,5 @@ Make.dep
 .context
 # nuttx/$(TOPDIR)/Makefile.[unix|win]::$(DIRLINKS_EXTERNAL_DIRS)
 .dirlinks
+.vscode
+.DS_Store

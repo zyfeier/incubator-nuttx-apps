@@ -515,10 +515,10 @@ static void *nxlooper_loopthread(pthread_addr_t pvarg)
             if (dq_count(&playdq) != 0 && dq_count(&recorddq) != 0)
               {
                 FAR struct ap_buffer_s *apbrec;
-                int copy;
+                uint32_t copy;
 
-                apbrec = (struct ap_buffer_s *)dq_peek(&recorddq);
-                apb = (struct ap_buffer_s *)dq_peek(&playdq);
+                apbrec = (FAR struct ap_buffer_s *)dq_peek(&recorddq);
+                apb = (FAR struct ap_buffer_s *)dq_peek(&playdq);
 
                 copy = MIN(apbrec->nbytes - apbrec->curbyte,
                            apb->nmaxbytes - apb->curbyte);
@@ -530,14 +530,15 @@ static void *nxlooper_loopthread(pthread_addr_t pvarg)
 
                 if (apbrec->curbyte == apbrec->nbytes)
                   {
-                    apbrec = (struct ap_buffer_s *)dq_remfirst(&recorddq);
+                    apbrec =
+                        (FAR struct ap_buffer_s *)dq_remfirst(&recorddq);
                     apbrec->curbyte = 0;
                     ret = nxlooper_enqueuerecordbuffer(plooper, apbrec);
                   }
 
                 if (ret == OK && apb->curbyte == apb->nmaxbytes)
                   {
-                    apb = (struct ap_buffer_s *)dq_remfirst(&playdq);
+                    apb = (FAR struct ap_buffer_s *)dq_remfirst(&playdq);
                     apb->nbytes = apb->nmaxbytes;
                     apb->curbyte = 0;
                     ret = nxlooper_enqueueplaybuffer(plooper, apb);
@@ -548,7 +549,7 @@ static void *nxlooper_loopthread(pthread_addr_t pvarg)
               {
 #ifdef CONFIG_O_MULTI_SESSION
                 ret = ioctl(plooper->playdev_fd, AUDIOIOC_START,
-                               (unsigned long)plooper->pplayses);
+                            (unsigned long)plooper->pplayses);
 #else
                 ret = ioctl(plooper->playdev_fd, AUDIOIOC_START, 0);
 #endif

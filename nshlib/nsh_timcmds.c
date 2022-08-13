@@ -464,7 +464,8 @@ int cmd_timedatectl(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
       ret = clock_gettime(CLOCK_REALTIME, &ts);
       if (ret < 0)
         {
-          nsh_error(vtbl, g_fmtcmdfailed, argv[0], "clock_gettime", NSH_ERRNO);
+          nsh_error(vtbl, g_fmtcmdfailed, argv[0], "clock_gettime",
+                    NSH_ERRNO);
           return ERROR;
         }
 
@@ -483,7 +484,8 @@ int cmd_timedatectl(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
           return ERROR;
         }
 
-      nsh_output(vtbl, "      TimeZone: %s, %ld\n", tm.tm_zone, tm.tm_gmtoff);
+      nsh_output(vtbl, "      TimeZone: %s, %ld\n", tm.tm_zone,
+                 tm.tm_gmtoff);
       nsh_output(vtbl, "    Local time: %s %s\n", timbuf, tm.tm_zone);
 
       if (gmtime_r((FAR const time_t *)&ts.tv_sec, &tm) == NULL)
@@ -517,7 +519,8 @@ int cmd_timedatectl(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
                          (FAR struct tm *)&rtctime);
           if (ret < 0)
             {
-              nsh_error(vtbl, g_fmtcmdfailed, argv[0], "strftime", NSH_ERRNO);
+              nsh_error(vtbl, g_fmtcmdfailed, argv[0], "strftime",
+                        NSH_ERRNO);
               return ERROR;
             }
 
