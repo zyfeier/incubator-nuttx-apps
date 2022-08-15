@@ -302,6 +302,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
   if (map_stride == vgbuf_stride) {
     if (dsc->src_type == LV_IMG_SRC_FILE) {
       lv_fs_res_t res = lv_fs_read(&f, px_buf, data_size, NULL);
+      lv_fs_close(&f);
       if (res != LV_FS_RES_OK) {
         lv_mem_free(gpu_data);
         GPU_ERROR("file read failed");
@@ -332,11 +333,13 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
       px_map = fs_buf;
     }
     uint8_t zero_id = 0;
-    while (palette[zero_id]) {
+    while (palette[zero_id] && zero_id < palette_size) {
       zero_id++;
-      if (!zero_id) {
+    }
+    if (zero_id == palette_size) {
+      zero_id = 0;
+      if (map_stride < vgbuf_stride) {
         LV_LOG_ERROR("no transparent found in palette but padding required!");
-        break;
       }
     }
     const uint8_t multiplier[4] = { 0xFF, 0x55, 0x11, 0x01 };
@@ -351,9 +354,6 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
     if (fs_buf) {
       lv_mem_free(fs_buf);
     }
-  }
-  if (dsc->src_type == LV_IMG_SRC_FILE) {
-    lv_fs_close(&f);
   }
   return LV_RES_OK;
 }
