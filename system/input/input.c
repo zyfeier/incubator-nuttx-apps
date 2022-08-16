@@ -269,7 +269,7 @@ static int input_keyup(int argc, char **argv)
       return -EINVAL;
     }
 
-  fd = open("/dev/ukbd", O_WRONLY);
+  fd = open("/dev/ukeyboard", O_WRONLY);
   if (fd < 0)
     {
       return -errno;
@@ -297,7 +297,7 @@ static int input_keydown(int argc, char **argv)
       return -EINVAL;
     }
 
-  fd = open("/dev/ukbd", O_WRONLY);
+  fd = open("/dev/ukeyboard", O_WRONLY);
   if (fd < 0)
     {
       return -errno;
