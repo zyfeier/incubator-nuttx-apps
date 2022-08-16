@@ -21,7 +21,9 @@
 include $(APPDIR)/Make.defs
 
 CXXEXT := .cpp
-ORIGS  := $(wildcard $(TOPDIR)/libs/libxx/uClibc++/tests/*.cpp)
+
+TESTDIR = $(TOPDIR)/libs/libxx/uClibc++/tests
+ORIGS  := $(wildcard $(TESTDIR)/*.cpp)
 
 BLACKSRCS := wchartest.cpp
 BLACKSRCS += excepttest.cpp
@@ -38,7 +40,6 @@ PRIORITY  = SCHED_PRIORITY_DEFAULT
 STACKSIZE = $(CONFIG_DEFAULT_TASK_STACKSIZE)
 MODULE    = $(CONFIG_TESTING_UCLIBCXXTEST)
 
-TESTDIR = $(TOPDIR)/libs/libxx/uClibc++/tests
 CXXFLAGS += -I$(TESTDIR)
 CXXSRCS  += $(TESTDIR)/testframework.cpp
 MAINSRC   = $(MAINCSRCSS)
