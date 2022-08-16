@@ -41,6 +41,10 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
+#if defined(CONFIG_ARM_HAVE_NEON) && LV_COLOR_DEPTH == 32
+extern void rotate_neon(void* dst, void* src, uint32_t stride, uint32_t wh);
+#endif
+
 #if defined(CONFIG_LV_FBDEV_USE_STATIC_BUFFER)
 
 #define LV_FBDEV_BUFFER_SIZE \
@@ -555,6 +559,15 @@ static void fbdev_flush_normal(FAR lv_disp_drv_t *disp_drv,
     }
 #elif defined(CONFIG_LV_FBDEV_ROTATE_90)
   LV_UNUSED(hor_max);
+#if defined(CONFIG_ARM_HAVE_NEON) && LV_COLOR_DEPTH == 32
+  y = y2 - y1 + 1;
+  uint32_t wh = w | y << 16;
+  cur_pos = FB_GET_POS(ver_max - y2, x1);
+  if (w > 3 && y > 3) {
+    rotate_neon(cur_pos, color_p, fb_xres * sizeof(lv_color_t), wh);
+  }
+  else
+#endif
   for (y = y1; y <= y2; y++)
     {
       /* x' = ver_max - y
@@ -576,6 +589,15 @@ static void fbdev_flush_normal(FAR lv_disp_drv_t *disp_drv,
     }
 #elif defined(CONFIG_LV_FBDEV_ROTATE_270)
   LV_UNUSED(ver_max);
+#if defined(CONFIG_ARM_HAVE_NEON) && LV_COLOR_DEPTH == 32
+  y = y2 - y1 + 1;
+  uint32_t wh = w | y << 16;
+  cur_pos = FB_GET_POS(y1, hor_max - area_p->x2);
+  if (w > 3 && y > 3) {
+    rotate_neon(cur_pos, color_p, fb_xres * sizeof(lv_color_t), wh);
+  }
+  else
+#endif
   for (y = y1; y <= y2; y++)
     {
       /* x' = y

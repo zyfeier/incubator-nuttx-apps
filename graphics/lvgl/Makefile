@@ -60,6 +60,9 @@ endif
 
 ifneq ($(CONFIG_LV_USE_FBDEV_INTERFACE),)
 CSRCS += lv_porting/lv_fbdev_interface.c
+ifneq ($(CONFIG_ARM_HAVE_NEON),)
+ASRCS += lv_porting/rotate_neon.S
+endif
 endif
 
 ifneq ($(CONFIG_LV_USE_GPU_INTERFACE),)
