@@ -108,6 +108,7 @@ CSRCS += lv_porting/decoder/lodepng/lv_lodepng.c
 endif
 
 ifneq ($(CONFIG_LV_USE_LIBPNG),)
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/libpng}
 CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" $(APPDIR)/../external/libpng/libpng}
 endif
 
