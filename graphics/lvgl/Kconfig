@@ -51,65 +51,14 @@ config LV_USE_DOUBLE_BUFFER
 
 endif # LV_USE_LCDDEV_INTERFACE
 
-menuconfig LV_USE_FBDEV_INTERFACE
+config LV_USE_FBDEV_INTERFACE
 	bool "Framebuffer device interface"
 	default n
-
-if LV_USE_FBDEV_INTERFACE
 
 config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
 	string "Framebuffer default device path"
 	default "/dev/fb0"
-
-config LV_FBDEV_USE_DOUBLE_BUFFER
-	bool "Use direct mode in double framebuffer"
-	default n
-
-choice
-	bool "Software screen rotation"
-	default LV_FBDEV_ROTATE_0
-	depends on !LV_FBDEV_USE_DOUBLE_BUFFER
-
-	config LV_FBDEV_ROTATE_0
-		bool "0 deg"
-	config LV_FBDEV_ROTATE_90
-		bool "90 deg"
-	config LV_FBDEV_ROTATE_180
-		bool "180 deg"
-	config LV_FBDEV_ROTATE_270
-		bool "270 deg"
-endchoice
-
-config LV_FBDEV_USE_STATIC_BUFFER
-	bool "Use separate static draw buffer"
-	default n
-	depends on !LV_FBDEV_USE_DOUBLE_BUFFER
-
-if LV_FBDEV_USE_STATIC_BUFFER
-
-config LV_FBDEV_HOR_RES
-	int "Horizontal resolution"
-	default 480
-
-config LV_FBDEV_VER_RES
-	int "Vertical resolution"
-	default 480
-
-config LV_FBDEV_USE_CUSTOM_SECTION
-	bool "Use custom section"
-	default n
-
-if LV_FBDEV_USE_CUSTOM_SECTION
-
-config LV_FBDEV_SECTION_NAME
-	string "Section name"
-	default ""
-
-endif # LV_FBDEV_USE_CUSTOM_SECTION
-
-endif # LV_FBDEV_USE_STATIC_BUFFER
-
-endif # LV_USE_FBDEV_INTERFACE
+	depends on LV_USE_FBDEV_INTERFACE
 
 menuconfig LV_USE_GPU_INTERFACE
 	bool "GPU acceleration interface"
