@@ -67,6 +67,9 @@ enum telnetd_state_e
 
 static int nsh_telnetmain(int argc, char *argv[])
 {
+  UNUSED(argc);
+  UNUSED(argv);
+
   FAR struct console_stdio_s *pstate = nsh_newconsole(true);
   int ret;
 
@@ -208,6 +211,10 @@ int nsh_telnetstart(sa_family_t family)
 #ifndef CONFIG_NSH_DISABLE_TELNETD
 int cmd_telnetd(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
+  UNUSED(vtbl);
+  UNUSED(argc);
+  UNUSED(argv);
+
   sa_family_t family = AF_UNSPEC;
 
   /* If both IPv6 and IPv4 are enabled, then the address family must
