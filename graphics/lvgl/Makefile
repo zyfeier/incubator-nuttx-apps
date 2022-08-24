@@ -72,6 +72,7 @@ CSRCS += lv_porting/lv_gpu_interface.c
 CSRCS += lv_porting/gpu/lv_gpu_decoder.c
 CSRCS += lv_porting/gpu/lv_gpu_evoreader.c
 CSRCS += lv_porting/gpu/lv_gpu_draw_utils.c
+CSRCS += lv_porting/gpu/lv_gpu_draw_layer.c
 ifneq ($(CONFIG_LV_COLOR_DEPTH_32),)
 CSRCS += lv_porting/gpu/fast_gaussian_blur.c
 endif

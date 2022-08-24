@@ -24,6 +24,7 @@
 #include "lv_gpu_interface.h"
 #include "gpu/lv_gpu_decoder.h"
 #include "gpu/lv_gpu_draw_utils.h"
+#include "gpu/lv_gpu_draw_layer.h"
 #include "gpu_port.h"
 #include "vg_lite.h"
 #include <stdio.h>
@@ -304,6 +305,11 @@ void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx)
 #else
   LV_UNUSED(gpu_draw_blend);
 #endif
+  gpu_draw_ctx->base_draw.layer_init = lv_gpu_draw_layer_create;
+  gpu_draw_ctx->base_draw.layer_adjust = lv_gpu_draw_layer_adjust;
+  gpu_draw_ctx->base_draw.layer_blend = lv_gpu_draw_layer_blend;
+  gpu_draw_ctx->base_draw.layer_destroy = lv_gpu_draw_layer_destroy;
+  gpu_draw_ctx->base_draw.layer_instance_size = sizeof(lv_gpu_draw_layer_ctx_t);
   gpu_draw_ctx->base_draw.wait_for_finish = gpu_wait;
 }
 
