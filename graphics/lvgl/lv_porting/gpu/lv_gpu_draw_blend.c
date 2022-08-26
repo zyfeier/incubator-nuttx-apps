@@ -58,7 +58,7 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t* dst,
       __asm volatile(
           "   .p2align 2                                                  \n"
           "   movs                    r1, %[mask]                         \n"
-          "   bics                    r0, %[loopCnt], 0xF                 \n"
+          "   bics                    r0, %[loopCnt], #0xF                \n"
           "   wlstp.8                 lr, r0, 1f                          \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pDst]]         \n"
@@ -176,17 +176,17 @@ LV_ATTRIBUTE_FAST_MEM static void fill_normal(lv_color_t* dst,
     }
   } else {
     register unsigned blkCnt __asm("lr") = w * h << 2;
-      __asm volatile(
-          "   .p2align 2                                                  \n"
-          "   vdup.32                 q0, %[color]                        \n"
-          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
-          "   2:                                                          \n"
-          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
-          "   letp                    lr, 2b                              \n"
-          "   1:                                                          \n"
-          : [pDst] "+r"(dst), [loopCnt] "+r"(blkCnt)
-          : [color] "r"(color)
-          : "q0", "memory");
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vdup.32                 q0, %[color]                        \n"
+        "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        "   vstrb.8                 q0, [%[pDst]], #16                  \n"
+        "   letp                    lr, 2b                              \n"
+        "   1:                                                          \n"
+        : [pDst] "+r"(dst), [loopCnt] "+r"(blkCnt)
+        : [color] "r"(color)
+        : "q0", "memory");
   }
 }
 
@@ -205,7 +205,7 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
       __asm volatile(
           "   .p2align 2                                                  \n"
           "   movs                    r1, %[mask]                         \n"
-          "   bics                    r0, %[loopCnt], 0xF                 \n"
+          "   bics                    r0, %[loopCnt], #0xF                \n"
           "   wlstp.8                 lr, r0, 1f                          \n"
           "   2:                                                          \n"
           "   vld40.8                 {q0, q1, q2, q3}, [%[pSrc]]         \n"
@@ -311,6 +311,303 @@ LV_ATTRIBUTE_FAST_MEM static void map_normal(lv_color_t* dst,
   }
 }
 
+LV_ATTRIBUTE_FAST_MEM static void fill_transp(lv_color_t* dst,
+    const lv_area_t* draw_area, lv_coord_t dst_stride, lv_color_t color,
+    lv_opa_t opa, const lv_opa_t* mask, lv_coord_t mask_stride)
+{
+  lv_coord_t w = lv_area_get_width(draw_area);
+  lv_coord_t h = lv_area_get_height(draw_area);
+  if (mask) {
+    for (lv_coord_t i = 0; i < h; i++) {
+      uint32_t* pwTarget = (uint32_t*)dst;
+      register unsigned blkCnt __asm("lr") = w << 2;
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   mov                     r3, %[mask]                         \n"
+          "   mov                     r0, #0xFE01                         \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vldrb.8                 q2, [%[pDst]]                       \n"
+          "   vldrb.u32               q3, [r3], #4                        \n"
+          "   vshr.u32                q1, q2, #24                         \n"
+          "   vdup.32                 q0, %[opa]                          \n"
+          "   vrmulh.u8               q3, q0, q3                          \n"
+          "   vmvn                    q0, q3                              \n"
+          "   vrmulh.u8               q1, q1, q0                          \n"
+          "   vadd.i32                q1, q1, q3                          \n"
+          "   vmov                    r1, r2, q1[2], q1[0]                \n"
+          "   cmp                     r1, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r1, r0, r1                          \n"
+          "   cmp                     r2, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r2, r0, r2                          \n"
+          "   vmov                    q0[2], q0[0], r1, r2                \n"
+          "   vmov                    r1, r2, q1[3], q1[1]                \n"
+          "   cmp                     r1, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r1, r0, r1                          \n"
+          "   cmp                     r2, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r2, r0, r2                          \n"
+          "   vmov                    q0[3], q0[1], r1, r2                \n"
+          "   vmul.i32                q3, q0, q3                          \n"
+          "   vsri.16                 q3, q3, #8                          \n"
+          "   vsli.32                 q3, q3, #16                         \n"
+          "   vdup.32                 q4, %[color]                        \n"
+          "   vrmulh.u8               q4, q4, q3                          \n"
+          "   vmvn                    q3, q3                              \n"
+          "   vrmulh.u8               q2, q2, q3                          \n"
+          "   vadd.i8                 q2, q4, q2                          \n"
+          "   vsli.32                 q2, q1, #24                         \n"
+          "   vstrb.8                 q2, [%[pDst]], #16                  \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
+          : [color] "r"(color), [opa] "r"(opa), [mask] "r"(mask)
+          : "q0", "q1", "q2", "q3", "q4", "r0", "r1", "r2", "r3", "memory");
+      dst += dst_stride;
+      mask += mask_stride;
+    }
+  } else if (opa != LV_OPA_COVER) {
+    if (dst_stride != w) {
+      for (lv_coord_t i = 0; i < h; i++) {
+        uint32_t* pwTarget = (uint32_t*)dst;
+        register unsigned blkCnt __asm("lr") = w << 2;
+        __asm volatile(
+            "   .p2align 2                                                  \n"
+            "   vdup.8                  q0, %[opa]                          \n"
+            "   mov                     r0, #0xFF                           \n"
+            "   mul                     r0, r0, %[opa]                      \n"
+            "   vmvn                    q0, q0                              \n"
+            "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+            "   2:                                                          \n"
+            "   vldrb.8                 q2, [%[pDst]]                       \n"
+            "   vshr.u32                q1, q2, #24                         \n"
+            "   vrmulh.u8               q1, q1, q0                          \n"
+            "   vadd.i32                q1, q1, %[opa]                      \n"
+            "   vmov                    r1, r2, q1[2], q1[0]                \n"
+            "   cmp                     r1, #0                              \n"
+            "   it                      ne                                  \n"
+            "   udivne                  r1, r0, r1                          \n"
+            "   cmp                     r2, #0                              \n"
+            "   it                      ne                                  \n"
+            "   udivne                  r2, r0, r2                          \n"
+            "   vmov                    q3[2], q3[0], r1, r2                \n"
+            "   vmov                    r1, r2, q1[3], q1[1]                \n"
+            "   cmp                     r1, #0                              \n"
+            "   it                      ne                                  \n"
+            "   udivne                  r1, r0, r1                          \n"
+            "   cmp                     r2, #0                              \n"
+            "   it                      ne                                  \n"
+            "   udivne                  r2, r0, r2                          \n"
+            "   vmov                    q3[3], q3[1], r1, r2                \n"
+            "   vsri.16                 q3, q3, #8                          \n"
+            "   vsli.32                 q3, q3, #16                         \n"
+            "   vdup.32                 q4, %[color]                        \n"
+            "   vrmulh.u8               q4, q4, q3                          \n"
+            "   vmvn                    q3, q3                              \n"
+            "   vrmulh.u8               q2, q2, q3                          \n"
+            "   vadd.i8                 q2, q4, q2                          \n"
+            "   vsli.32                 q2, q1, #24                         \n"
+            "   vstrb.8                 q2, [%[pDst]], #16                  \n"
+            "   letp                    lr, 2b                              \n"
+            "   1:                                                          \n"
+            : [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
+            : [color] "r"(color), [opa] "r"(opa)
+            : "q0", "q1", "q2", "q3", "q4", "r0", "r1", "r2", "memory");
+        dst += dst_stride;
+      }
+    } else {
+      register unsigned blkCnt __asm("lr") = w * h << 2;
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   vdup.32                 q0, %[color]                        \n"
+          "   vdup.8                  q1, %[opa]                          \n"
+          "   vrmulh.u8               q0, q0, q1                          \n"
+          "   vmvn                    q1, q1                              \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vldrb.8                 q2, [%[pDst]]                       \n"
+          "   vrmulh.u8               q2, q2, q1                          \n"
+          "   vadd.i8                 q2, q0, q2                          \n"
+          "   vstrb.8                 q2, [%[pDst]], #16                  \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pDst] "+r"(dst), [loopCnt] "+r"(blkCnt)
+          : [color] "r"(color), [opa] "r"(opa)
+          : "q0", "q1", "q2", "memory");
+    }
+  } else if (dst_stride != w) {
+    for (lv_coord_t i = 0; i < h; i++) {
+      uint32_t* pwTarget = (uint32_t*)dst;
+      register unsigned blkCnt __asm("lr") = w << 2;
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   vdup.32                 q0, %[color]                        \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
+          : [color] "r"(color)
+          : "q0", "memory");
+      dst += dst_stride;
+    }
+  } else {
+    register unsigned blkCnt __asm("lr") = w * h << 2;
+    __asm volatile(
+        "   .p2align 2                                                  \n"
+        "   vdup.32                 q0, %[color]                        \n"
+        "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+        "   2:                                                          \n"
+        "   vstrb.8                 q0, [%[pDst]], #16                  \n"
+        "   letp                    lr, 2b                              \n"
+        "   1:                                                          \n"
+        : [pDst] "+r"(dst), [loopCnt] "+r"(blkCnt)
+        : [color] "r"(color)
+        : "q0", "memory");
+  }
+}
+
+LV_ATTRIBUTE_FAST_MEM static void map_transp(lv_color_t* dst,
+    const lv_area_t* draw_area, lv_coord_t dst_stride, const lv_color_t* src,
+    lv_coord_t src_stride, lv_opa_t opa, const lv_opa_t* mask,
+    lv_coord_t mask_stride)
+{
+  lv_coord_t w = lv_area_get_width(draw_area);
+  lv_coord_t h = lv_area_get_height(draw_area);
+  if (mask) {
+    for (lv_coord_t i = 0; i < h; i++) {
+      uint32_t* phwSource = (uint32_t*)src;
+      uint32_t* pwTarget = (uint32_t*)dst;
+      register unsigned blkCnt __asm("lr") = w << 2;
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   mov                     r3, %[mask]                         \n"
+          "   mov                     r0, #0xFE01                         \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vldrb.8                 q2, [%[pDst]]                       \n"
+          "   vldrb.u32               q3, [r3], #4                        \n"
+          "   vldrb.8                 q4, [%[pSrc]], #16                  \n"
+          "   vshr.u32                q0, q4, #24                         \n"
+          "   vdup.32                 q1, %[opa]                          \n"
+          "   vrmulh.u8               q0, q0, q1                          \n"
+          "   vshr.u32                q1, q2, #24                         \n"
+          "   vrmulh.u8               q3, q0, q3                          \n"
+          "   vmvn                    q0, q3                              \n"
+          "   vrmulh.u8               q1, q1, q0                          \n"
+          "   vadd.i32                q1, q1, q3                          \n"
+          "   vmov                    r1, r2, q1[2], q1[0]                \n"
+          "   cmp                     r1, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r1, r0, r1                          \n"
+          "   cmp                     r2, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r2, r0, r2                          \n"
+          "   vmov                    q0[2], q0[0], r1, r2                \n"
+          "   vmov                    r1, r2, q1[3], q1[1]                \n"
+          "   cmp                     r1, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r1, r0, r1                          \n"
+          "   cmp                     r2, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r2, r0, r2                          \n"
+          "   vmov                    q0[3], q0[1], r1, r2                \n"
+          "   vmul.i32                q3, q0, q3                          \n"
+          "   vsri.16                 q3, q3, #8                          \n"
+          "   vsli.32                 q3, q3, #16                         \n"
+          "   vrmulh.u8               q4, q4, q3                          \n"
+          "   vmvn                    q3, q3                              \n"
+          "   vrmulh.u8               q2, q2, q3                          \n"
+          "   vadd.i8                 q2, q4, q2                          \n"
+          "   vsli.32                 q2, q1, #24                         \n"
+          "   vstrb.8                 q2, [%[pDst]], #16                  \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
+          : [opa] "r"(opa), [mask] "r"(mask)
+          : "q0", "q1", "q2", "q3", "q4", "r0", "r1", "r2", "r3", "memory");
+      src += src_stride;
+      dst += dst_stride;
+      mask += mask_stride;
+    }
+  } else if (opa != LV_OPA_COVER) {
+    for (lv_coord_t i = 0; i < h; i++) {
+      uint32_t* phwSource = (uint32_t*)src;
+      uint32_t* pwTarget = (uint32_t*)dst;
+      register unsigned blkCnt __asm("lr") = w << 2;
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   mov                     r0, #0xFE01                         \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vldrb.8                 q2, [%[pDst]]                       \n"
+          "   vldrb.8                 q4, [%[pSrc]], #16                  \n"
+          "   vshr.u32                q3, q4, #24                         \n"
+          "   vdup.32                 q1, %[opa]                          \n"
+          "   vrmulh.u8               q3, q3, q1                          \n"
+          "   vmvn                    q0, q3                              \n"
+          "   vshr.u32                q1, q2, #24                         \n"
+          "   vrmulh.u8               q1, q1, q0                          \n"
+          "   vadd.i32                q1, q1, q3                          \n"
+          "   vmov                    r1, r2, q1[2], q1[0]                \n"
+          "   cmp                     r1, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r1, r0, r1                          \n"
+          "   cmp                     r2, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r2, r0, r2                          \n"
+          "   vmov                    q3[2], q3[0], r1, r2                \n"
+          "   vmov                    r1, r2, q1[3], q1[1]                \n"
+          "   cmp                     r1, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r1, r0, r1                          \n"
+          "   cmp                     r2, #0                              \n"
+          "   it                      ne                                  \n"
+          "   udivne                  r2, r0, r2                          \n"
+          "   vmov                    q3[3], q3[1], r1, r2                \n"
+          "   vsri.16                 q3, q3, #8                          \n"
+          "   vsli.32                 q3, q3, #16                         \n"
+          "   vrmulh.u8               q4, q4, q3                          \n"
+          "   vmvn                    q3, q3                              \n"
+          "   vrmulh.u8               q2, q2, q3                          \n"
+          "   vadd.i8                 q2, q4, q2                          \n"
+          "   vsli.32                 q2, q1, #24                         \n"
+          "   vstrb.8                 q2, [%[pDst]], #16                  \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget), [loopCnt] "+r"(blkCnt)
+          : [opa] "r"(opa)
+          : "q0", "q1", "q2", "q3", "q4", "r0", "r1", "r2", "memory");
+      src += src_stride;
+      dst += dst_stride;
+    }
+  } else {
+    for (lv_coord_t i = 0; i < h; i++) {
+      uint32_t* phwSource = (uint32_t*)src;
+      uint32_t* pwTarget = (uint32_t*)dst;
+      register unsigned blkCnt __asm("lr") = w << 2;
+      __asm volatile(
+          "   .p2align 2                                                  \n"
+          "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
+          "   2:                                                          \n"
+          "   vldrb.8                 q0, [%[pSrc]], #16                  \n"
+          "   vstrb.8                 q0, [%[pDst]], #16                  \n"
+          "   letp                    lr, 2b                              \n"
+          "   1:                                                          \n"
+          : [pSrc] "+r"(phwSource), [pDst] "+r"(pwTarget),
+          [loopCnt] "+r"(blkCnt)
+          :
+          : "q0", "memory");
+      src += src_stride;
+      dst += dst_stride;
+    }
+  }
+}
+
 /****************************************************************************
  * Global Functions
  ****************************************************************************/
@@ -341,10 +638,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_draw_blend(lv_draw_ctx_t* draw_ctx,
     GPU_WARN("drawing with set_px_cb can't be accelerated");
     return LV_RES_INV;
   }
-  if (disp->driver->screen_transp) {
-    GPU_WARN("transparent screen blend acceleration unsupported at the moment");
-    return LV_RES_INV;
-  }
   if (dsc->mask_buf && dsc->mask_res == LV_DRAW_MASK_RES_TRANSP) {
     return LV_RES_OK;
   }
@@ -370,12 +663,22 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_draw_blend(lv_draw_ctx_t* draw_ctx,
     mask_stride = lv_area_get_width(dsc->mask_area);
     mask += mask_stride * (draw_area.y1 - dsc->mask_area->y1) + draw_area.x1 - dsc->mask_area->x1;
   }
-  if (src) {
-    map_normal(dst, &draw_area, dst_stride, src, src_stride, dsc->opa, mask,
-        mask_stride);
+  if (disp->driver->screen_transp == 0) {
+    if (src == NULL) {
+      fill_normal(dst, &draw_area, dst_stride, dsc->color, dsc->opa, mask,
+          mask_stride);
+    } else {
+      map_normal(dst, &draw_area, dst_stride, src, src_stride, dsc->opa, mask,
+          mask_stride);
+    }
   } else {
-    fill_normal(dst, &draw_area, dst_stride, dsc->color, dsc->opa, mask,
-        mask_stride);
+    if (src == NULL) {
+      fill_transp(dst, &draw_area, dst_stride, dsc->color, dsc->opa, mask,
+          mask_stride);
+    } else {
+      map_transp(dst, &draw_area, dst_stride, src, src_stride, dsc->opa, mask,
+          mask_stride);
+    }
   }
 
   return LV_RES_OK;
