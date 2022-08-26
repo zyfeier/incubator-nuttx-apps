@@ -29,6 +29,7 @@
 #include "src/misc/lv_gc.h"
 #include "vg_lite.h"
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #ifdef CONFIG_ARM_HAVE_MVE
@@ -2270,6 +2271,7 @@ void convert_indexed8_to_argb8888(uint8_t* px_buf, uint32_t buf_stride,
     lv_img_header_t* header)
 {
 #ifdef CONFIG_ARM_HAVE_MVE
+  uint32_t h = header->h;
   int32_t map_offset = map_stride - header->w;
   int32_t buf_offset = buf_stride - (header->w << 2);
   if (map_offset || buf_offset) {
@@ -2293,7 +2295,7 @@ void convert_indexed8_to_argb8888(uint8_t* px_buf, uint32_t buf_stride,
         "   adds                    %[pSource], %[src_offset]           \n"
         "   subs                    %[h], #1                            \n"
         "   bne                     1b                                  \n"
-        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(header->h)
+        : [pSource] "+r"(px_map), [pTarget] "+r"(px_buf), [h] "+r"(h)
         : [w] "r"(header->w), [src_offset] "r"(map_offset),
         [dst_offset] "r"(buf_offset), [palette] "r"(palette)
         : "q0", "q1", "q2", "lr", "memory");
