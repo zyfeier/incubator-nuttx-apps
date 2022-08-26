@@ -164,13 +164,30 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(
     if (!_lv_area_intersect(&clip_area, coords, draw_ctx->clip_area))
       return;
 
-    lv_coord_t unaligned = lv_area_get_width(coords) & 0xF;
-    if (unaligned) {
-      coords_aligned16.x2 += 16 - unaligned;
-      draw_ctx->clip_area = &clip_area;
+    vg_lite_buffer_t* vgbuf = lv_gpu_get_vgbuf((void*)map_p);
+    if (!vgbuf) {
+      lv_draw_sw_img_decoded(draw_ctx, dsc, coords, map_p, color_format);
+    } else {
+      coords_aligned16.x2 = coords_aligned16.x1 + vgbuf->width - 1;
+      if (vgbuf->format == VGLITE_PX_FMT) {
+        lv_draw_sw_img_decoded(draw_ctx, dsc, &coords_aligned16,
+            map_p + sizeof(gpu_data_header_t), color_format);
+      } else if (vgbuf->format == VG_LITE_INDEX_8) {
+        uint8_t* buf = gpu_heap_alloc(vgbuf->width * vgbuf->height << 2);
+        if (buf) {
+          lv_img_header_t header = { .w = vgbuf->width, .h = vgbuf->height };
+          const uint32_t* palette = (const uint32_t*)(map_p
+              + sizeof(gpu_data_header_t) + vgbuf->height * vgbuf->stride);
+          convert_indexed8_to_argb8888(buf, vgbuf->width * sizeof(uint32_t),
+              vgbuf->memory, vgbuf->stride, palette, &header);
+          lv_draw_sw_img_decoded(draw_ctx, dsc, &coords_aligned16,
+              buf, LV_IMG_CF_TRUE_COLOR_ALPHA);
+          gpu_heap_free(buf);
+        }
+      } else {
+        LV_LOG_ERROR("Unexpected draw img failure");
+      }
     }
-    lv_draw_sw_img_decoded(draw_ctx, dsc, &coords_aligned16,
-        map_p + sizeof(gpu_data_header_t), color_format);
     draw_ctx->clip_area = clip_area_ori;
   }
 }

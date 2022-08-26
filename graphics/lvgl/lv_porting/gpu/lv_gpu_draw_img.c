@@ -101,7 +101,11 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   if (opa < LV_OPA_MIN) {
     return LV_RES_OK;
   }
-
+  lv_disp_t * disp = _lv_refr_get_disp_refreshing();
+  if (disp->driver->screen_transp) {
+    GPU_WARN("Output image with alpha unsupported by GPU");
+    return LV_RES_INV;
+  }
   uint16_t angle = dsc->angle;
   uint16_t zoom = dsc->zoom;
   lv_point_t pivot = dsc->pivot;
@@ -123,9 +127,12 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   vg_lite_buffer_t* vgbuf;
   vg_lite_error_t vgerr = VG_LITE_SUCCESS;
 
-  LV_ASSERT(init_vg_buf(&dst_vgbuf, disp_w, disp_h,
-                disp_w * sizeof(lv_color_t), disp_buf, VGLITE_PX_FMT, false)
-      == LV_RES_OK);
+  if (init_vg_buf(&dst_vgbuf, disp_w, disp_h,
+          disp_w * sizeof(lv_color_t), disp_buf, VGLITE_PX_FMT, true)
+      != LV_RES_OK) {
+    GPU_WARN("dst stride unaligned, fallback to SW");
+    return LV_RES_INV;
+  }
 
   if (*(uint32_t*)map_p == EVO_DATA_MAGIC) {
     evo_fcontent_t* evocontent = &((gpu_data_header_t*)map_p)->evocontent;
@@ -204,7 +211,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
     lv_draw_sw_blend(draw_ctx, &blend_dsc);
     return LV_RES_OK;
   }
-  uint32_t draw_size =  lv_area_get_size(&draw_area);
+  uint32_t draw_size = lv_area_get_size(&draw_area);
   if (!transformed && draw_size < GPU_SIZE_LIMIT && !masked
       && ((!vgbuf && !dsc->recolor_opa && color_format != LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED)
           || (vgbuf && vgbuf->format == VGLITE_PX_FMT && pre_recolor.full == recolor.full))) {
@@ -225,7 +232,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   if (transformed && !indexed && !alpha && !masked && draw_size < GPU_TRANSFORM_SIZE_LIMIT) {
     const uint8_t* src = vgbuf ? vgbuf->memory : map_p;
     uint8_t* dst = (uint8_t*)disp_buf;
-    lv_coord_t src_stride = vgbuf ? vgbuf->width: map_w;
+    lv_coord_t src_stride = vgbuf ? vgbuf->width : map_w;
     gpu_wait_area(&draw_area);
     lv_area_move(&draw_area, -disp_area->x1, -disp_area->y1);
     blend_transform(dst, &draw_area, disp_w, src, &coords_rel, src_stride, dsc, preprocessed);
