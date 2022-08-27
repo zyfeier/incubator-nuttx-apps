@@ -44,12 +44,15 @@ ifneq ($(CONFIG_GPSUTILS_MINMEA_BREAM_LIB),)
   CSRCS += vendor/bream.c
 endif
 
-context::# $(MINMEA_UNPACKDIR)
-
 clean::
 	$(call DELFILE, $(OBJS))
 
+# Download and unpack tarball if no git repo found
+ifeq ($(wildcard $(MINMEA_UNPACKNAME)/.git),)
+context:: $(MINMEA_UNPACKDIR)
+
 distclean::
-#	$(call DELDIR, $(MINMEA_UNPACKDIR))
+	$(call DELDIR, $(MINMEA_UNPACKDIR))
+endif
 
 include $(APPDIR)/Application.mk

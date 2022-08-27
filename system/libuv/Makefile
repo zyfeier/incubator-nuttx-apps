@@ -321,10 +321,13 @@ CSRCS += echo-server.c
 
 endif
 
-context::# $(LIBUV_UNPACK)/.patch
+# Download and unpack tarball if no git repo found
+ifeq ($(wildcard $(LIBUV_UNPACK)/.git),)
+context:: $(LIBUV_UNPACK)/.patch
 
 distclean::
-#	$(call DELDIR, $(LIBUV_UNPACK))
-#	$(call DELFILE, $(LIBUV_TARBALL))
+	$(call DELDIR, $(LIBUV_UNPACK))
+	$(call DELFILE, $(LIBUV_TARBALL))
+endif
 
 include $(APPDIR)/Application.mk
