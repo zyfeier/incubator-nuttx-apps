@@ -189,7 +189,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
         + vgbuf->stride * vgbuf->height);
     preprocessed = true;
   }
-#ifdef CONFIG_ARM_HAVE_MVE
+#if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
   if (!transformed && vgbuf && vgbuf->format == VG_LITE_A8 && !masked) {
     lv_draw_sw_blend_dsc_t blend_dsc = {
       .blend_area = &draw_area,

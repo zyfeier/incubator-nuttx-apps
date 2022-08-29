@@ -458,8 +458,8 @@ uint32_t gpu_data_get_buf_size(lv_img_dsc_t* dsc);
  * @return None
  *
  ****************************************************************************/
-LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color_t* dst,
-    const lv_color_t* src, uint32_t count);
+LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
+    const lv_color32_t* src, uint32_t count);
 
 /****************************************************************************
  * Name: recolor_palette
@@ -610,6 +610,7 @@ void convert_indexed8_to_argb8888(uint8_t* px_buf, uint32_t buf_stride,
     const uint8_t* px_map, uint32_t map_stride, const uint32_t* palette,
     lv_img_header_t* header);
 
+#if LV_COLOR_DEPTH == 32
 /****************************************************************************
  * Name: pre_zoom_gaussian_filter
  *
@@ -655,6 +656,7 @@ const char* get_filtered_image_path(const char* src);
  *
  ****************************************************************************/
 const char* generate_filtered_image(const char* src);
+#endif /* LV_COLOR_DEPTH == 32 */
 
 #ifdef CONFIG_ARM_HAVE_MVE
 /****************************************************************************

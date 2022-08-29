@@ -1317,7 +1317,8 @@ uint32_t gpu_img_buf_get_img_size(lv_coord_t w, lv_coord_t h,
   w = (cf == LV_IMG_CF_INDEXED_1BIT)   ? ALIGN_UP(w, 64)
       : (cf == LV_IMG_CF_INDEXED_2BIT) ? ALIGN_UP(w, 32)
                                        : ALIGN_UP(w, 16);
-  uint8_t px_size = lv_img_cf_get_px_size(cf);
+  uint8_t px_size = cf == LV_IMG_CF_TRUE_COLOR_ALPHA ? 32
+                                                     : lv_img_cf_get_px_size(cf);
   bool indexed = cf >= LV_IMG_CF_INDEXED_1BIT && cf <= LV_IMG_CF_INDEXED_8BIT;
   bool alpha = cf >= LV_IMG_CF_ALPHA_1BIT && cf <= LV_IMG_CF_ALPHA_8BIT;
   uint32_t palette_size = indexed || alpha ? 1 << px_size : 0;
@@ -1379,10 +1380,10 @@ uint32_t gpu_data_get_buf_size(lv_img_dsc_t* dsc)
  * @return None
  *
  ****************************************************************************/
-LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color_t* dst,
-    const lv_color_t* src, uint32_t count)
+LV_ATTRIBUTE_FAST_MEM void gpu_pre_multiply(lv_color32_t* dst,
+    const lv_color32_t* src, uint32_t count)
 {
-#if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
+#if defined(CONFIG_ARM_HAVE_MVE)
   __asm volatile(
       "   .p2align 2                                                  \n"
       "   wlstp.8                 lr, %[loopCnt], 1f                  \n"
@@ -1607,10 +1608,10 @@ void convert_argb8565_to_8888(uint8_t* px_buf, uint32_t buf_stride,
   };
   __asm volatile(
       "   .p2align 2                                                  \n"
-      "   movs                    r0, #6                              \n"
-      "   vddup.u32               q0, r0, #2                          \n" /* q0 = [6 4 2 0] */
+      "   movs                    r0, #24                             \n"
+      "   vddup.u32               q0, r0, #8                          \n" /* q0 = [24 16 8 0] */
       "   movs                    r0, #0                              \n"
-      "   vidup.u32               q4, r0, #2                          \n" /* q4 = [0 2 4 6] */
+      "   vidup.u32               q4, r0, #8                          \n" /* q4 = [0 8 16 24] */
       "   movs                    r0, #0xFF                           \n"
       "   movs                    r1, #0xF8                           \n"
       "   vdup.32                 q5, r0                              \n"
@@ -1735,10 +1736,10 @@ void convert_rgb565_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
       } else {
         for (int_fast16_t i = 0; i < header->h; i++) {
           lv_memcpy(px_buf, px_map, map_stride);
+          lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+          px_map += map_stride;
+          px_buf += buf_stride;
         }
-        lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
-        px_map += map_stride;
-        px_buf += buf_stride;
       }
     } else {
       for (int_fast16_t i = 0; i < header->h; i++) {
@@ -1749,7 +1750,8 @@ void convert_rgb565_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
           dst[j].ch.green = LV_UDIV255(src[j].ch.green * mix + (recolor_premult[1] >> 2));
           dst[j].ch.blue = LV_UDIV255(src[j].ch.blue * mix + (recolor_premult[2] >> 3));
         }
-        lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+        uint32_t bytes_done = header->w * sizeof(lv_color_t);
+        lv_memset_00(px_buf + bytes_done, buf_stride - bytes_done);
         px_map += map_stride;
         px_buf += buf_stride;
       }
@@ -1762,7 +1764,8 @@ void convert_rgb565_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
       for (int_fast16_t j = 0; j < header->w; j++) {
         dst[j].full = (src[j].full == ckey) ? 0 : lv_color_to32(src[j]);
       }
-      lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
+      uint32_t bytes_done = header->w * sizeof(lv_color32_t);
+      lv_memset_00(px_buf + bytes_done, buf_stride - bytes_done);
       px_map += map_stride;
       px_buf += buf_stride;
     }
@@ -1779,10 +1782,11 @@ void convert_rgb565_to_gpu(uint8_t* px_buf, uint32_t buf_stride,
           dst[j].ch.green = LV_UDIV255(((src[j].ch.green * 259 + 3) >> 6) * mix + recolor_premult[1]);
           dst[j].ch.blue = LV_UDIV255(((src[j].ch.blue * 263 + 7) >> 5) * mix + recolor_premult[2]);
         }
-        lv_memset_00(px_buf + map_stride, buf_stride - map_stride);
-        px_map += map_stride;
-        px_buf += buf_stride;
       }
+      uint32_t bytes_done = header->w * sizeof(lv_color32_t);
+      lv_memset_00(px_buf + bytes_done, buf_stride - bytes_done);
+      px_map += map_stride;
+      px_buf += buf_stride;
     }
   }
 }
@@ -2320,6 +2324,7 @@ void convert_indexed8_to_argb8888(uint8_t* px_buf, uint32_t buf_stride,
 #endif
 }
 
+#if LV_COLOR_DEPTH == 32
 /****************************************************************************
  * Name: pre_zoom_gaussian_filter
  *
@@ -2520,6 +2525,7 @@ Error:
   }
   return src;
 }
+#endif /* LV_COLOR_DEPTH == 32 */
 
 #ifdef CONFIG_ARM_HAVE_MVE
 

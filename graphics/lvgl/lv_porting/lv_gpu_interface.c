@@ -284,6 +284,8 @@ void lv_gpu_draw_ctx_init(lv_disp_drv_t* drv, lv_draw_ctx_t* draw_ctx)
 #endif
 #if defined(CONFIG_ARM_HAVE_MVE) && LV_COLOR_DEPTH == 32
   gpu_draw_ctx->blend = gpu_draw_blend;
+#else
+  LV_UNUSED(gpu_draw_blend);
 #endif
   gpu_draw_ctx->base_draw.wait_for_finish = gpu_wait;
 }

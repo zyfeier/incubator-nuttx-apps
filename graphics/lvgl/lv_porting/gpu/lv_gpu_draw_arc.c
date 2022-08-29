@@ -159,7 +159,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_arc_f(
   gpu_img_dsc.draw_dsc = &draw_dsc;
   _lv_img_cache_entry_t* cdsc = NULL;
   if (dsc->img_src) {
-    lv_color32_t color = dsc->color;
+    lv_color32_t color = (lv_color32_t)lv_color_to32(dsc->color);
     LV_COLOR_SET_A32(color, 0);
     cdsc = _lv_img_cache_open(dsc->img_src, color, 0);
   }

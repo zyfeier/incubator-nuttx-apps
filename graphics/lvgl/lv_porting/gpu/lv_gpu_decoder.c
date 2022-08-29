@@ -683,7 +683,9 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
       || header->cf == LV_IMG_CF_TRUE_COLOR_CHROMA_KEYED) {
     vgbuf_stride = vgbuf_w * sizeof(lv_color32_t);
     vgbuf_format = VG_LITE_BGRA8888;
-    map_stride = header->w * LV_IMG_PX_SIZE_ALPHA_BYTE;
+    if (header->cf == LV_IMG_CF_TRUE_COLOR_ALPHA) {
+      map_stride = header->w * LV_IMG_PX_SIZE_ALPHA_BYTE;
+    }
   }
   if (preprocessed) {
     map_stride = vgbuf_stride;
@@ -691,7 +693,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_load_vgbuf(const uint8_t* img_data,
 #endif
   uint32_t vgbuf_size = header->h * vgbuf_stride;
   if (mem == NULL) {
-    mem = gpu_heap_aligned_alloc(8, vgbuf_size);
+    mem = gpu_heap_aligned_alloc(64, vgbuf_size);
   }
   if (mem == NULL) {
     GPU_WARN("Insufficient memory for GPU 16px aligned image cache");
