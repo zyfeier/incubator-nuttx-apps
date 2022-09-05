@@ -250,31 +250,14 @@ config LV_KEYPAD_INTERFACE_KEY_END_MAP_BIT
 
 endif # LV_USE_KEYPAD_INTERFACE
 
-menuconfig LV_USE_TOUCHPAD_INTERFACE
+config LV_USE_TOUCHPAD_INTERFACE
 	bool "Touchpad input interface"
 	default n
 
-if LV_USE_TOUCHPAD_INTERFACE
-
 config LV_TOUCHPAD_INTERFACE_DEFAULT_DEVICEPATH
+	depends on LV_USE_TOUCHPAD_INTERFACE
 	string "Touchpad default device path"
 	default "/dev/input0"
-
-choice
-	bool "Touchpad rotation"
-	default LV_TOUCHPAD_ROTATE_0
-
-	config LV_TOUCHPAD_ROTATE_0
-		bool "0 deg"
-	config LV_TOUCHPAD_ROTATE_90
-		bool "90 deg"
-	config LV_TOUCHPAD_ROTATE_180
-		bool "180 deg"
-	config LV_TOUCHPAD_ROTATE_270
-		bool "270 deg"
-endchoice
-
-endif # LV_USE_TOUCHPAD_INTERFACE
 
 config LV_USE_ENCODER_INTERFACE
 	depends on INPUT_MOUSE_WHEEL
