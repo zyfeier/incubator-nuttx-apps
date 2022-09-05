@@ -500,7 +500,7 @@ static int fbdev_get_pinfo(int fd, FAR struct fb_planeinfo_s *pinfo)
 
 static int fbdev_try_init_fbmem2(FAR struct fbdev_obj_s *state)
 {
-  uint32_t buf_offset;
+  uintptr_t buf_offset;
   struct fb_planeinfo_s pinfo;
 
   memset(&pinfo, 0, sizeof(pinfo));
@@ -531,8 +531,8 @@ static int fbdev_try_init_fbmem2(FAR struct fbdev_obj_s *state)
 
   if ((buf_offset % state->pinfo.stride) != 0)
     {
-      LV_LOG_ERROR("The buf_offset(%" PRIu32 ") is incorrect,"
-                   " It needs to be divisible"
+      LV_LOG_ERROR("The buf_offset(%" PRIuPTR ") is incorrect,"
+                   " it needs to be divisible"
                    " by pinfo.stride(%d)",
                    buf_offset, state->pinfo.stride);
       return -1;
