@@ -101,8 +101,10 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   if (opa < LV_OPA_MIN) {
     return LV_RES_OK;
   }
-  lv_disp_t * disp = _lv_refr_get_disp_refreshing();
-  if (disp->driver->screen_transp) {
+  lv_disp_t* disp = _lv_refr_get_disp_refreshing();
+  vg_lite_buffer_t* vgbuf = lv_gpu_get_vgbuf((void*)map_p);
+  if (disp->driver->screen_transp
+      && (!vgbuf || vgbuf->format == VG_LITE_BGRA8888)) {
     GPU_WARN("Output image with alpha unsupported by GPU");
     return LV_RES_INV;
   }
@@ -124,7 +126,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   lv_area_copy(&coords_rel, coords);
   lv_area_move(&coords_rel, -disp_area->x1, -disp_area->y1);
   vg_lite_buffer_t dst_vgbuf;
-  vg_lite_buffer_t* vgbuf;
   vg_lite_error_t vgerr = VG_LITE_SUCCESS;
 
   if (init_vg_buf(&dst_vgbuf, disp_w, disp_h,
@@ -184,7 +185,6 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_draw_img_decoded_gpu(
   bool preprocessed = false;
   bool masked = lv_draw_mask_is_any(&draw_area);
   lv_color32_t pre_recolor;
-  vgbuf = lv_gpu_get_vgbuf((void*)map_p);
   uint32_t* palette = NULL;
 
   if (vgbuf) {

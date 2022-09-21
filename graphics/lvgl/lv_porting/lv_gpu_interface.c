@@ -170,7 +170,7 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(
       lv_draw_sw_img_decoded(draw_ctx, dsc, coords, map_p, color_format);
     } else {
       coords_aligned16.x2 = coords_aligned16.x1 + vgbuf->width - 1;
-      if (vgbuf->format == VGLITE_PX_FMT) {
+      if (vgbuf->format == VGLITE_PX_FMT || vgbuf->format == VG_LITE_BGRA8888) {
         lv_draw_sw_img_decoded(draw_ctx, dsc, &coords_aligned16,
             map_p + sizeof(gpu_data_header_t), color_format);
       } else if (vgbuf->format == VG_LITE_INDEX_8) {
@@ -186,7 +186,7 @@ LV_ATTRIBUTE_FAST_MEM static void gpu_draw_img_decoded(
           gpu_heap_free(buf);
         }
       } else {
-        LV_LOG_ERROR("Unexpected draw img failure");
+        LV_LOG_ERROR("Unexpected draw img failure, type: %d", vgbuf->format);
       }
     }
     draw_ctx->clip_area = clip_area_ori;
