@@ -203,8 +203,8 @@ static int ifconfig_callback(FAR struct nsh_vtbl_s *vtbl, FAR char *devname)
  ****************************************************************************/
 
 #ifdef CONFIG_NET_UDP
-int tftpc_parseargs(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv,
-                    struct tftpc_args_s *args)
+int tftpc_parseargs(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv,
+                    FAR struct tftpc_args_s *args)
 {
   FAR const char *fmt = g_fmtarginvalid;
   bool badarg = false;
@@ -342,7 +342,7 @@ errout:
 #ifdef CONFIG_NET_TCP
 #ifndef CONFIG_NSH_DISABLE_WGET
 static int wget_callback(FAR char **buffer, int offset, int datend,
-                          FAR int *buflen, FAR void *arg)
+                         FAR int *buflen, FAR void *arg)
 {
   ssize_t written = write((int)((intptr_t)arg), &((*buffer)[offset]),
                           datend - offset);
@@ -463,7 +463,7 @@ static inline void nsh_sethwaddr(FAR const char *ifname,
 
 #ifdef CONFIG_NET_UDP
 #ifndef CONFIG_NSH_DISABLE_GET
-int cmd_get(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+int cmd_get(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 {
   struct tftpc_args_s args;
   FAR char *fullpath;
@@ -504,7 +504,7 @@ int cmd_get(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
  ****************************************************************************/
 
 #ifndef CONFIG_NSH_DISABLE_IFUPDOWN
-int cmd_ifup(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+int cmd_ifup(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 {
   FAR char *ifname = NULL;
   int ret;
@@ -527,7 +527,7 @@ int cmd_ifup(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
  ****************************************************************************/
 
 #ifndef CONFIG_NSH_DISABLE_IFUPDOWN
-int cmd_ifdown(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+int cmd_ifdown(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 {
   FAR char *ifname = NULL;
   int ret;
@@ -551,7 +551,7 @@ int cmd_ifdown(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
  ****************************************************************************/
 
 #ifndef CONFIG_NSH_DISABLE_IFCONFIG
-int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 {
 #ifdef CONFIG_NET_IPv4
   struct in_addr addr;
@@ -985,7 +985,7 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
  ****************************************************************************/
 
 #if defined(CONFIG_LIBC_NETDB) && !defined(CONFIG_NSH_DISABLE_NSLOOKUP)
-int cmd_nslookup(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+int cmd_nslookup(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 {
   FAR struct addrinfo *info;
   FAR struct addrinfo *next;
@@ -1035,7 +1035,7 @@ int cmd_nslookup(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
  ****************************************************************************/
 
 #if defined(CONFIG_NET_ARP) && !defined(CONFIG_NSH_DISABLE_ARP)
-int cmd_arp(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+int cmd_arp(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 {
   struct sockaddr_in inaddr;
   struct ether_addr mac;
@@ -1237,7 +1237,7 @@ errout_invalid:
 
 #ifdef CONFIG_NET_UDP
 #ifndef CONFIG_NSH_DISABLE_PUT
-int cmd_put(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+int cmd_put(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 {
   struct tftpc_args_s args;
   FAR char *fullpath;
@@ -1279,7 +1279,7 @@ int cmd_put(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
 #ifdef CONFIG_NET_TCP
 #ifndef CONFIG_NSH_DISABLE_WGET
-int cmd_wget(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+int cmd_wget(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 {
   FAR char *localfile = NULL;
   FAR char *allocfile = NULL;
