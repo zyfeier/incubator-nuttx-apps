@@ -738,7 +738,7 @@ int dhcpc_request(FAR void *handle, FAR struct dhcpc_state *presult)
        * of time). Then loop and send the DISCOVER command again.
        */
 
-      else if (errno != EAGAIN)
+      else if (errno != EAGAIN && errno != EINTR)
         {
           /* An error other than a timeout was received -- error out */
 
@@ -835,7 +835,7 @@ int dhcpc_request(FAR void *handle, FAR struct dhcpc_state *presult)
        * (at most 3 times).
        */
 
-      else if (errno != EAGAIN)
+      else if (errno != EAGAIN && errno != EINTR)
         {
           /* An error other than a timeout was received */
 
