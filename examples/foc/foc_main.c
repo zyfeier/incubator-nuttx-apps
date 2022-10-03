@@ -615,10 +615,8 @@ errout:
     }
 
 errout_no_mutex:
-
   foc_threads_deinit();
 
   PRINTF("foc_main exit\n");
-
   return 0;
 }

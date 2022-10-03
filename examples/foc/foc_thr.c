@@ -182,7 +182,6 @@ errout:
     }
 
   PRINTFV("foc_control_thr %d exit\n", envp->id);
-
   return NULL;
 }
 
