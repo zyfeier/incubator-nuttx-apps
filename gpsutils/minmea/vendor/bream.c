@@ -36,7 +36,10 @@
 #define BREAM_SYNC_CHAR2          0x62
 #define BREAM_CHKSUM_SIZE         0x02
 
+#define BREAM_GROUP_ASC           0x02
 #define BREAM_GROUP_PVT           0x01
+
+#define BREAM_ASC_MEAS            0x15
 
 #define BREAM_PVT_DOP             0x04
 #define BREAM_PVT_PVT             0x07
@@ -145,8 +148,41 @@ enum bream_sentence_id bream_sentence_id(FAR const void *sentence,
           }
         }
     }
+  else if(header->group == BREAM_GROUP_ASC)
+    {
+      pktlen = bream_verify_checksum(sentence, *len);
+      if (pktlen < 0)
+        {
+          if (pktlen == -ENODATA)
+            {
+              return BREAM_UNKNOWN;
+            }
+
+          if (pktlen == -ESTALE)
+            {
+              return BREAM_INVALID;
+            }
+        }
+
+      *len = pktlen;
+
+      if (header->number == BREAM_ASC_MEAS)
+        {
+          if (header->payloadlen == sizeof(struct bream_sentence_asc_meas))
+            {
+              return BREAM_ASC_MEAS;
+            }
+        }
+    }
 
   return BREAM_UNSUPPORT;
+}
+
+void bream_parse_asc_meas(FAR struct bream_sentence_asc_meas *frame,
+                          FAR const void *sentence)
+{
+  FAR const struct bream_header *header = sentence;
+  memcpy(frame, header + 1, sizeof(*frame));
 }
 
 void bream_parse_pvt_dop(FAR struct bream_sentence_pvt_dop *frame,

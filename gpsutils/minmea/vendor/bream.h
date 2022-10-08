@@ -28,6 +28,12 @@
 #include <minmea/minmea.h>
 
 /****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+#define BREAM_MAX_CHANNEL         50
+
+/****************************************************************************
  * Public Types
  ****************************************************************************/
 
@@ -36,9 +42,40 @@ enum bream_sentence_id
     BREAM_INVALID = -1,
     BREAM_UNKNOWN = 0,
     BREAM_UNSUPPORT,
+    BREAM_SENTENCE_ASC_MEAS,
     BREAM_SENTENCE_PVT_DOP,
     BREAM_SENTENCE_PVT_PVT,
 };
+
+begin_packed_struct struct bream_ras_meas
+{
+    double   prmes;
+    double   cpmes;
+    float    domes;
+    uint8_t  gnssid;
+    uint8_t  svid;
+    uint8_t  sigid;
+    uint8_t  freqid;
+    uint16_t locktime;
+    uint8_t  cn0;
+    uint8_t  prstdev;
+    uint8_t  cpstdev;
+    uint8_t  dostdev;
+    uint8_t  trkstat;
+    uint8_t  extra;
+} end_packed_struct;
+
+begin_packed_struct struct bream_sentence_asc_meas
+{
+    double rcvtow;
+    uint16_t week;
+    int8_t   leaps;
+    uint8_t  nummeas;
+    uint8_t  recstat;
+    uint8_t  version;
+    uint8_t  reserved1[2];
+    struct bream_ras_meas meas[BREAM_MAX_CHANNEL];
+} end_packed_struct;
 
 begin_packed_struct struct bream_sentence_pvt_dop
 {
@@ -100,6 +137,8 @@ enum bream_sentence_id bream_sentence_id(FAR const void *sentence,
 
 /* Parse a specific type of sentence. */
 
+void bream_parse_asc_meas(FAR struct bream_sentence_asc_meas *frame,
+                          FAR const void *sentence);
 void bream_parse_pvt_dop(FAR struct bream_sentence_pvt_dop *frame,
                          FAR const void *sentence);
 void bream_parse_pvt_pvt(FAR struct bream_sentence_pvt_pvt *frame,
