@@ -826,7 +826,7 @@ int foc_motor_init(FAR struct foc_motor_f32_s *motor,
   /* Initialize motor alignment data */
 
   align_cfg.volt         = (CONFIG_EXAMPLES_FOC_ALIGN_VOLT / 1000.0f);
-  align_cfg.offset_steps = (CONFIG_EXAMPLES_FOC_NOTIFIER_FREQ *     \
+  align_cfg.offset_steps = (CONFIG_EXAMPLES_FOC_NOTIFIER_FREQ * \
                             CONFIG_EXAMPLES_FOC_ALIGN_SEC / 1000);
 
   /* Connect align callbacks */

@@ -176,8 +176,8 @@ static inline int binaryexpression(FAR struct nsh_vtbl_s *vtbl, char **argv)
 static inline int unaryexpression(FAR struct nsh_vtbl_s *vtbl, char **argv)
 {
   struct stat buf;
-  char *fullpath;
-  int   ret;
+  FAR char *fullpath;
+  int ret;
 
   /* -n STRING */
 
