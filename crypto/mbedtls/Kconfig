@@ -15,6 +15,107 @@ config MBEDTLS_VERSION
 	string "Mbed TLS Version"
 	default "3.0.0"
 
+config MBEDTLS_DEBUG_C
+	bool "This module provides debugging functions."
+	default n
+	help
+		This module provides debugging functions.
+
+config MBEDTLS_SSL_OUT_CONTENT_LEN
+	int "Maximum out length (in bytes) of incoming and outgoing plaintext fragments."
+	default 16384
+	help
+		Maximum length (in bytes) of incoming and outgoing plaintext fragments.
+
+config MBEDTLS_SSL_IN_CONTENT_LEN
+	int "Maximum in length (in bytes) of incoming and outgoing plaintext fragments."
+	default MBEDTLS_SSL_OUT_CONTENT_LEN
+	help
+		Maximum length (in bytes) of incoming and outgoing plaintext fragments.
+
+
+config MBEDTLS_SSL_SRV_C
+	bool "This module is required for SSL/TLS server support."
+	default n
+	help
+		This module is required for SSL/TLS server support.
+
+config MBEDTLS_PLATFORM_MEMORY
+  bool "Enable the memory allocation layer."
+  default n
+
+config MBEDTLS_ENTROPY_HARDWARE_ALT
+	bool "Uncomment this macro to let mbed TLS use your own implementation of a hardware entropy collector."
+	default n
+
+config MBEDTLS_AES_ROM_TABLES
+	bool "Store the AES tables in ROM."
+	default n
+
+config MBEDTLS_NO_PLATFORM_ENTROPY
+	bool "Do not use built-in platform entropy functions."
+	default n
+
+config MBEDTLS_SELF_TEST
+	bool "Enable the checkup functions (*_self_test)."
+	default n
+
+config MBEDTLS_SSL_DTLS_CLIENT_PORT_REUSE
+	bool "Enable server-side support for clients that reconnect from the same port."
+	default y
+
+config MBEDTLS_CAMELLIA_C
+	bool "Enable the Camellia block cipher."
+	default y
+
+config MBEDTLS_PADLOCK_C
+	bool "Enable VIA Padlock support on x86."
+	default y
+
+config MBEDTLS_TIMING_C
+	bool "Enable the semi-portable timing interface."
+	default y
+
+config MBEDTLS_SSL_KEEP_PEER_CERTIFICATE
+	bool "Enable the availability of the API mbedtls_ssl_get_peer_cert() giving access to the peer's certificate after completion of the handshake."
+	default y
+
+config MBEDTLS_SSL_PROTO_DTLS
+	bool "Enable support for DTLS (all available versions)."
+	default y
+
+if MBEDTLS_SSL_PROTO_DTLS
+
+config MBEDTLS_SSL_DTLS_ANTI_REPLAY
+	bool "Enable support for the anti-replay mechanism in DTLS."
+	default y
+
+config MBEDTLS_SSL_DTLS_HELLO_VERIFY
+	bool "Enable support for HelloVerifyRequest on DTLS servers."
+	default y
+
+endif
+
+config MBEDTLS_SSL_ALPN
+	bool "Enable support for RFC 7301 Application Layer Protocol Negotiation."
+	default y
+
+config MBEDTLS_AESNI_C
+	bool "Enable AES-NI support on x86-64."
+	default y
+
+config MBEDTLS_ECP_WINDOW_SIZE
+	int "Maximum window size used"
+	default 6
+
+config MBEDTLS_ECP_FIXED_POINT_OPTIM
+	bool "Enable fixed-point speed-up"
+	default y
+
+config MBEDTLS_CMAC_C
+	bool "Enable the CMAC (Cipher-based Message Authentication Code) mode for block"
+	default n
+
 menuconfig MBEDTLS_APPS
 	tristate "Mbed TLS Applications"
 	default n
