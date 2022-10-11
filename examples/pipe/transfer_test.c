@@ -63,7 +63,7 @@
 static void *transfer_reader(pthread_addr_t pvarg)
 {
   char buffer[READ_SIZE];
-  int fd = (int)pvarg;
+  int fd = (intptr_t)pvarg;
   int ret;
   int nbytes;
   int value;
@@ -119,7 +119,7 @@ static void *transfer_reader(pthread_addr_t pvarg)
 static void *transfer_writer(pthread_addr_t pvarg)
 {
   char buffer[WRITE_SIZE];
-  int fd = (int)pvarg;
+  int fd = (intptr_t)pvarg;
   int ret;
   int i;
 
@@ -166,7 +166,7 @@ int transfer_test(int fdin, int fdout)
   /* Start transfer_reader thread */
 
   printf("transfer_test: Starting transfer_reader thread\n");
-  ret = pthread_create(&readerid, NULL, transfer_reader, (pthread_addr_t)fdin);
+  ret = pthread_create(&readerid, NULL, transfer_reader, (void *)(intptr_t)fdin);
   if (ret != 0)
     {
       fprintf(stderr, "transfer_test: Failed to create transfer_reader thread, error=%d\n", ret);
@@ -176,7 +176,7 @@ int transfer_test(int fdin, int fdout)
   /* Start transfer_writer thread */
 
   printf("transfer_test: Starting transfer_writer thread\n");
-  ret = pthread_create(&writerid, NULL, transfer_writer, (pthread_addr_t)fdout);
+  ret = pthread_create(&writerid, NULL, transfer_writer, (void *)(intptr_t)fdout);
   if (ret != 0)
     {
       fprintf(stderr, "transfer_test: Failed to create transfer_writer thread, error=%d\n", ret);
@@ -199,7 +199,7 @@ int transfer_test(int fdin, int fdout)
     }
   else
     {
-      ret = (int)value;
+      ret = (intptr_t)value;
       printf("transfer_test: transfer_writer returned %d\n", ret);
     }
 
@@ -213,7 +213,7 @@ int transfer_test(int fdin, int fdout)
     }
   else
     {
-      tmp = (int)value;
+      tmp = (intptr_t)value;
       printf("transfer_test: transfer_reader returned %d\n", tmp);
     }
 

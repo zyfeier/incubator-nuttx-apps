@@ -183,7 +183,7 @@ int interlock_test(void)
     }
   else
     {
-      printf("interlock_test: writer returned %d\n", (int)value);
+      printf("interlock_test: writer returned %p\n", value);
       if (value != (void*)0)
         {
           ret = 7;
