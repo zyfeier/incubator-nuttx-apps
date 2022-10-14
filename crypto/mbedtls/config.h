@@ -2471,7 +2471,9 @@
  * Requires: MBEDTLS_AES_C or MBEDTLS_DES_C
  *
  */
-//#define MBEDTLS_CMAC_C
+#ifdef CONFIG_MBEDTLS_CMAC_C
+#define MBEDTLS_CMAC_C
+#endif
 
 /**
  * \def MBEDTLS_CTR_DRBG_C
