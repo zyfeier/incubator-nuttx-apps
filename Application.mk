@@ -160,8 +160,13 @@ $(ZIGOBJS): %$(ZIGEXT)$(SUFFIX)$(OBJEXT): %$(ZIGEXT)
 		$(call ELFCOMPILEZIG, $<, $@), $(call COMPILEZIG, $<, $@))
 
 .built: $(OBJS)
-	$(Q) mkdir -p $(dir $(BIN))
+ifneq ($(OBJS),)
 	$(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^)
+ifneq ($(BIN),$(APPDIR)$(DELIM)libapps$(LIBEXT))
+	$(Q) mkdir -p $(APPDIR)$(DELIM)staging
+	$(Q) cp $(call CONVERT_PATH,$(BIN)) $(APPDIR)$(DELIM)staging$(DELIM)
+endif
+endif
 	$(Q) touch $@
 
 ifeq ($(BUILD_MODULE),y)
@@ -221,6 +226,9 @@ install::
 endif # BUILD_MODULE
 
 context::
+ifneq ($(BIN),$(APPDIR)$(DELIM)libapps$(LIBEXT))
+	$(Q) mkdir -p $(dir $(BIN))
+endif
 
 ifneq ($(PROGNAME),)
 
@@ -248,6 +256,7 @@ depend:: .depend
 
 clean::
 	$(call DELFILE, .built)
+	$(call DELDIR, $(APPDIR)$(DELIM)staging)
 	$(call CLEAN)
 
 distclean:: clean
