@@ -665,6 +665,8 @@ int dhcpc_request(FAR void *handle, FAR struct dhcpc_state *presult)
   int     retries;
   int     state;
 
+  memset(presult, 0, sizeof(*presult));
+
   /* Save the currently assigned IP address (should be INADDR_ANY) */
 
   oldaddr.s_addr = 0;
