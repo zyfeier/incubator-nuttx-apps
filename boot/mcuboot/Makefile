@@ -71,7 +71,6 @@ CSRCS += $(MCUBOOT_UNPACK)/ext/tinycrypt/lib/source/aes_encrypt.c \
          $(MCUBOOT_UNPACK)/ext/tinycrypt/lib/source/ecc_dh.c \
          $(MCUBOOT_UNPACK)/ext/tinycrypt/lib/source/sha256.c \
          $(MCUBOOT_UNPACK)/ext/tinycrypt/lib/source/utils.c
-endif
 
 $(MCUBOOT_TARBALL):
 	$(Q) echo "Downloading MCUboot-$(MCUBOOT_VERSION)"
