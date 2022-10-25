@@ -1,5 +1,5 @@
 /****************************************************************************
- * apps/testing/drivertest/cmocka_driver_simple.c
+ * apps/testing/drivertest/drivertest_simple.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -48,7 +48,7 @@ static void test_case_02(void **state)
  ****************************************************************************/
 
 /****************************************************************************
- * cmocka_driver_simple_main
+ * drivertest_simple_main
  ****************************************************************************/
 
 int main(int argc, FAR char *argv[])
