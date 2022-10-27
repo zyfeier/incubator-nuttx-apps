@@ -76,4 +76,9 @@ MAINSRC  += drivertest_lcd.c
 PROGNAME += cmocka_driver_lcd
 endif
 
+ifneq ($(CONFIG_SERIAL),)
+MAINSRC  += drivertest_uart.c
+PROGNAME += cmocka_driver_uart
+endif
+
 include $(APPDIR)/Application.mk
