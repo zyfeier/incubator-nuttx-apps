@@ -539,9 +539,9 @@ static int usrsock_rpmsg_recvfrom_handler(struct rpmsg_endpoint *ept,
               req->flags,
               outaddrlen ? (struct sockaddr *)(ack + 1) : NULL,
               outaddrlen ? &outaddrlen : NULL);
+      totlen = ret;
       if (ret > 0)
         {
-          totlen = ret;
           if (outaddrlen < inaddrlen)
             {
               memcpy((void *)(ack + 1) + outaddrlen,
