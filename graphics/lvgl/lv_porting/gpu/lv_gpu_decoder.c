@@ -333,7 +333,7 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
       px_map = fs_buf;
     }
     uint8_t zero_id = 0;
-    while (palette[zero_id] && zero_id < palette_size) {
+    while (zero_id < palette_size && palette[zero_id]) {
       zero_id++;
     }
     if (zero_id == palette_size) {
