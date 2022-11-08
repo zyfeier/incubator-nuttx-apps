@@ -29,4 +29,9 @@ MAINSRC  += drivertest_simple.c
 PROGNAME += cmocka_driver_simple
 endif
 
+ifeq ($(CONFIG_MMCSD),y)
+PROGNAME += cmocka_driver_block
+MAINSRC  += drivertest_block.c
+endif
+
 include $(APPDIR)/Application.mk
