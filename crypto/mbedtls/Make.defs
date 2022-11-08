@@ -23,8 +23,8 @@ CONFIGURED_APPS += $(APPDIR)/crypto/mbedtls
 
 # Allows `<mbedtls/<>.h>` import.
 
-MBEDTLS_FLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/crypto}
-MBEDTLS_FLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/crypto/mbedtls/mbedtls/include}
+MBEDTLS_FLAGS += ${INCDIR_PREFIX}$(APPDIR)/crypto
+MBEDTLS_FLAGS += ${INCDIR_PREFIX}$(APPDIR)/crypto/mbedtls/mbedtls/include
 
 CFLAGS += ${MBEDTLS_FLAGS}
 CXXFLAGS += ${MBEDTLS_FLAGS}

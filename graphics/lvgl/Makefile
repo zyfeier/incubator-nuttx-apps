@@ -66,8 +66,8 @@ endif
 endif
 
 ifneq ($(CONFIG_LV_USE_GPU_INTERFACE),)
-CFLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu/drv/vglite/inc}
-CFLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu}
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu/drv/vglite/inc
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu
 CSRCS += lv_porting/lv_gpu_interface.c
 CSRCS += lv_porting/gpu/lv_gpu_decoder.c
 CSRCS += lv_porting/gpu/lv_gpu_evoreader.c
@@ -104,7 +104,7 @@ endif
 endif
 
 ifneq ($(CONFIG_LV_USE_DECODER_JPEG_TURBO),)
-CFLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/../external/libjpeg-turbo/libjpeg-turbo}
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../external/libjpeg-turbo/libjpeg-turbo
 CSRCS += lv_porting/decoder/jpeg_turbo/lv_jpeg_turbo.c
 endif
 
@@ -114,16 +114,16 @@ CSRCS += lv_porting/decoder/lodepng/lv_lodepng.c
 endif
 
 ifneq ($(CONFIG_LV_USE_LIBPNG),)
-CFLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/../external/libpng}
-CFLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/../external/libpng/libpng}
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../external/libpng
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../external/libpng/libpng
 endif
 
 ifneq ($(CONFIG_LV_USE_FFMPEG),)
-CFLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/../external/ffmpeg/ffmpeg}
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../external/ffmpeg/ffmpeg
 endif
 
 ifneq ($(CONFIG_LV_USE_RLOTTIE),)
-CFLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/../external/rlottie/rlottie/inc}
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../external/rlottie/rlottie/inc
 endif
 
 ifneq ($(CONFIG_LV_ATTRIBUTE_FAST_MEM_CUSTOM_SECTION_NAME), "")

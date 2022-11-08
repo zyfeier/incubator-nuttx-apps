@@ -20,6 +20,6 @@
 
 ifneq ($(CONFIG_TESTING_CMOCKA),)
 CONFIGURED_APPS += $(APPDIR)/testing/cmocka
-CFLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/testing/cmocka/cmocka/include}
-CXXFLAGS += ${shell $(INCDIR) "$(CC)" $(APPDIR)/testing/cmocka/cmocka/include}
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/testing/cmocka/cmocka/include
+CXXFLAGS += ${INCDIR_PREFIX}$(APPDIR)/testing/cmocka/cmocka/include
 endif
