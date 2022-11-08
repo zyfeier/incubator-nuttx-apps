@@ -34,4 +34,9 @@ PROGNAME += cmocka_driver_block
 MAINSRC  += drivertest_block.c
 endif
 
+ifneq ($(CONFIG_RTC),)
+MAINSRC  += drivertest_rtc.c
+PROGNAME += cmocka_driver_rtc
+endif
+
 include $(APPDIR)/Application.mk
