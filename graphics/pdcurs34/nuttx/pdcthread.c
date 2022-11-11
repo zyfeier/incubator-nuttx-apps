@@ -118,7 +118,7 @@ static FAR struct pdc_context_s *PDC_ctx_new(void)
 
   /* Get our PID */
 
-  pid = getpid();
+  pid = gettid();
 
 #ifdef CONFIG_PDCURSES_MULTITHREAD_HASH
 
@@ -179,7 +179,7 @@ FAR struct pdc_context_s * PDC_ctx(void)
 
   /* Get our PID */
 
-  pid = getpid();
+  pid = gettid();
 
 #ifdef CONFIG_PDCURSES_MULTITHREAD_HASH
 
@@ -264,7 +264,7 @@ void PDC_ctx_free(void)
 
   /* Get a unique hash key from the PID */
 
-  pid = PIDHASH(getpid());
+  pid = PIDHASH(gettid());
   ctx = g_pdc_ctx_per_pid[pid];
 
   /* Free the context memory */
