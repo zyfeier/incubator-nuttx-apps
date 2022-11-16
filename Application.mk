@@ -107,7 +107,7 @@ VPATH += :.
 
 # Targets follow
 
-all:: .built
+all:: built
 .PHONY: clean depend distclean
 .PRECIOUS: $(BIN)
 
@@ -166,14 +166,17 @@ $(ZIGOBJS): %$(ZIGEXT)$(SUFFIX)$(OBJEXT): %$(ZIGEXT)
 		$(call ELFCOMPILEZIG, $<, $@), $(call COMPILEZIG, $<, $@))
 
 .built: $(OBJS)
-	$(if $(wildcard $<), \
-	  $(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^) \
+	$(if $(wildcard $<), $(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^))
+	$(Q) touch $@
+
+built: .built
+	$(if $(wildcard $(OBJS)), \
 	  $(if $(ORIG_BIN), \
 	    $(shell mkdir -p $(dir $(ORIG_BIN))) \
-	    $(shell cp $(call CONVERT_PATH,$(BIN)) $(ORIG_BIN)) \
+	    $(shell cp -rf $(call CONVERT_PATH,$(BIN)) $(ORIG_BIN)) \
 	   ), \
 	   $(if $(wildcard $(ORIG_BIN)), \
-	     $(shell cp $(ORIG_BIN) $(call CONVERT_PATH,$(BIN))), \
+	     $(shell cp -rf $(ORIG_BIN) $(call CONVERT_PATH,$(BIN))), \
 	    ) \
 	  )
 	$(Q) touch $@
