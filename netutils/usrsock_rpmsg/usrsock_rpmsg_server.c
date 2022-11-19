@@ -791,13 +791,11 @@ static int usrsock_rpmsg_accept_handler(struct rpmsg_endpoint *ept,
             {
               ret = psock_accept(&priv->socks[req->usockid],
                       outaddrlen ? (struct sockaddr *)(ack + 1) : NULL,
-                      outaddrlen ? &outaddrlen : NULL, &priv->socks[i]);
+                      outaddrlen ? &outaddrlen : NULL, &priv->socks[i],
+                      SOCK_NONBLOCK);
               pthread_mutex_unlock(&priv->mutex);
               if (ret >= 0)
                 {
-                  int nonblock = 1;
-
-                  psock_ioctl(&priv->socks[i], FIONBIO, &nonblock);
                   priv->epts[i] = ept;
 
                   /* Append index as usockid to the payload */
