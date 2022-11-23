@@ -159,6 +159,7 @@ STACKSIZE     = $(CONFIG_DEFAULT_TASK_STACKSIZE)
 MODULE        = $(CONFIG_TESTING_LTP)
 
 CSRCS        := $(LTP_CSRCS_1) $(LTP_CSRCS_2) $(LTP_CSRCS_3) $(LTP_CSRCS_4)
+CFLAGS       += -Werror
 CFLAGS       += -I$(CURDIR)
 CFLAGS       += -I$(TESTDIR)/include
 
