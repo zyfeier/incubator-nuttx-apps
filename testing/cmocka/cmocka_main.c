@@ -24,14 +24,16 @@
 
 #include <nuttx/config.h>
 #include <sched.h>
-#include <pthread.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include <stdint.h>
 #include <cmocka.h>
-#include <nuttx/lib/builtin.h>
+#include <sys/wait.h>
+
+#include <builtin/builtin.h>
 
 /****************************************************************************
  * Public Functions
@@ -41,20 +43,20 @@
  * cmocka_main
  ****************************************************************************/
 
-int main(int argc,  FAR char *argv[])
+int main(int argc, FAR char *argv[])
 {
   const char prefix[] = CONFIG_TESTING_CMOCKA_PROGNAME"_";
   FAR const struct builtin_s *builtin;
   int len = strlen(prefix);
-  struct sched_param param;
-  pthread_attr_t attr;
-  pthread_t pid;
-  FAR char *comp = NULL;
-  FAR char *skipcase = NULL;
+  FAR char *bypass[argc];
+  FAR char *cases[argc];
+  FAR char *skip[argc];
+  int num_bypass = 1;
+  int num_cases = 0;
+  int num_skip = 0;
   int ret;
   int i;
   int j;
-  int m_len;
 
   if (strlen(argv[0]) < len - 1 ||
       strncmp(argv[0], prefix, len - 1))
@@ -62,9 +64,30 @@ int main(int argc,  FAR char *argv[])
       return 0;
     }
 
-  if (argc > 1 && strncmp(prefix, argv[1], len) == 0)
+  memset(cases, 0, sizeof(cases));
+  memset(skip, 0, sizeof(skip));
+  memset(bypass, 0, sizeof(bypass));
+
+  for (i = 1; i < argc; i++)
     {
-      comp = &argv[1][len];
+      if (strcmp("--case", argv[i]) == 0)
+        {
+          cases[num_cases++] = argv[++i];
+        }
+      else if (strcmp("--skip", argv[i]) == 0)
+        {
+          skip[num_skip++] = argv[++i];
+        }
+      else
+        {
+          bypass[num_bypass++] = argv[i];
+        }
+    }
+
+  cmocka_set_skip_filter(NULL);
+  for (i = 0; skip[i]; i++)
+    {
+      cmocka_set_skip_filter(skip[i]);
     }
 
   for (i = 0; (builtin = builtin_for_index(i)) != NULL; i++)
@@ -76,41 +99,28 @@ int main(int argc,  FAR char *argv[])
           continue;
         }
 
-      if (comp &&
-          strncmp(builtin->name + len, comp, strlen(comp)))
+      for (j = 0; cases[j]; j++)
+        {
+          if (strncmp(builtin->name + len,
+                cases[j], strlen(cases[j])) == 0)
+            {
+              break;
+            }
+        }
+
+      if (j && cases[j] == NULL)
         {
           continue;
         }
 
-      for (j = 1; j < argc; j++)
+      bypass[0] = (FAR char *)builtin->name;
+      ret = exec_builtin(builtin->name, bypass, NULL, 0);
+      if (ret >= 0)
         {
-          m_len = strlen(builtin->name)-len;
-          if (strncmp(builtin->name + len, argv[j], m_len) == 0 &&
-              strlen(argv[j]) > m_len)
-            {
-              cmocka_set_skip_filter(NULL);
-              skipcase = &argv[j][m_len + 1];
-              cmocka_set_skip_filter(skipcase);
-            }
+
+          waitpid(ret, &ret, WUNTRACED);
         }
-
-      pthread_attr_init(&attr);
-      pthread_attr_getschedparam(&attr, &param);
-      param.sched_priority = builtin->priority;
-      pthread_attr_setschedparam(&attr, &param);
-      pthread_attr_setstacksize(&attr, builtin->stacksize);
-      ret = pthread_create(&pid, &attr,
-                           (pthread_startroutine_t)builtin->main, NULL);
-      pthread_attr_destroy(&attr);
-
-      if (ret != 0)
-        {
-          break;
-        }
-
-      pthread_join(pid, NULL);
     }
 
-  cmocka_set_skip_filter(NULL);
   return 0;
 }
