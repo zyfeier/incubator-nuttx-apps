@@ -59,4 +59,9 @@ MAINSRC  += drivertest_i2c_spi.c
 PROGNAME += cmocka_driver_i2c_spi
 endif
 
+ifeq ($(CONFIG_DEV_GPIO),y)
+PROGNAME += cmocka_driver_gpio
+MAINSRC  += drivertest_gpio.c
+endif
+
 include $(APPDIR)/Application.mk
