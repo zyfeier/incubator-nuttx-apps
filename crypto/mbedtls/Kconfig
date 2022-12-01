@@ -6,6 +6,7 @@
 menuconfig CRYPTO_MBEDTLS
 	bool "Mbed TLS Cryptography Library"
 	default n
+	select DEV_URANDOM
 	---help---
 		Enable support for Mbed TLS.
 
