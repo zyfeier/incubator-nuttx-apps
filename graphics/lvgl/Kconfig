@@ -60,6 +60,11 @@ config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
 	default "/dev/fb0"
 	depends on LV_USE_FBDEV_INTERFACE
 
+config LV_UV_POLL_DEVICEPATH
+	string "Display poll device path"
+	depends on LIBUV
+	default "/dev/fb0"
+
 menuconfig LV_USE_GPU_INTERFACE
 	bool "GPU acceleration interface"
 	default n

@@ -38,6 +38,10 @@ ifneq ($(CONFIG_LV_USE_SYSLOG_INTERFACE),)
 CSRCS += lv_porting/lv_syslog_interface.c
 endif
 
+ifneq ($(CONFIG_LIBUV),)
+CSRCS += lv_porting/lv_uv_interface.c
+endif
+
 ifneq ($(CONFIG_LV_USE_BUTTON_INTERFACE),)
 CSRCS += lv_porting/lv_button_interface.c
 endif
