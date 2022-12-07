@@ -29,7 +29,7 @@ MAINSRC  += drivertest_simple.c
 PROGNAME += cmocka_driver_simple
 endif
 
-ifeq ($(CONFIG_MMCSD),y)
+ifeq ($(CONFIG_BCH),y)
 PROGNAME += cmocka_driver_block
 MAINSRC  += drivertest_block.c
 endif
