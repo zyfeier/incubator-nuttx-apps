@@ -20,7 +20,7 @@
 
 include $(APPDIR)/Make.defs
 
-LFS_VERSION  = $(CONFIG_LUA_LFS_VERSION)
+LFS_VERSION  = $(patsubst "%",%,$(strip $(CONFIG_LUA_LFS_VERSION)))
 LFS_TARBALL  = v$(LFS_VERSION).tar.gz
 LFS_UNPACK   = lfs
 LFS_URL_BASE = https://github.com/lunarmodules/luafilesystem/archive/refs/tags
