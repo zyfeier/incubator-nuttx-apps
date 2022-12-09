@@ -20,7 +20,7 @@
 
 include $(APPDIR)/Make.defs
 
-LSYSLOG_VERSION  = $(CONFIG_LUA_LSYSLOG_VERSION)
+LSYSLOG_VERSION  = $(patsubst "%",%,$(strip $(CONFIG_LUA_LSYSLOG_VERSION)))
 LSYSLOG_TARBALL  = $(LSYSLOG_VERSION).tar.gz
 LSYSLOG_UNPACK   = lsyslog
 LSYSLOG_URL_BASE = https://github.com/lunarmodules/luasyslog/archive/refs/tags
