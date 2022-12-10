@@ -1,5 +1,5 @@
 ############################################################################
-# apps/luamodules/luv/Make.defs
+# apps/interpreters/luamodules/Make.defs
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -18,7 +18,4 @@
 #
 ############################################################################
 
-ifneq ($(CONFIG_LUA_LUV_MODULE),)
-CONFIGURED_APPS += $(APPDIR)/luamodules/luv
-
-endif
+include $(wildcard $(APPDIR)/interpreters/luamodules/*/Make.defs)

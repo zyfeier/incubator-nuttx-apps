@@ -1,5 +1,5 @@
 ############################################################################
-# apps/system/luv/Makefile
+# apps/interpreters/luamodules/luasyslog/Makefile
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -20,47 +20,45 @@
 
 include $(APPDIR)/Make.defs
 
-# Luv library
+LSYSLOG_VERSION  = $(patsubst "%",%,$(strip $(CONFIG_LUA_LSYSLOG_VERSION)))
+LSYSLOG_TARBALL  = $(LSYSLOG_VERSION).tar.gz
+LSYSLOG_UNPACK   = lsyslog
+LSYSLOG_URL_BASE = https://github.com/lunarmodules/luasyslog/archive/refs/tags
+LSYSLOG_URL      = $(LSYSLOG_URL_BASE)/$(LSYSLOG_TARBALL)
+LSYSLOG_SRC      = $(LSYSLOG_UNPACK)
 
-LUV_VERSION  = $(patsubst "%",%,$(strip $(CONFIG_LUA_LUV_VERSION)))
-LUV_TARBALL  = luv-$(LUV_VERSION).tar.gz
-LUV_UNPACK   = luv
-LUV_URL_BASE = https://github.com/luvit/luv/releases/download/
-LUV_URL      = $(LUV_URL_BASE)/$(LUV_VERSION)/$(LUV_TARBALL)
-LUV_SRC      = $(LUV_UNPACK)$(DELIM)src
+VPATH += $(LSYSLOG_SRC)
+CSRCS = lsyslog.c
 
-VPATH += $(LUV_SRC)
-CSRCS = luv.c
+CFLAGS += -D'openlog(a,b,c)={(void)a; (void)c;}'
+CFLAGS += -D'closelog()={}'
 
-# Luv download and unpack
+$(LSYSLOG_TARBALL):
+	$(Q) echo "Downloading $(LSYSLOG_TARBALL) from $(LSYSLOG_URL)"
+	$(Q) curl -O -L $(LSYSLOG_URL)
 
-$(LUV_TARBALL):
-	$(Q) echo "Downloading $(LUV_TARBALL)"
-	$(Q) curl -O -L $(LUV_URL)
+$(LSYSLOG_UNPACK): $(LSYSLOG_TARBALL)
+	$(Q) echo "Unpacking $(LSYSLOG_TARBALL) to $(LSYSLOG_UNPACK)"
+	$(Q) tar -xvzf $(LSYSLOG_TARBALL)
+	$(Q) mv luasyslog-$(LSYSLOG_VERSION) $(LSYSLOG_UNPACK)
 
-$(LUV_UNPACK): $(LUV_TARBALL)
-	$(Q) echo "Unpacking $(LUV_TARBALL) to $(LUV_UNPACK)"
-	$(Q) tar -xvzf $(LUV_TARBALL)
-	$(Q) mv luv-$(LUV_VERSION) $(LUV_UNPACK)
-	$(Q) patch -d $(LUV_UNPACK) -p1 < 0001-fix-compile-warnings.patch
-
-$(LUV_UNPACK)/.patch: $(LUV_UNPACK)
-	touch $(LUV_UNPACK)/.patch
+$(LSYSLOG_UNPACK)/.patch: $(LSYSLOG_UNPACK)
+	touch $(LSYSLOG_UNPACK)/.patch
 
 # Download and unpack tarball if no git repo found
-ifeq ($(wildcard $(LUV_UNPACK)/.git),)
+ifeq ($(wildcard $(LSYSLOG_UNPACK)/.git),)
 distclean::
-	$(call DELDIR, $(LUV_UNPACK))
-	$(call DELFILE, $(LUV_TARBALL))
+	$(call DELDIR, $(LSYSLOG_UNPACK))
+	$(call DELFILE, $(LSYSLOG_TARBALL))
 
-context:: $(LUV_UNPACK)/.patch
+context:: $(LSYSLOG_UNPACK)/.patch
 endif
 
 # Set LUAMODNAME and include Module.mk to add this module to the list of
 # builtin modules for the Lua interpreter. LUAMODNAME should match the
 # module's luaopen function.
 
-LUAMODNAME = luv
+LUAMODNAME = lsyslog
 
 include $(APPDIR)/interpreters/lua/Module.mk
 
