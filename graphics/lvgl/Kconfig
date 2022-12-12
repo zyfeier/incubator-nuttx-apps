@@ -60,6 +60,12 @@ config LV_FBDEV_INTERFACE_DEFAULT_DEVICEPATH
 	default "/dev/fb0"
 	depends on LV_USE_FBDEV_INTERFACE
 
+config LV_FBDEV_ENABLE_WAITFORVSYNC
+	bool "Enable wait for vsync support"
+	default y
+	depends on LV_USE_FBDEV_INTERFACE
+	depends on FB_SYNC
+
 config LV_UV_POLL_DEVICEPATH
 	string "Display poll device path"
 	depends on LIBUV

@@ -201,7 +201,7 @@ static void fbdev_switch_buffer(FAR struct fbdev_obj_s *fbdev_obj)
   LV_LOG_TRACE("finished");
 }
 
-#if defined(CONFIG_FB_SYNC)
+#if defined(CONFIG_LV_FBDEV_ENABLE_WAITFORVSYNC)
 
 /****************************************************************************
  * Name: fbdev_disp_vsync_refr
@@ -226,7 +226,7 @@ static void fbdev_disp_vsync_refr(FAR lv_timer_t *timer)
   _lv_disp_refr_timer(NULL);
 }
 
-#endif /* CONFIG_FB_SYNC */
+#endif /* CONFIG_LV_FBDEV_ENABLE_WAITFORVSYNC */
 
 /****************************************************************************
  * Name: fbdev_render_start
@@ -618,7 +618,7 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state)
   fbdev_obj->act_buffer = fbdev_obj->fbmem;
   fbdev_obj->disp = lv_disp_drv_register(&(fbdev_obj->disp_drv));
 
-#if defined(CONFIG_FB_SYNC)
+#if defined(CONFIG_LV_FBDEV_ENABLE_WAITFORVSYNC)
   /* If double buffer and vsync is supported, use active refresh method */
 
   if (fbdev_obj->disp_drv.direct_mode)
