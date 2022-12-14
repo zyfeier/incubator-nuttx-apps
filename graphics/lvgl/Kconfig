@@ -281,6 +281,10 @@ config LV_USE_DECODER_LODEPNG
 	bool "Enable PNG decoder"
 	default n
 
+config LV_DECODER_IMG_SIZE_EXPAND
+	int "Image size expand pixel"
+	default 0
+
 endmenu # "Image Decoder"
 
 menu "Memory configuration"

@@ -111,8 +111,8 @@ static lv_res_t decoder_info(lv_img_decoder_t * decoder, const void * src, lv_im
         /*Save the data in the header*/
         header->always_zero = 0;
         header->cf = LV_IMG_CF_TRUE_COLOR;
-        header->w = width;
-        header->h = height;
+        header->w = width + CONFIG_LV_DECODER_IMG_SIZE_EXPAND * 2;
+        header->h = height + CONFIG_LV_DECODER_IMG_SIZE_EXPAND * 2;
 
         return LV_RES_OK;
     }
@@ -284,12 +284,17 @@ static lv_color_t * open_jpeg_file(const char * filename)
     buffer = (*cinfo.mem->alloc_sarray)
              ((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
 
-    output_buffer = lv_mem_alloc(LV_IMG_BUF_SIZE_TRUE_COLOR(cinfo.output_width, cinfo.output_height));
-
+    lv_coord_t expand_width = cinfo.output_width + CONFIG_LV_DECODER_IMG_SIZE_EXPAND * 2;
+    lv_coord_t expand_height = cinfo.output_height + CONFIG_LV_DECODER_IMG_SIZE_EXPAND * 2;
+    size_t output_buffer_size = LV_IMG_BUF_SIZE_TRUE_COLOR(expand_width, expand_height);
+    output_buffer = lv_mem_alloc(output_buffer_size);
     LV_ASSERT_MALLOC(output_buffer);
-
     if(output_buffer) {
-        lv_color_t * cur_pos = output_buffer;
+
+#if (CONFIG_LV_DECODER_IMG_SIZE_EXPAND > 0)
+        lv_memset_00(output_buffer, output_buffer_size);
+#endif
+        lv_color_t * cur_pos = output_buffer + (CONFIG_LV_DECODER_IMG_SIZE_EXPAND * expand_width) + CONFIG_LV_DECODER_IMG_SIZE_EXPAND;
 
         /* while (scan lines remain to be read) */
         /* jpeg_read_scanlines(...); */
@@ -310,7 +315,7 @@ static lv_color_t * open_jpeg_file(const char * filename)
 #else
             convert_color_depth(cur_pos, buffer[0], cinfo.output_width);
 #endif
-            cur_pos += cinfo.output_width;
+            cur_pos += expand_width;
         }
     }
 

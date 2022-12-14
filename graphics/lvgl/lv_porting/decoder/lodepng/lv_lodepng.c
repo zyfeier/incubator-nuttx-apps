@@ -98,6 +98,9 @@ static lv_res_t decoder_info(lv_img_decoder_t * decoder, const void * src, lv_im
         header->w = (lv_coord_t)((size[0] & 0xff000000) >> 24) + ((size[0] & 0x00ff0000) >> 8);
         header->h = (lv_coord_t)((size[1] & 0xff000000) >> 24) + ((size[1] & 0x00ff0000) >> 8);
 
+        header->w += CONFIG_LV_DECODER_IMG_SIZE_EXPAND * 2;
+        header->h += CONFIG_LV_DECODER_IMG_SIZE_EXPAND * 2;
+
         return LV_RES_OK;
     }
 
@@ -147,6 +150,33 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
 
         /*Convert the image to the system's color depth*/
         convert_color_depth(img_data,  png_width * png_height);
+
+#if (CONFIG_LV_DECODER_IMG_SIZE_EXPAND > 0)
+        lv_coord_t expand_width = png_width + CONFIG_LV_DECODER_IMG_SIZE_EXPAND * 2;
+        lv_coord_t expand_height = png_height + CONFIG_LV_DECODER_IMG_SIZE_EXPAND * 2;
+        size_t tmp_buffer_size = LV_IMG_BUF_SIZE_TRUE_COLOR_ALPHA(expand_width, expand_height);
+
+        lv_color_t * tmp_buffer = lv_mem_alloc(tmp_buffer_size);
+        LV_ASSERT_MALLOC(tmp_buffer);
+        if(tmp_buffer) {
+            lv_memset_00(tmp_buffer, tmp_buffer_size);
+            lv_color_t * dest = tmp_buffer + (CONFIG_LV_DECODER_IMG_SIZE_EXPAND * expand_width)
+                                + CONFIG_LV_DECODER_IMG_SIZE_EXPAND;
+            const lv_color_t * src = (lv_color_t *)img_data;
+
+            for(lv_coord_t y = 0; y < png_height; y++) {
+                lv_memcpy(dest, src, png_width * sizeof(lv_color_t));
+                dest += expand_width;
+                src += png_width;
+            }
+            lv_mem_free(img_data);
+            img_data = (uint8_t *)tmp_buffer;
+        }
+        else {
+            LV_LOG_WARN("malloc failed for expend size");
+        }
+#endif
+
 #ifdef CONFIG_LV_USE_GPU_INTERFACE
         lv_img_dsc_t img_dsc;
         img_dsc.header = dsc->header;
