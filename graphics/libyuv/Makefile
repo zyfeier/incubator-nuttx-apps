@@ -26,19 +26,4 @@ CXXEXT := .cc
 CXXFLAGS += -Wno-shadow
 CXXSRCS = $(wildcard $(SRCDIR)/source/*.cc)
 
-libyuv.tar.gz:
-	$(Q) curl -L https://chromium.googlesource.com/libyuv/libyuv/+archive/refs/heads/$(CONFIG_LIBYUV_BRANCH).tar.gz -o libyuv.tar.gz
-	$(Q) mkdir -p $(SRCDIR)
-	$(Q) tar zxf libyuv.tar.gz --directory $(SRCDIR)
-	$(Q) patch -p0 < 0001-include-libyuv-fix-strict-prototype-warning.patch
-
-# Download and unpack tarball if no git repo found
-ifeq ($(wildcard libyuv/libyuv),)
-context:: libyuv.tar.gz
-
-distclean::
-	$(call DELDIR, libyuv)
-	$(call DELFILE, libyuv.tar.gz)
-endif
-
 include $(APPDIR)/Application.mk
