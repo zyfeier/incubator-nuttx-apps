@@ -54,4 +54,9 @@ MAINSRC  += drivertest_pwm.c
 PROGNAME += cmocka_driver_pwm
 endif
 
+ifneq ($(CONFIG_I2C)$(CONFIG_SPI),)
+MAINSRC  += drivertest_i2c_spi.c
+PROGNAME += cmocka_driver_i2c_spi
+endif
+
 include $(APPDIR)/Application.mk
