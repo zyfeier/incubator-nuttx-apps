@@ -63,6 +63,7 @@ static void print_valf2(FAR const char *buffer, FAR const char *name);
 static void print_valf(FAR const char *buffer, FAR const char *name);
 static void print_valb(FAR const char *buffer, FAR const char *name);
 static void print_vali2(FAR const char *buffer, FAR const char *name);
+static void print_ecg(FAR const char *buffer, FAR const char *name);
 static void print_ppgd(FAR const char *buffer, FAR const char *name);
 static void print_ppgq(FAR const char *buffer, FAR const char *name);
 static void print_cap(FAR const char *buffer, FAR const char *name);
@@ -163,8 +164,8 @@ static void print_valf3(const char *buffer, const char *name)
 static void print_ecg(const char *buffer, const char *name)
 {
   struct sensor_event_ecg *event = (struct sensor_event_ecg *)buffer;
-  printf("%s: timestamp:%" PRIu64 " ecg:%.4f lead:%s", name,
-         event->timestamp, event->ecg, event->lead == 0 ? "off" : "on");
+  printf("%s: timestamp:%" PRIu64 " ecg:%.4f status:%lx", name,
+         event->timestamp, event->ecg, event->status);
 }
 
 static void print_ppgd(const char *buffer, const char *name)
