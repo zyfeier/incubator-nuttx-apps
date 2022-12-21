@@ -70,8 +70,8 @@ endif
 endif
 
 ifneq ($(CONFIG_LV_USE_GPU_INTERFACE),)
-CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu/drv/vglite/inc
-CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../vendor/bes/framework/services/platform/drivers/graphic/gpu
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../vendor/bes/$(CONFIG_BES_DDK_DIR)/platform/drivers/graphic/gpu/drv/vglite/inc
+CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../vendor/bes/$(CONFIG_BES_DDK_DIR)/platform/drivers/graphic/gpu
 CSRCS += lv_porting/lv_gpu_interface.c
 CSRCS += lv_porting/gpu/lv_gpu_decoder.c
 CSRCS += lv_porting/gpu/lv_gpu_evoreader.c
