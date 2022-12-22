@@ -75,6 +75,7 @@ static void ui_timer_cb(FAR uv_timer_t *handle)
       sleep_ms = 1;
     }
 
+  LV_LOG_TRACE("sleep_ms = %" LV_PRIu32, sleep_ms);
   uv_timer_start(handle, ui_timer_cb, sleep_ms, 0);
 }
 
@@ -84,6 +85,7 @@ static void ui_timer_cb(FAR uv_timer_t *handle)
 
 static void ui_disp_poll_cb(FAR uv_poll_t *handle, int status, int events)
 {
+  LV_LOG_TRACE("disp refr");
   _lv_disp_refr_timer(NULL);
 }
 
@@ -108,6 +110,7 @@ void lv_uv_start(FAR void *loop)
   FAR uv_loop_t *ui_loop = loop;
   FAR lv_disp_t *disp;
 
+  LV_LOG_INFO("dev: " CONFIG_LV_UV_POLL_DEVICEPATH "opening...");
   fd = open(CONFIG_LV_UV_POLL_DEVICEPATH, O_WRONLY);
 
   if (fd < 0)
@@ -134,11 +137,15 @@ void lv_uv_start(FAR void *loop)
   memset(&g_uv_obj, 0, sizeof(g_uv_obj));
   g_uv_obj.fd = fd;
 
+  LV_LOG_INFO("init uv_timer...");
   uv_timer_init(ui_loop, &g_uv_obj.ui_timer);
   uv_timer_start(&g_uv_obj.ui_timer, ui_timer_cb, 1, 1);
 
+  LV_LOG_INFO("init uv_poll...");
   uv_poll_init(ui_loop, &g_uv_obj.disp_poll, fd);
   uv_poll_start(&g_uv_obj.disp_poll, UV_WRITABLE, ui_disp_poll_cb);
+
+  LV_LOG_INFO("lvgl loop start OK");
 }
 
 /****************************************************************************
@@ -147,13 +154,15 @@ void lv_uv_start(FAR void *loop)
 
 void lv_uv_close(void)
 {
-  LV_ASSERT(g_uv_obj.fd > 0);
-
-  if (g_uv_obj.fd > 0)
+  if (g_uv_obj.fd <= 0)
     {
-      uv_close((FAR uv_handle_t *)&g_uv_obj.ui_timer, NULL);
-      uv_close((FAR uv_handle_t *)&g_uv_obj.disp_poll, NULL);
-      close(g_uv_obj.fd);
-      g_uv_obj.fd = -1;
+      LV_LOG_WARN("lvgl loop has been closed");
+      return;
     }
+
+  uv_close((FAR uv_handle_t *)&g_uv_obj.ui_timer, NULL);
+  uv_close((FAR uv_handle_t *)&g_uv_obj.disp_poll, NULL);
+  close(g_uv_obj.fd);
+  g_uv_obj.fd = -1;
+  LV_LOG_INFO("lvgl loop close OK");
 }
