@@ -84,11 +84,6 @@ ifneq ($(CONFIG_ARM_HAVE_MVE),)
 CSRCS += lv_porting/gpu/lv_gpu_draw_blend.c
 endif
 
-ifneq ($(CONFIG_LV_GPU_USE_CUSTOM_HEAP),)
-ifneq ($(CONFIG_LV_MEM_CUSTOM),)
-CSRCS += lv_porting/gpu/tlsf.c
-endif
-endif
 ifneq ($(CONFIG_LV_GPU_DRAW_LINE),)
 CSRCS += lv_porting/gpu/lv_gpu_draw_line.c
 endif

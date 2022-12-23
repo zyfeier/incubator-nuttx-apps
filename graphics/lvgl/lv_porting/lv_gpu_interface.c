@@ -33,13 +33,7 @@
 #ifdef CONFIG_ARM_HAVE_MVE
 #include "arm_mve.h"
 #endif
-#ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
-#if LV_MEM_CUSTOM
-#include "gpu/tlsf.h"
-#else
-#include "lvgl/src/misc/lv_tlsf.h"
-#endif
-#endif
+
 /****************************************************************************
  * Preprocessor Definitions
  ****************************************************************************/
@@ -70,11 +64,6 @@ const uint8_t bmode[] = {
  ****************************************************************************/
 
 static lv_gpu_mode_t power_mode;
-#ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
-static char s_gpu_mem[CONFIG_LV_GPU_CUSTOM_HEAP_SIZE];
-static char* s_gpu_mem_end = s_gpu_mem + CONFIG_LV_GPU_CUSTOM_HEAP_SIZE;
-static lv_tlsf_t s_gpu_heap = NULL;
-#endif
 
 /****************************************************************************
  * Private Functions
@@ -333,9 +322,6 @@ lv_res_t lv_gpu_interface_init(void)
 #ifdef CONFIG_LV_GPU_DRAW_IMG
   lv_gpu_decoder_init();
 #endif
-#ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
-  s_gpu_heap = lv_tlsf_create_with_pool(s_gpu_mem, CONFIG_LV_GPU_CUSTOM_HEAP_SIZE);
-#endif
   return lv_gpu_setmode(LV_GPU_DEFAULT_MODE);
 }
 
@@ -437,21 +423,7 @@ LV_ATTRIBUTE_FAST_MEM lv_res_t lv_gpu_color_fmt_convert(
 
 LV_ATTRIBUTE_FAST_MEM FAR void* gpu_heap_alloc(size_t size)
 {
-#ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
-  void* mem = lv_tlsf_malloc(s_gpu_heap, size);
-  if (!mem) {
-    LV_LOG_WARN("malloc failed, clearing cache");
-    lv_img_cache_invalidate_src(NULL);
-    mem = lv_tlsf_malloc(s_gpu_heap, size);
-  }
-  if (!mem) {
-    LV_LOG_ERROR("malloc failed, fallback to system malloc");
-    mem = malloc(size);
-  }
-  return mem;
-#else
   return malloc(size);
-#endif
 }
 
 /****************************************************************************
@@ -471,21 +443,7 @@ LV_ATTRIBUTE_FAST_MEM FAR void* gpu_heap_alloc(size_t size)
 LV_ATTRIBUTE_FAST_MEM FAR void* gpu_heap_aligned_alloc(size_t alignment,
     size_t size)
 {
-#ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
-  void* mem = lv_tlsf_memalign(s_gpu_heap, alignment, size);
-  if (!mem) {
-    LV_LOG_WARN("malloc failed, clearing cache");
-    lv_img_cache_invalidate_src(NULL);
-    mem = lv_tlsf_memalign(s_gpu_heap, alignment, size);
-  }
-  if (!mem) {
-    LV_LOG_ERROR("malloc failed, fallback to system malloc");
-    mem = aligned_alloc(alignment, size);
-  }
-  return mem;
-#else
   return aligned_alloc(alignment, size);
-#endif
 }
 
 /****************************************************************************
@@ -505,11 +463,6 @@ LV_ATTRIBUTE_FAST_MEM FAR void* gpu_heap_aligned_alloc(size_t alignment,
 
 LV_ATTRIBUTE_FAST_MEM void* gpu_heap_realloc(FAR void* mem, size_t size)
 {
-#ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
-  if ((char*)mem >= s_gpu_mem && (char*)mem < s_gpu_mem_end) {
-    return lv_tlsf_realloc(s_gpu_heap, mem, size);
-  }
-#endif
   return realloc(mem, size);
 }
 
@@ -529,10 +482,5 @@ LV_ATTRIBUTE_FAST_MEM void* gpu_heap_realloc(FAR void* mem, size_t size)
 
 LV_ATTRIBUTE_FAST_MEM void gpu_heap_free(FAR void* mem)
 {
-#ifdef CONFIG_LV_GPU_USE_CUSTOM_HEAP
-  if ((char*)mem >= s_gpu_mem && (char*)mem < s_gpu_mem_end) {
-    return lv_tlsf_free(s_gpu_heap, mem);
-  }
-#endif
   free(mem);
 }

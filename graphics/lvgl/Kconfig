@@ -86,18 +86,6 @@ config LV_GPU_USE_PERF
 	bool "Enable GPU performance measurement outputs"
 	default n
 
-config LV_GPU_USE_CUSTOM_HEAP
-	bool "Use separate heap for GPU to avoid memory fragmentation"
-	default n
-
-if LV_GPU_USE_CUSTOM_HEAP
-
-config LV_GPU_CUSTOM_HEAP_SIZE
-	int "GPU custom heap size (in bytes)"
-	default 8388608
-
-endif # LV_GPU_CUSTOM_HEAP_SIZE
-
 config LV_GPU_DRAW_LINE
 	bool "Use GPU accelerated draw_line"
 	default n
