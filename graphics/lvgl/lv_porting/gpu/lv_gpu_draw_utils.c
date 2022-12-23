@@ -23,9 +23,9 @@
  ****************************************************************************/
 
 #include "lv_gpu_draw_utils.h"
-#include "fast_gaussian_blur.h"
+#include "mve/fast_gaussian_blur.h"
 #include "lv_color.h"
-#include "lv_gpu_decoder.h"
+#include "lv_porting/decoder/vglite/lv_gpu_decoder.h"
 #include "src/misc/lv_gc.h"
 #include "vg_lite.h"
 #include <math.h>

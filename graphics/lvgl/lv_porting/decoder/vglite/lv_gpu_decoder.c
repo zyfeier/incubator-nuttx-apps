@@ -26,7 +26,7 @@
 #include "lv_assert.h"
 #include "lv_color.h"
 #include "lv_draw_img.h"
-#include "lv_gpu_draw_utils.h"
+#include "lv_porting/gpu/lv_gpu_draw_utils.h"
 #include "lv_gpu_evoreader.h"
 #include "lv_img_decoder.h"
 #include "lv_porting/lv_gpu_interface.h"

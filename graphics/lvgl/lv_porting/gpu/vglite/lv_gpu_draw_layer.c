@@ -10,7 +10,7 @@
 #include "../../hal/lv_hal_disp.h"
 #include "../../misc/lv_area.h"
 #include "lv_draw_sw.h"
-#include "lv_gpu_draw_utils.h"
+#include "../lv_gpu_draw_utils.h"
 #include <stdlib.h>
 
 /*********************

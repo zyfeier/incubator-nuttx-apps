@@ -25,24 +25,24 @@
  *      INCLUDES
  *********************/
 
-#include "lv_porting/lv_gpu_interface.h"
+#include "../lv_gpu_interface.h"
 #include <lvgl/lvgl.h>
 #ifdef CONFIG_LV_GPU_DRAW_LINE
-#include "lv_gpu_draw_line.h"
+#include "vglite/lv_gpu_draw_line.h"
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_ARC
-#include "lv_gpu_draw_arc.h"
+#include "vglite/lv_gpu_draw_arc.h"
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_POLYGON
-#include "lv_gpu_draw_polygon.h"
+#include "vglite/lv_gpu_draw_polygon.h"
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_RECT
-#include "lv_gpu_draw_rect.h"
+#include "vglite/lv_gpu_draw_rect.h"
 #endif
 #ifdef CONFIG_LV_GPU_DRAW_IMG
-#include "lv_gpu_draw_img.h"
+#include "vglite/lv_gpu_draw_img.h"
 #endif
-#include "lv_gpu_draw_blend.h"
+#include "mve/lv_gpu_draw_blend.h"
 
 /*********************
  *      DEFINES

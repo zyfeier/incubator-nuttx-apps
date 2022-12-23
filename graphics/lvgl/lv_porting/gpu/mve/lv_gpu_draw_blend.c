@@ -23,7 +23,7 @@
  ****************************************************************************/
 
 #include "arm_mve.h"
-#include "lv_gpu_draw_utils.h"
+#include "../lv_gpu_draw_utils.h"
 #include "lv_porting/lv_gpu_interface.h"
 
 /****************************************************************************

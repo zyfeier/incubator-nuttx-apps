@@ -64,40 +64,37 @@ endif
 
 ifneq ($(CONFIG_LV_USE_FBDEV_INTERFACE),)
 CSRCS += lv_porting/lv_fbdev_interface.c
-ifneq ($(CONFIG_ARM_HAVE_NEON),)
-ASRCS += lv_porting/rotate_neon.S
-endif
 endif
 
 ifneq ($(CONFIG_LV_USE_GPU_INTERFACE),)
 CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../vendor/bes/$(CONFIG_BES_DDK_DIR)/platform/drivers/graphic/gpu/drv/vglite/inc
 CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/../vendor/bes/$(CONFIG_BES_DDK_DIR)/platform/drivers/graphic/gpu
-CSRCS += lv_porting/lv_gpu_interface.c
-CSRCS += lv_porting/gpu/lv_gpu_decoder.c
-CSRCS += lv_porting/gpu/lv_gpu_evoreader.c
+CSRCS += lv_porting/gpu/lv_gpu_interface.c
 CSRCS += lv_porting/gpu/lv_gpu_draw_utils.c
-CSRCS += lv_porting/gpu/lv_gpu_draw_layer.c
+CSRCS += lv_porting/gpu/vglite/lv_gpu_draw_layer.c
+CSRCS += lv_porting/decoder/vglite/lv_gpu_decoder.c
+CSRCS += lv_porting/decoder/vglite/lv_gpu_evoreader.c
 ifneq ($(CONFIG_LV_COLOR_DEPTH_32),)
-CSRCS += lv_porting/gpu/fast_gaussian_blur.c
+CSRCS += lv_porting/gpu/mve/fast_gaussian_blur.c
 endif
 ifneq ($(CONFIG_ARM_HAVE_MVE),)
-CSRCS += lv_porting/gpu/lv_gpu_draw_blend.c
+CSRCS += lv_porting/gpu/mve/lv_gpu_draw_blend.c
 endif
 
 ifneq ($(CONFIG_LV_GPU_DRAW_LINE),)
-CSRCS += lv_porting/gpu/lv_gpu_draw_line.c
+CSRCS += lv_porting/gpu/vglite/lv_gpu_draw_line.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_ARC),)
-CSRCS += lv_porting/gpu/lv_gpu_draw_arc.c
+CSRCS += lv_porting/gpu/vglite/lv_gpu_draw_arc.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_POLYGON),)
-CSRCS += lv_porting/gpu/lv_gpu_draw_polygon.c
+CSRCS += lv_porting/gpu/vglite/lv_gpu_draw_polygon.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_RECT),)
-CSRCS += lv_porting/gpu/lv_gpu_draw_rect.c
+CSRCS += lv_porting/gpu/vglite/lv_gpu_draw_rect.c
 endif
 ifneq ($(CONFIG_LV_GPU_DRAW_IMG),)
-CSRCS += lv_porting/gpu/lv_gpu_draw_img.c
+CSRCS += lv_porting/gpu/vglite/lv_gpu_draw_img.c
 endif
 
 endif

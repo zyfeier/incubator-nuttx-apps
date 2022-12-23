@@ -22,7 +22,7 @@
  * Included Files
  ****************************************************************************/
 
-#include "lv_gpu_draw_utils.h"
+#include "../lv_gpu_draw_utils.h"
 #include "lv_porting/lv_gpu_interface.h"
 #include "vg_lite.h"
 #include <math.h>

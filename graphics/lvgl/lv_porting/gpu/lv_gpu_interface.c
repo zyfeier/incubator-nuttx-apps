@@ -21,10 +21,10 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-#include "lv_gpu_interface.h"
-#include "gpu/lv_gpu_decoder.h"
-#include "gpu/lv_gpu_draw_utils.h"
-#include "gpu/lv_gpu_draw_layer.h"
+#include "../lv_gpu_interface.h"
+#include "lv_porting/decoder/vglite/lv_gpu_decoder.h"
+#include "lv_gpu_draw_utils.h"
+#include "vglite/lv_gpu_draw_layer.h"
 #include "gpu_port.h"
 #include "vg_lite.h"
 #include <stdio.h>
