@@ -36,7 +36,7 @@ static void print_sensor_ecg_message(FAR const struct orb_metadata *meta,
   const orb_abstime now = orb_absolute_time();
 
   uorbinfo_raw("%s:\ttimestamp: %" PRIu64 " (%" PRIu64 " us ago) ecg: %.4f "
-               "status: %lx",
+               "status:0x%" PRIx32 "",
                meta->o_name, message->timestamp, now - message->timestamp,
                message->ecg, message->status);
 }
