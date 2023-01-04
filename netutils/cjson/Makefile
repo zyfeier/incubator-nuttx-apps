@@ -62,9 +62,22 @@ ifneq ($(CONFIG_NETUTILS_CJSON_TEST),)
 PROGNAME += cjson_test
 MAINSRC += $(CJSON_SRCDIR)$(DELIM)test.c
 
-PROGNAME += cjson_print_object
-MAINSRC += $(CJSON_SRCDIR)$(DELIM)tests$(DELIM)print_object.c
+UNITY_CJSONTESTS := parse_examples parse_number parse_hex4 parse_string parse_array \
+	parse_object parse_value print_string print_number print_array print_object \
+	print_value cjson_add parse_with_opts compare_tests readme_examples minify_tests \
+	misc_tests json_patch_tests old_utils_tests misc_utils_tests
+UNITY_CJSONTESTCS := $(foreach n, $(UNITY_CJSONTESTS), $(CJSON_SRCDIR)$(DELIM)tests$(DELIM)$(n).c)
+CJSONTEST_MAIN := $(foreach n, $(UNITY_CJSONTESTS), cjson_$(n))
+PROGNAME += $(CJSONTEST_MAIN)
+MAINSRC += $(UNITY_CJSONTESTCS)
+
 CSRCS += $(APPDIR)/testing/unity/Unity/src/unity.c
+CSRCS += $(CJSON_SRCDIR)/tests/unity_setup.c
+CFLAGS += -DUNITY_INCLUDE_CONFIG_H
+CFLAGS += -DUNITY_EXCLUDE_SETJMP_H
+CFLAGS += -I$(APPDIR)/testing/unity/Unity/examples
+CFLAGS += -I$(APPDIR)/testing/unity/Unity/src
+CFLAGS += -Wno-unused-function
 
 PRIORITY  = SCHED_PRIORITY_DEFAULT
 STACKSIZE = $(CONFIG_DEFAULT_TASK_STACKSIZE)
