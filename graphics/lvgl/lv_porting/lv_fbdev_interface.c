@@ -106,43 +106,6 @@ static void fbdev_update_area(FAR struct fbdev_obj_s *fbdev_obj,
 #endif
 
 /****************************************************************************
- * Name: fbdev_copy_areas
- ****************************************************************************/
-
-static void fbdev_copy_areas(FAR lv_color_t *fb_dest,
-                             FAR const lv_color_t *fb_src,
-                             FAR const lv_area_t *areas,
-                             uint16_t len,
-                             int fb_width)
-{
-  int i;
-  LV_LOG_TRACE("%p -> %p, len = %d", fb_src, fb_dest, len);
-
-  for (i = 0; i < len; i++)
-    {
-      int y;
-      FAR const lv_area_t *area = &(areas[i]);
-      int width = lv_area_get_width(area);
-      int height = lv_area_get_height(area);
-      FAR lv_color_t *dest_pos =
-                      fb_dest + area->y1 * fb_width + area->x1;
-      FAR const lv_color_t *src_pos =
-                            fb_src + area->y1 * fb_width + area->x1;
-      size_t hor_size = width * sizeof(lv_color_t);
-
-      LV_LOG_TRACE("area[%d]: (%d, %d) %d x %d",
-                   i, area->x1, area->y1, width, height);
-
-      for (y = 0; y < height; y++)
-        {
-          lv_memcpy(dest_pos, src_pos, hor_size);
-          dest_pos += fb_width;
-          src_pos += fb_width;
-        }
-    }
-}
-
-/****************************************************************************
  * Name: fbdev_switch_buffer
  ****************************************************************************/
 
@@ -236,44 +199,61 @@ static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
 {
   FAR struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
   FAR lv_disp_t *disp_refr;
+  FAR lv_draw_ctx_t *draw_ctx;
   lv_coord_t hor_res;
-  lv_coord_t ver_res;
-  int i;
+  int last_inv_i;
+  int cur_inv_i;
 
   /* No need sync buffer when inv_areas_len == 0 */
 
   if (fbdev_obj->inv_areas_len == 0)
     {
+      LV_LOG_TRACE("No sync area");
       return;
     }
 
+  LV_LOG_TRACE("Start sync area...");
+
   disp_refr = _lv_refr_get_disp_refreshing();
+  draw_ctx = disp_drv->draw_ctx;
   hor_res = disp_drv->hor_res;
-  ver_res = disp_drv->ver_res;
 
-  for (i = 0; i < disp_refr->inv_p; i++)
+  for (last_inv_i = 0; last_inv_i < fbdev_obj->inv_areas_len; last_inv_i++)
     {
-      if (disp_refr->inv_area_joined[i] == 0)
+      FAR lv_area_t *last_area = &fbdev_obj->inv_areas[last_inv_i];
+
+      for (cur_inv_i = 0; cur_inv_i < disp_refr->inv_p; cur_inv_i++)
         {
-          FAR const lv_area_t *area_p = &disp_refr->inv_areas[i];
+          FAR lv_area_t *cur_area;
+          bool is_covered;
 
-          /* If a full screen redraw is detected, skip dirty areas sync */
-
-          if (lv_area_get_width(area_p) == hor_res
-           && lv_area_get_height(area_p) == ver_res)
+          if (disp_refr->inv_area_joined[cur_inv_i] != 0)
             {
-              LV_LOG_TRACE("Full screen redraw, skip dirty areas sync");
-              fbdev_obj->inv_areas_len = 0;
-              return;
+              continue;
             }
+
+          cur_area = &disp_refr->inv_areas[cur_inv_i];
+
+          /* Check cur_area is coverd last_area */
+
+          is_covered = _lv_area_is_in(last_area, cur_area, 0);
+
+          if (is_covered)
+            {
+              LV_LOG_TRACE("Skip covered area");
+              continue;
+            }
+
+          LV_LOG_TRACE("Copy area");
+
+          /* Sync the inv area of ​​the previous frame */
+
+          draw_ctx->buffer_copy(
+            draw_ctx,
+            fbdev_obj->act_buffer, hor_res, last_area,
+            fbdev_obj->last_buffer, hor_res, last_area);
         }
     }
-
-  /* Sync the dirty area of ​​the previous frame */
-
-  fbdev_copy_areas(fbdev_obj->act_buffer, fbdev_obj->last_buffer,
-                   fbdev_obj->inv_areas, fbdev_obj->inv_areas_len,
-                   fbdev_obj->vinfo.xres);
 
   fbdev_obj->inv_areas_len = 0;
 }
