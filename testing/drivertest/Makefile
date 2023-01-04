@@ -55,8 +55,10 @@ PROGNAME += cmocka_driver_pwm
 endif
 
 ifneq ($(CONFIG_I2C)$(CONFIG_SPI),)
+ifneq ($(CONFIG_SENSORS_BMI160),)
 MAINSRC  += drivertest_i2c_spi.c
 PROGNAME += cmocka_driver_i2c_spi
+endif
 endif
 
 ifeq ($(CONFIG_DEV_GPIO),y)
