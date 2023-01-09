@@ -71,12 +71,7 @@ CJSONTEST_MAIN := $(foreach n, $(UNITY_CJSONTESTS), cjson_$(n))
 PROGNAME += $(CJSONTEST_MAIN)
 MAINSRC += $(UNITY_CJSONTESTCS)
 
-CSRCS += $(APPDIR)/testing/unity/Unity/src/unity.c
 CSRCS += $(CJSON_SRCDIR)/tests/unity_setup.c
-CFLAGS += -DUNITY_INCLUDE_CONFIG_H
-CFLAGS += -DUNITY_EXCLUDE_SETJMP_H
-CFLAGS += -I$(APPDIR)/testing/unity/Unity/examples
-CFLAGS += -I$(APPDIR)/testing/unity/Unity/src
 CFLAGS += -Wno-unused-function
 
 PRIORITY  = SCHED_PRIORITY_DEFAULT
