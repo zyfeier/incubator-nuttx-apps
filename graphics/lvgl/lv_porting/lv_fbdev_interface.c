@@ -192,6 +192,39 @@ static void fbdev_disp_vsync_refr(FAR lv_timer_t *timer)
 #endif /* CONFIG_LV_FBDEV_ENABLE_WAITFORVSYNC */
 
 /****************************************************************************
+ * Name: fbdev_check_inv_area_covered
+ ****************************************************************************/
+
+static bool fbdev_check_inv_area_covered(FAR lv_disp_t *disp_refr,
+                                         FAR const lv_area_t *area_p)
+{
+  int i;
+
+  for (i = 0; i < disp_refr->inv_p; i++)
+    {
+      FAR const lv_area_t *cur_area;
+
+      /* Skip joined area */
+
+      if (disp_refr->inv_area_joined[i])
+        {
+          continue;
+        }
+
+      cur_area = &disp_refr->inv_areas[i];
+
+      /* Check cur_area is coverd area_p  */
+
+      if (_lv_area_is_in(area_p, cur_area, 0))
+        {
+          return true;
+        }
+    }
+
+  return false;
+}
+
+/****************************************************************************
  * Name: fbdev_render_start
  ****************************************************************************/
 
@@ -201,8 +234,7 @@ static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
   FAR lv_disp_t *disp_refr;
   FAR lv_draw_ctx_t *draw_ctx;
   lv_coord_t hor_res;
-  int last_inv_i;
-  int cur_inv_i;
+  int i;
 
   /* No need sync buffer when inv_areas_len == 0 */
 
@@ -212,47 +244,36 @@ static void fbdev_render_start(FAR lv_disp_drv_t *disp_drv)
       return;
     }
 
-  LV_LOG_TRACE("Start sync area...");
+  LV_LOG_TRACE("Start sync %d areas...", fbdev_obj->inv_areas_len);
 
   disp_refr = _lv_refr_get_disp_refreshing();
   draw_ctx = disp_drv->draw_ctx;
   hor_res = disp_drv->hor_res;
 
-  for (last_inv_i = 0; last_inv_i < fbdev_obj->inv_areas_len; last_inv_i++)
+  for (i = 0; i < fbdev_obj->inv_areas_len; i++)
     {
-      FAR lv_area_t *last_area = &fbdev_obj->inv_areas[last_inv_i];
+      FAR const lv_area_t *last_area = &fbdev_obj->inv_areas[i];
 
-      for (cur_inv_i = 0; cur_inv_i < disp_refr->inv_p; cur_inv_i++)
+      LV_LOG_TRACE("Check area[%d]: (%d, %d) %d x %d",
+        i,
+        (int)last_area->x1, (int)last_area->y1,
+        (int)lv_area_get_width(last_area),
+        (int)lv_area_get_height(last_area));
+
+      if (fbdev_check_inv_area_covered(disp_refr, last_area))
         {
-          FAR lv_area_t *cur_area;
-          bool is_covered;
-
-          if (disp_refr->inv_area_joined[cur_inv_i] != 0)
-            {
-              continue;
-            }
-
-          cur_area = &disp_refr->inv_areas[cur_inv_i];
-
-          /* Check cur_area is coverd last_area */
-
-          is_covered = _lv_area_is_in(last_area, cur_area, 0);
-
-          if (is_covered)
-            {
-              LV_LOG_TRACE("Skip covered area");
-              continue;
-            }
-
-          LV_LOG_TRACE("Copy area");
-
-          /* Sync the inv area of ​​the previous frame */
-
-          draw_ctx->buffer_copy(
-            draw_ctx,
-            fbdev_obj->act_buffer, hor_res, last_area,
-            fbdev_obj->last_buffer, hor_res, last_area);
+          LV_LOG_TRACE("Skipped");
+          continue;
         }
+
+      /* Sync the inv area of ​​the previous frame */
+
+      draw_ctx->buffer_copy(
+        draw_ctx,
+        fbdev_obj->act_buffer, hor_res, last_area,
+        fbdev_obj->last_buffer, hor_res, last_area);
+
+      LV_LOG_TRACE("Copied");
     }
 
   fbdev_obj->inv_areas_len = 0;
