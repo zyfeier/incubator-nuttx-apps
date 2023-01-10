@@ -229,7 +229,7 @@ static void test_case_pwm(FAR void **state)
   /* Open the PWM device for reading */
 
   fd = open(pwm_state->devpath, O_RDONLY);
-  assert_return_code(fd, errno);
+  assert_true(fd > 0);
 
   /* Configure the characteristics of the pulse train */
 
@@ -252,14 +252,14 @@ static void test_case_pwm(FAR void **state)
 
   ret = ioctl(fd, PWMIOC_SETCHARACTERISTICS,
               (unsigned long)((uintptr_t)&info));
-  assert_return_code(ret, errno);
+  assert_return_code(ret, OK);
 
   /* Then start the pulse train.  Since the driver was opened in blocking
    * mode, this call will block if the count value is greater than zero.
    */
 
   ret = ioctl(fd, PWMIOC_START, 0);
-  assert_return_code(ret, errno);
+  assert_return_code(ret, OK);
 
   /* It a non-zero count was not specified, then wait for the selected
    * duration, then stop the PWM output.
@@ -276,7 +276,7 @@ static void test_case_pwm(FAR void **state)
       /* Then stop the pulse train */
 
       ret = ioctl(fd, PWMIOC_STOP, 0);
-      assert_return_code(ret, errno);
+      assert_return_code(ret, OK);
     }
 
   close(fd);
