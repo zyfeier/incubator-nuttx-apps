@@ -111,16 +111,16 @@ static void show_usage(FAR const char *progname,
          "  Default: %s Current: %s\n",
          TIMER_DEFAULT_DEVPATH, timer_state->devpath);
   printf("  [-i interval] timer interval in microseconds.\n"
-         "  Default: %" PRIu32 "Current: %" PRIu32 "\n",
+         "  Default: %d Current: %" PRIu32 "\n",
          TIMER_DEFAULT_INTERVAL, timer_state->interval);
   printf("  [-n nsamples] timer samples will be collected numbers.\n"
-         "  Default: %" PRIu32 "Current: %" PRIu32 "\n",
+         "  Default: %d Current: %" PRIu32 "\n",
          TIMER_DEFAULT_NSAMPLES, timer_state->nsamples);
   printf("  [-r range] the max range of timer delay.\n"
-         "  Default: %" PRIu32 "Current: %" PRIu32 "\n",
+         "  Default: %d Current: %" PRIu32 "\n",
          TIMER_DEFAULT_RANGE, timer_state->range);
   printf("  [-s signo] used to notify the test of timer expiration events.\n"
-         "  Default: %" PRIu32 "Current: %" PRIu32 "\n",
+         "  Default: %d Current: %" PRIu32 "\n",
          TIMER_DEFAULT_SIGNO, timer_state->signo);
   printf("  [-h] = Shows this message and exits\n");
 
@@ -151,7 +151,7 @@ static void parse_commandline(FAR struct timer_state_s *timer_state,
             OPTARG_TO_VALUE(converted, uint32_t, 10);
             if (converted < 1 || converted > INT_MAX)
               {
-                printf("signal out of range: %" PRIu32 "\n", converted);
+                printf("signal out of range: %d\n", converted);
                 show_usage(argv[0], timer_state, EXIT_FAILURE);
               }
 
@@ -162,7 +162,7 @@ static void parse_commandline(FAR struct timer_state_s *timer_state,
             OPTARG_TO_VALUE(converted, uint32_t, 10);
             if (converted < 1 || converted > INT_MAX)
               {
-                printf("signal out of range: %" PRIu32 "\n", converted);
+                printf("signal out of range: %d\n", converted);
                 show_usage(argv[0], timer_state, EXIT_FAILURE);
               }
 
@@ -173,7 +173,7 @@ static void parse_commandline(FAR struct timer_state_s *timer_state,
             OPTARG_TO_VALUE(converted, uint32_t, 10);
             if (converted < 1 || converted > INT_MAX)
               {
-                printf("signal out of range: %" PRIu32 "\n", converted);
+                printf("signal out of range: %d\n", converted);
                 show_usage(argv[0], timer_state, EXIT_FAILURE);
               }
 
@@ -184,7 +184,7 @@ static void parse_commandline(FAR struct timer_state_s *timer_state,
             OPTARG_TO_VALUE(converted, uint32_t, 10);
             if (converted < 1 || converted > INT_MAX)
               {
-                printf("signal out of range: %" PRIu32 "\n", converted);
+                printf("signal out of range: %d\n", converted);
                 show_usage(argv[0], timer_state, EXIT_FAILURE);
               }
 
@@ -219,13 +219,12 @@ static void test_case_timer(FAR void **state)
   /* Open the timer device */
 
   fd = open(timer_state->devpath, O_RDONLY);
-  assert_return_code(fd, errno);
+  assert_true(fd > 0);
 
   /* Show the timer status before setting the timer interval */
 
-  ret = ioctl(fd, TCIOC_SETTIMEOUT,
-                  timer_state->interval);
-  assert_return_code(fd, errno);
+  ret = ioctl(fd, TCIOC_SETTIMEOUT, timer_state->interval);
+  assert_return_code(ret, OK);
 
   act.sa_sigaction = NULL;
   act.sa_flags     = SA_SIGINFO;
@@ -246,12 +245,12 @@ static void test_case_timer(FAR void **state)
   notify.event.sigev_value.sival_ptr = NULL;
 
   ret = ioctl(fd, TCIOC_NOTIFICATION, (unsigned long)((uintptr_t)&notify));
-  assert_return_code(fd, errno);
+  assert_return_code(ret, OK);
 
   /* Start the timer */
 
   ret = ioctl(fd, TCIOC_START, 0);
-  assert_return_code(fd, errno);
+  assert_return_code(ret, OK);
 
   /* Set the timer interval */
 
@@ -267,7 +266,7 @@ static void test_case_timer(FAR void **state)
   /* Stop the timer */
 
   ret = ioctl(fd, TCIOC_STOP, 0);
-  assert_return_code(fd, errno);
+  assert_return_code(ret, OK);
 
   /* Detach the signal handler */
 
