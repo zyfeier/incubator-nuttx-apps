@@ -2852,8 +2852,14 @@ LV_ATTRIBUTE_FAST_MEM void blend_transform(uint8_t* dst,
       "   ldr                     r0, [%[arg], #172]                  \n" /* opa */
       "   vmov                    q6, q2                              \n"
       "   vdup.8                  q4, r0                              \n" /* q4 = [opa(8x16)] */
+      "   cmp                     lr, #1                              \n" /* tail predication */
+      "   ite                     eq                                  \n"
+      "   ldreq                   r2, [%[arg], #180]                  \n" /* r2 = tail */
+      "   movne                   r2, #4                              \n" /* 4 for all */
       "   vsri.32                 q6, q6, #8                          \n" /* create vector of Sa */
-      "   vldrw.32                q3, [%[pDst]]                       \n" /* q3 = D */
+      "   vctp.32                 r2                                  \n"
+      "   vpst                                                        \n"
+      "   vldrwt.32               q3, [%[pDst]]                       \n" /* read q3 = D with tail predication */
       "   vsri.32                 q6, q6, #16                         \n"
       "   ldr                     r1, [%[arg], #176]                  \n" /* premult as vpr.p0 */
       "   vrmulh.u8               q6, q6, q4                          \n" /* q6 = Sa' = Sa*opa */
@@ -2863,10 +2869,6 @@ LV_ATTRIBUTE_FAST_MEM void blend_transform(uint8_t* dst,
       "   vrmulh.u8               q3, q3, q4                          \n" /* q3 = D*(1-Sa*opa) */
       "   vmsr                    p0, r1                              \n"
       "   vpsel                   q2, q7, q2                          \n" /* select q2 based on premult */
-      "   cmp                     lr, #1                              \n" /* tail predication */
-      "   ite                     eq                                  \n"
-      "   ldreq                   r2, [%[arg], #180]                  \n" /* r2 = tail */
-      "   movne                   r2, #4                              \n" /* 4 for all */
       "   vadd.i8                 q2, q2, q3                          \n" /* D' = S*Sa' + D*(1-Sa') */
       "   vldrw.32                q7, [%[arg], #48]                   \n" /* q7 = xoxo */
       "   vctp.32                 r2                                  \n"
