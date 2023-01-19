@@ -275,6 +275,7 @@ menu "Image Decoder"
 
 config LV_USE_DECODER_JPEG_TURBO
 	bool "Enable JPEG decoder"
+	depends on LIB_JPEG_TURBO
 	default n
 
 config LV_USE_DECODER_LODEPNG
