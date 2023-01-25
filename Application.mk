@@ -160,7 +160,6 @@ $(ZIGOBJS): %$(ZIGEXT)$(SUFFIX)$(OBJEXT): %$(ZIGEXT)
 		$(call ELFCOMPILEZIG, $<, $@), $(call COMPILEZIG, $<, $@))
 
 .built: $(OBJS)
-	$(Q) mkdir -p $(dir $(BIN))
 	$(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^)
 	$(Q) touch $@
 
