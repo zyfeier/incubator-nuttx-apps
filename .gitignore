@@ -27,7 +27,6 @@
 /external
 /Kconfig
 /romfs.img
-/staging
 /symtab_apps.c
 cscope.out
 Make.dep

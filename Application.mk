@@ -32,12 +32,6 @@ ifneq ($(MAINSRC),)
   endif
 endif
 
-ORIG_BIN =
-ifneq ($(BIN),$(APPDIR)$(DELIM)libapps$(LIBEXT))
-  ORIG_BIN := $(BIN)
-  BIN := $(addprefix $(APPDIR)$(DELIM)staging$(DELIM),$(notdir $(BIN)))
-endif
-
 # The GNU make CURDIR will always be a POSIX-like path with forward slashes
 # as path segment separators.  If we know that this is a native build, then
 # we need to fix up the path so the DELIM will match the actual delimiter.
@@ -166,16 +160,13 @@ $(ZIGOBJS): %$(ZIGEXT)$(SUFFIX)$(OBJEXT): %$(ZIGEXT)
 		$(call ELFCOMPILEZIG, $<, $@), $(call COMPILEZIG, $<, $@))
 
 .built: $(OBJS)
-	$(if $(wildcard $<), \
-	  $(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^) \
-	  $(if $(ORIG_BIN), \
-	    $(shell mkdir -p $(dir $(ORIG_BIN))) \
-	    $(shell cp $(call CONVERT_PATH,$(BIN)) $(ORIG_BIN)) \
-	   ), \
-	   $(if $(wildcard $(ORIG_BIN)), \
-	     $(shell cp $(ORIG_BIN) $(call CONVERT_PATH,$(BIN))), \
-	    ) \
-	  )
+ifneq ($(OBJS),)
+	$(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^)
+ifneq ($(BIN),$(APPDIR)$(DELIM)libapps$(LIBEXT))
+	$(Q) mkdir -p $(APPDIR)$(DELIM)staging
+	$(Q) cp $(call CONVERT_PATH,$(BIN)) $(APPDIR)$(DELIM)staging$(DELIM)
+endif
+endif
 	$(Q) touch $@
 
 ifeq ($(BUILD_MODULE),y)
@@ -235,9 +226,8 @@ install::
 endif # BUILD_MODULE
 
 context::
-ifneq ($(ORIG_BIN),)
+ifneq ($(BIN),$(APPDIR)$(DELIM)libapps$(LIBEXT))
 	$(Q) mkdir -p $(dir $(BIN))
-	$(Q) mkdir -p $(dir $(ORIG_BIN))
 endif
 
 ifneq ($(PROGNAME),)
