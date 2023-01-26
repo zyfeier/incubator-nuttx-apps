@@ -130,8 +130,8 @@ static const uint8_t g_partition_type_swap[16] =
 static void get_uuid(FAR uint8_t *uuid)
 {
   /* call getrandom to read  /dev/urandom */
-  
-  if(getrandom(uuid, 16, 1) < 0)
+
+  if (getrandom(uuid, 16, 0) < 0)
     {
       fprintf(stderr, "error read primary partition table\n");
       return;

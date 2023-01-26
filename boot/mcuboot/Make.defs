@@ -31,11 +31,4 @@ CXXFLAGS += ${INCDIR_PREFIX}$(APPDIR)/boot/mcuboot/mcuboot/boot/nuttx/include
 CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/boot/mcuboot/mcuboot/boot/bootutil/include
 CXXFLAGS += ${INCDIR_PREFIX}$(APPDIR)/boot/mcuboot/mcuboot/boot/bootutil/include
 
-# It allows import of MCUboot's crypto backend library headers.
-
-ifneq ($(CONFIG_MCUBOOT_USE_TINYCRYPT),)
-CFLAGS += ${INCDIR_PREFIX}$(APPDIR)/boot/mcuboot/mcuboot/ext/tinycrypt/lib/include
-CXXFLAGS += ${INCDIR_PREFIX}$(APPDIR)/boot/mcuboot/mcuboot/ext/tinycrypt/lib/include
-endif
-
 endif

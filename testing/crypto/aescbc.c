@@ -94,7 +94,7 @@ static int syscrypt(FAR const char *key, size_t klen,
   int cryptodev_fd = -1;
   int fd = -1;
 
-  if ((fd = open("/dev/crypto", 0, 0)) < 0)
+  if ((fd = open("/dev/crypto", O_RDWR, 0)) < 0)
     {
       warn("/dev/crypto");
       goto err;
@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
   int ret;
   unsigned char out[64];
 
-  for (int i; i < sizeof(testcase) / sizeof(struct tb); i++)
+  for (int i = 0; i < sizeof(testcase) / sizeof(struct tb); i++)
     {
       ret = syscrypt(testcase[i].key, 16, testcase[i].iv, testcase[i].plain,
                      out, testcase[i].len, 1);

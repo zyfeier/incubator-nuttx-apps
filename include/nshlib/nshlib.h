@@ -216,8 +216,8 @@ int platform_skip_login(void);
  * Name: platform_challenge
  *
  * Description:
- *   If CONFIG_NSH_PLATFORM_CHALLENGE is defined, then platform-specific logic
- *   must provide this function in order get the challenge.
+ *   If CONFIG_NSH_PLATFORM_CHALLENGE is defined, then platform-specific
+ *   logic must provide this function in order get the challenge.
  *
  * Input Parameters:
  *   buffer - A caller allocated buffer in which to receive the challenge

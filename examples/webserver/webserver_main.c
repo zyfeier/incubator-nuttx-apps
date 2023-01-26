@@ -82,6 +82,10 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
+#ifndef CONFIG_NETUTILS_WEBSERVER
+#  error "CONFIG_NETUTILS_WEBSERVER is required to get WebServer working"
+#endif
+
 /****************************************************************************
  * Private Data
  ****************************************************************************/

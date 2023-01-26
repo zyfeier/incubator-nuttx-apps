@@ -92,14 +92,6 @@
 
 extern CODE char *crypt(const char *key, const char *setting);
 
-#ifndef MAX
-#  define MAX(a,b) ((a) > (b) ? (a) : (b))
-#endif
-
-#ifndef MIN
-#  define MIN(a,b) ((a) < (b) ? (a) : (b))
-#endif
-
 /* Conditional macro to allow two alternate forms for use in the built-in
  * error pages.  If EXPLICIT_ERROR_PAGES is defined, the second and more
  * explicit error form is used; otherwise, the first and more generic
@@ -2143,7 +2135,7 @@ FAR httpd_server *httpd_initialize(FAR httpd_sockaddr *sa)
 {
   FAR httpd_server *hs;
 
-  /* Save the PID of the main thread */
+  /* Save the TID of the main thread */
 
   main_thread = gettid();
 

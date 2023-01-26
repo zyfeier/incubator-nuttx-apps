@@ -803,7 +803,7 @@ int nsh_usbconsole(void);
 
 #if defined(CONFIG_FILE_STREAM) && !defined(CONFIG_NSH_DISABLESCRIPT)
 int nsh_script(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
-               FAR const char *path);
+               FAR const char *path, bool log);
 #ifdef CONFIG_NSH_ROMFSETC
 int nsh_sysinitscript(FAR struct nsh_vtbl_s *vtbl);
 int nsh_initscript(FAR struct nsh_vtbl_s *vtbl);
@@ -1171,7 +1171,7 @@ int cmd_pmconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #endif
 
 #ifndef CONFIG_NSH_DISABLE_UPTIME
-  int cmd_uptime(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+  int cmd_uptime(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv);
 #endif
 
 #if defined(CONFIG_NETUTILS_CODECS) && defined(CONFIG_CODECS_BASE64)

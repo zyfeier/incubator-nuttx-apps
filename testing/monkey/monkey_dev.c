@@ -124,8 +124,8 @@ static bool button_read(int fd, FAR uint32_t *value)
 {
   btn_buttonset_t buttonset;
 
-  int ret = read(fd, &buttonset, sizeof(buttonset));
-  if (ret < 0)
+  int nbytes = read(fd, &buttonset, sizeof(buttonset));
+  if (nbytes != sizeof(buttonset))
     {
       return false;
     }
@@ -133,6 +133,10 @@ static bool button_read(int fd, FAR uint32_t *value)
   *value = buttonset;
   return true;
 }
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
 
 /****************************************************************************
  * Name: monkey_dev_create
@@ -147,9 +151,8 @@ FAR struct monkey_dev_s *monkey_dev_create(FAR const char *dev_path,
 
   MONKEY_ASSERT_NULL(dev_path);
 
-  dev = malloc(sizeof(struct monkey_dev_s));
+  dev = calloc(1, sizeof(struct monkey_dev_s));
   MONKEY_ASSERT_NULL(dev);
-  memset(dev, 0, sizeof(struct monkey_dev_s));
 
   if (MONKEY_IS_UINPUT_TYPE(type))
     {
@@ -190,10 +193,6 @@ failed:
 }
 
 /****************************************************************************
- * Public Functions
- ****************************************************************************/
-
-/****************************************************************************
  * Name: monkey_dev_delete
  ****************************************************************************/
 
@@ -212,7 +211,6 @@ void monkey_dev_delete(FAR struct monkey_dev_s *dev)
 
       MONKEY_LOG_NOTICE("close fd: %d", dev->fd);
       close(dev->fd);
-      dev->fd = -1;
     }
 
   free(dev);
@@ -223,25 +221,25 @@ void monkey_dev_delete(FAR struct monkey_dev_s *dev)
  ****************************************************************************/
 
 void monkey_dev_set_state(FAR struct monkey_dev_s *dev,
-                           FAR const struct monkey_dev_state_s *state)
+                          FAR const struct monkey_dev_state_s *state)
 {
   MONKEY_ASSERT_NULL(dev);
 
   switch (MONKEY_GET_DEV_TYPE(dev->type))
     {
-    case MONKEY_DEV_TYPE_TOUCH:
-      utouch_write(dev->fd,
-                   state->data.touch.x,
-                   state->data.touch.y,
-                   state->data.touch.is_pressed);
-      break;
+      case MONKEY_DEV_TYPE_TOUCH:
+        utouch_write(dev->fd,
+                    state->data.touch.x,
+                    state->data.touch.y,
+                    state->data.touch.is_pressed);
+        break;
 
-    case MONKEY_DEV_TYPE_BUTTON:
-      ubutton_write(dev->fd, state->data.button.value);
-      break;
+      case MONKEY_DEV_TYPE_BUTTON:
+        ubutton_write(dev->fd, state->data.button.value);
+        break;
 
-    default:
-      break;
+      default:
+        break;
     }
 }
 
@@ -261,19 +259,19 @@ bool monkey_dev_get_state(FAR struct monkey_dev_s *dev,
 
   switch (dev->type)
     {
-    case MONKEY_DEV_TYPE_TOUCH:
-      retval = touch_read(dev->fd,
-                          &state->data.touch.x,
-                          &state->data.touch.y,
-                          &state->data.touch.is_pressed);
-      break;
+      case MONKEY_DEV_TYPE_TOUCH:
+        retval = touch_read(dev->fd,
+                            &state->data.touch.x,
+                            &state->data.touch.y,
+                            &state->data.touch.is_pressed);
+        break;
 
-    case MONKEY_DEV_TYPE_BUTTON:
-      retval = button_read(dev->fd, &state->data.button.value);
-      break;
+      case MONKEY_DEV_TYPE_BUTTON:
+        retval = button_read(dev->fd, &state->data.button.value);
+        break;
 
-    default:
-      break;
+      default:
+        break;
     }
 
   return retval;
@@ -299,13 +297,13 @@ int monkey_dev_get_available(FAR struct monkey_dev_s *devs[], int dev_num)
   int i;
   int available = 0;
   struct pollfd fds[MONKEY_DEV_MAX_NUM];
+  memset(fds, 0, sizeof(fds));
 
   for (i = 0; i < dev_num; i++)
     {
       devs[i]->is_available = false;
       fds[i].fd = devs[i]->fd;
       fds[i].events = POLLIN | POLLPRI;
-      fds[i].revents = 0;
     }
 
   if (poll(fds, dev_num, -1) < 0)

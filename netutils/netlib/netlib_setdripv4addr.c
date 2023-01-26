@@ -66,7 +66,7 @@ int netlib_set_dripv4addr(FAR const char *ifname,
   int ret = ERROR;
 
 #ifdef CONFIG_NET_ROUTE
-  struct sockaddr_in* v4_addr;
+  FAR struct sockaddr_in *v4_addr;
   struct sockaddr_storage target;
   struct sockaddr_storage netmask;
   struct sockaddr_storage router;
@@ -78,7 +78,7 @@ int netlib_set_dripv4addr(FAR const char *ifname,
   netmask.ss_family  = AF_INET;
 
   memset(&router, 0, sizeof(router));
-  v4_addr = (struct sockaddr_in*)&router;
+  v4_addr = (FAR struct sockaddr_in *)&router;
   v4_addr->sin_family  = AF_INET;
   v4_addr->sin_addr    = *addr;
 #endif

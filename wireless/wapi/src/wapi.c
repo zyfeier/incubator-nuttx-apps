@@ -83,26 +83,26 @@ static unsigned int wapi_str2ndx(FAR const char *name,
                                  FAR const char **list);
 static void wapi_showusage(FAR const char *progname, int exitcode);
 
-static int wapi_show_cmd          (int sock, int argc, FAR char **argv);
-static int wapi_ip_cmd            (int sock, int argc, FAR char **argv);
-static int wapi_mask_cmd          (int sock, int argc, FAR char **argv);
-static int wapi_freq_cmd          (int sock, int argc, FAR char **argv);
-static int wapi_essid_cmd         (int sock, int argc, FAR char **argv);
-static int wapi_psk_cmd           (int sock, int argc, FAR char **argv);
-static int wapi_disconnect_cmd    (int sock, int argc, FAR char **argv);
-static int wapi_mode_cmd          (int sock, int argc, FAR char **argv);
-static int wapi_ap_cmd            (int sock, int argc, FAR char **argv);
-static int wapi_bitrate_cmd       (int sock, int argc, FAR char **argv);
-static int wapi_txpower_cmd       (int sock, int argc, FAR char **argv);
-static int wapi_scan_results_cmd  (int sock, int argc, FAR char **argv);
-static int wapi_scan_cmd          (int sock, int argc, FAR char **argv);
-static int wapi_country_cmd       (int sock, int argc, FAR char **argv);
-static int wapi_sense_cmd         (int sock, int argc, FAR char **argv);
+static int wapi_show_cmd         (int sock, int argc, FAR char **argv);
+static int wapi_ip_cmd           (int sock, int argc, FAR char **argv);
+static int wapi_mask_cmd         (int sock, int argc, FAR char **argv);
+static int wapi_freq_cmd         (int sock, int argc, FAR char **argv);
+static int wapi_essid_cmd        (int sock, int argc, FAR char **argv);
+static int wapi_psk_cmd          (int sock, int argc, FAR char **argv);
+static int wapi_disconnect_cmd   (int sock, int argc, FAR char **argv);
+static int wapi_mode_cmd         (int sock, int argc, FAR char **argv);
+static int wapi_ap_cmd           (int sock, int argc, FAR char **argv);
+static int wapi_bitrate_cmd      (int sock, int argc, FAR char **argv);
+static int wapi_txpower_cmd      (int sock, int argc, FAR char **argv);
+static int wapi_scan_results_cmd (int sock, int argc, FAR char **argv);
+static int wapi_scan_cmd         (int sock, int argc, FAR char **argv);
+static int wapi_country_cmd      (int sock, int argc, FAR char **argv);
+static int wapi_sense_cmd        (int sock, int argc, FAR char **argv);
 #ifdef CONFIG_WIRELESS_WAPI_INITCONF
-static int wapi_reconnect_cmd     (int sock, int argc, FAR char **argv);
-static int wapi_save_config_cmd   (int sock, int argc, FAR char **argv);
+static int wapi_reconnect_cmd    (int sock, int argc, FAR char **argv);
+static int wapi_save_config_cmd  (int sock, int argc, FAR char **argv);
 #endif
-static int wapi_pta_prio_cmd      (int sock, int argc, FAR char **argv);
+static int wapi_pta_prio_cmd     (int sock, int argc, FAR char **argv);
 
 /****************************************************************************
  * Private Data
@@ -411,14 +411,6 @@ static int wapi_show_cmd(int sock, int argc, FAR char **argv)
       printf("    Sense: %d\n", sense);
     }
 
-  /* Get pta prio */
-
-  ret = wapi_get_pta_prio(sock, ifname, &pta_prio);
-  if (ret >= 0)
-    {
-      printf(" PTA prio: %d\n", pta_prio);
-    }
-
   /* Get Country Code */
 
   memset(country, 0, sizeof(country));
@@ -426,6 +418,14 @@ static int wapi_show_cmd(int sock, int argc, FAR char **argv)
   if (ret >= 0)
     {
       printf("  Country: %s\n", country);
+    }
+
+  /* Get pta prio */
+
+  ret = wapi_get_pta_prio(sock, ifname, &pta_prio);
+  if (ret >= 0)
+    {
+      printf(" PTA prio: %d\n", pta_prio);
     }
 
   return 0;
@@ -546,8 +546,18 @@ static int wapi_psk_cmd(int sock, int argc, FAR char **argv)
 {
   enum wpa_alg_e alg_flag;
   uint8_t auth_wpa;
+  int passlen;
   int cipher;
   int ret;
+
+  /* Check if password len >= 8 && <= 63 */
+
+  passlen = strnlen(argv[1], 64);
+  if (passlen < 8 || passlen > 63)
+    {
+      printf("The password should have between 8 and 63 characters!\n");
+      return -EINVAL;
+    }
 
   /* Convert input strings to values */
 
@@ -981,7 +991,7 @@ static int wapi_save_config_cmd(int sock, int argc, FAR char **argv)
                                     &conf.alg,
                                     psk,
                                     &psk_len);
-  if (ret >= 0)
+  if (ret == 0)
     {
       conf.passphrase = psk;
       conf.phraselen = psk_len;

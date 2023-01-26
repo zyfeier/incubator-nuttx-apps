@@ -1,5 +1,5 @@
 ############################################################################
-# apps/system/embedlog/Make.defs
+# apps/netutils/cwebsocket/Makefile
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -18,6 +18,31 @@
 #
 ############################################################################
 
-ifneq ($(CONFIG_SYSTEM_EMBEDLOG),)
-CONFIGURED_APPS += $(APPDIR)/system/embedlog
+include $(APPDIR)/Make.defs
+
+SRC = cwebsocket/src/cwebsocket
+
+CSRCS += $(SRC)/client.c
+CSRCS += $(SRC)/common.c
+CSRCS += $(SRC)/utf8.c
+
+CFLAGS += -DENABLE_SSL
+CFLAGS += -Wno-shadow -Wno-strict-prototypes -Wno-unknown-pragmas
+
+cwebsocket.zip:
+	$(Q) curl -L https://codeload.github.com/jeremyhahn/cwebsocket/zip/refs/heads/master -o cwebsocket.zip
+	$(Q) unzip cwebsocket.zip
+	$(Q) mv cwebsocket-master cwebsocket
+	$(Q) patch -Np1 < 0001-Porting-the-code-for-NuttX.patch
+	$(Q) patch -Np1 < 0002-Revert-dsp_message-and-app_message-to-original.patch
+
+# Download and unpack tarball if no git repo found
+ifeq ($(wildcard cwebsocket/.git),)
+context:: cwebsocket.zip
+
+distclean::
+	$(call DELDIR, cwebsocket)
+	$(call DELFILE, cwebsocket.zip)
 endif
+
+include $(APPDIR)/Application.mk

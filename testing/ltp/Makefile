@@ -15,8 +15,12 @@
 
 include $(APPDIR)/Make.defs
 
-TESTDIR      = $(CURDIR)/ltp/testcases/open_posix_testsuite
+LTP_UNPACK   = ltp
+LTP_URL      = https://github.com/linux-test-project/ltp.git
 
+TESTDIR      = $(LTP_UNPACK)/testcases/open_posix_testsuite
+
+ifneq ($(wildcard $(TESTDIR)),)
 ifeq ($(CONFIG_FS_AIO),)
 BLACKWORDS  += "aio.h"
 BLACKWORDS  += "SIGPOLL"
@@ -159,11 +163,29 @@ STACKSIZE     = $(CONFIG_DEFAULT_TASK_STACKSIZE)
 MODULE        = $(CONFIG_TESTING_LTP)
 
 CSRCS        := $(LTP_CSRCS_1) $(LTP_CSRCS_2) $(LTP_CSRCS_3) $(LTP_CSRCS_4)
-CFLAGS       += -Werror
 CFLAGS       += -I$(CURDIR)
 CFLAGS       += -I$(TESTDIR)/include
+endif
 
-depend::
-	$(Q) touch $(MAINSRC)
+# Relax warning checks to avoid expected compile errors:
+CFLAGS += -Wno-strict-prototypes -Wno-return-type -Wno-format -Wno-uninitialized
+CFLAGS += -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-value
+
+# Should be removed if possible in the future
+CFLAGS += -Wno-incompatible-pointer-types -Wno-overflow -Wno-int-to-pointer-cast
+
+$(LTP_UNPACK):
+	$(Q) echo "git clone $(LTP_URL)"
+	$(Q) git clone $(LTP_URL)
+	$(Q) git -C $(LTP_UNPACK) am < 0001-Fix-static-struct-warning.patch
+	$(Q) git -C $(LTP_UNPACK) am < 0002-Use-ifdef-instead-of-if-for-__linux__.patch
+
+# Download and unpack tarball if no git repo found
+ifeq ($(wildcard $(LTP_UNPACK)/.git),)
+context:: $(LTP_UNPACK)
+
+distclean::
+	$(Q) rm -rf $(LTP_UNPACK)
+endif
 
 include $(APPDIR)/Application.mk

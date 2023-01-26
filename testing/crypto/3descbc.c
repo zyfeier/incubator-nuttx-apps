@@ -50,7 +50,7 @@ static int syscrypt(FAR const unsigned char *key, size_t klen,
   int cryptodev_fd = -1;
   int fd = -1;
 
-  if ((fd = open("/dev/crypto", 0, 0)) < 0)
+  if ((fd = open("/dev/crypto", O_RDWR, 0)) < 0)
     {
       warn("/dev/crypto");
       goto err;

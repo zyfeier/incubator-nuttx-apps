@@ -36,9 +36,11 @@
 /************************************************************************************
  * Pre-processor Definitions
  ************************************************************************************/
+
 /* Configuration ********************************************************************/
 
 /* TIFF File Format Definitions *****************************************************/
+
 /* Values for the IFD field type */
 
 #define IFD_FIELD_BYTE              1 /* 8-bit unsigned integer */
@@ -56,7 +58,7 @@
                                        * integer */
 #define IFD_FIELD_SLONG             9 /* A 32-bit (4-byte) signed (twos-complement)
                                        * integer */
-#define IFD_FIELD_SRATIONAL        10 /* Two SLONG’s: the first represents the
+#define IFD_FIELD_SRATIONAL        10 /* Two SLONG's: the first represents the
                                        * numerator of a fraction, the second the
                                        * denominator */
 #define IFD_FIELD_FLOAT            11 /* Single precision (4-byte) IEEE format */
@@ -64,10 +66,11 @@
 
 /* Values for the IFD tag type */
 
-#define IFD_TAG_NEWSUBFILETYPE    254 /* NewSubfileType, LONG */
+#define IFD_TAG_NEWSUBFILETYPE    254         /* NewSubfileType, LONG */
 #  define TAG_NEWSUBFILETYPE_REDUCED (1 << 0) /* Bit 0: Reduced resolution version of image */
 #  define TAG_NEWSUBFILETYPE_SINGLE  (1 << 1) /* Bit 1: Single page of a multi-page image */
 #  define TAG_NEWSUBFILETYPE_TRANSP  (1 << 2) /* Bit 2: Defines a transparency mask for image */
+
 #define IFD_TAG_SUBFILETYPE       255 /* SubfileType, SHORT */
 #  define TAG_SUBFILETYPE_FULL      1 /*   Full-resolution image data */
 #  define TAG_SUBFILETYPE_REDUCED   2 /*   Reduced-resolution image data */
@@ -143,11 +146,11 @@
 #  define TAG_GRAYRESPUNIT_100KTHS  5 /*   Number represents hundred-thousandths of a unit */
 #define IFD_TAG_GRAYRESPONSECURVE 291 /* GrayResponseCurve, SHORT */
 #define IFD_TAG_T4OPTIONS         292 /* T4Options, LONG */
-#  define TAG_T4OPTIONS_2D        (1 << 0) /*   2-dimensional coding */
-#  define TAG_T4OPTIONS_NONE      (1 << 1) /*   Uncompressed mode */
-#  define TAG_T4OPTIONS_FILL      (1 << 2) /*   Fill bits have been added */
+#  define TAG_T4OPTIONS_2D   (1 << 0) /*   2-dimensional coding */
+#  define TAG_T4OPTIONS_NONE (1 << 1) /*   Uncompressed mode */
+#  define TAG_T4OPTIONS_FILL (1 << 2) /*   Fill bits have been added */
 #define IFD_TAG_T6OPTIONS         293 /* T6Options, LONG */
-#  define TAG_T6OPTIONS_NONE      (1 << 1) /*   Uncompressed mode allowed */
+#  define TAG_T6OPTIONS_NONE (1 << 1) /*   Uncompressed mode allowed */
 #define IFD_TAG_RESUNIT           296 /* ResolutionUnit, SHORT (Required) */
 #  define TAG_RESUNIT_NONE          1 /* No absolute unit of measurement */
 #  define TAG_RESUNIT_INCH          2 /* Inch (default) */
@@ -183,7 +186,7 @@
 #  define TAG_EXTSAMP_UNASSALPHA    2 /*   Unassociated alpha data */
 #define IFD_TAG_SAMPLEFORMAT      339 /* SampleFormat, SHORT */
 #  define TAG_SAMPLEFMT_UNSIGED     1 /*   Unsigned integer data */
-#  define TAG_SAMPLEFMT_SIGNED      2 /*   Two’s complement signed integer data */
+#  define TAG_SAMPLEFMT_SIGNED      2 /*   Two's complement signed integer data */
 #  define TAG_SAMPLEFMT_FLOAT       3 /*   IEEE floating point data */
 #  define TAG_SAMPLEFMT_UNDEFINED   4 /*   Undefined data format */
 #define IFD_TAG_SMINSAMPLEVALUE   340 /* SMinSampleValue, type matches sample data */
@@ -207,7 +210,9 @@
 /************************************************************************************
  * Public Types
  ************************************************************************************/
+
 /* TIFF File Format Structure *******************************************************/
+
 /* "A TIFF file begins with an 8-byte image file header that points to an
  *  image file directory (IFD). An image file directory contains information
  *  about the image, as well as pointers to the actual image data."
@@ -239,7 +244,8 @@ struct tiff_ifdentry_s
 #define SIZEOF_IFD_ENTRY 12
 
 /************************************************************************************/
-/* Structures needed to interface with the TIFF file creation library )and also
+
+/* Structures needed to interface with the TIFF file creation library) and also
  * structures used only internally by the TIFF file creation library).
  */
 
@@ -381,7 +387,8 @@ int tiff_initialize(FAR struct tiff_info_s *info);
  *   the RowsPerStrip x ImageWidth values that were provided to tiff_initialize().
  *
  * Input Parameters:
- *   info    - A pointer to the caller allocated parameter passing/TIFF state instance.
+ *   info    - A pointer to the caller allocated parameter passing/TIFF state
+ *             instance.
  *   buffer  - A buffer containing a single row of data.
  *
  * Returned Value:
@@ -427,7 +434,8 @@ void tiff_abort(FAR struct tiff_info_s *info);
  * Name: tiff_put/get16/32
  *
  * Description:
- *   Put and get 16 and 32 values in the correct byte order at the specified position.
+ *   Put and get 16 and 32 values in the correct byte order at the specified
+ *   position.
  *
  * Input Parameters:
  *   dest - The location to store the multi-byte data (put only)

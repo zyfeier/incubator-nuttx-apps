@@ -34,7 +34,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define CPULOAD_US          (1000000 / CONFIG_SCHED_CPULOAD_TICKSPERSEC)
+#define CPULOAD_US          (USEC_PER_SEC / CONFIG_SCHED_CPULOAD_TICKSPERSEC)
 #define CPULOAD_DELAY       (10 * CPULOAD_US)
 
 /****************************************************************************

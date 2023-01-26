@@ -212,7 +212,7 @@ static int dd_verify(FAR const char *infile, FAR const char *outfile,
       return ERROR;
     }
 
-  while(!dd->eof && sector < dd->nsectors)
+  while (!dd->eof && sector < dd->nsectors)
     {
       ret = dd_read(dd);
       if (ret < 0)
