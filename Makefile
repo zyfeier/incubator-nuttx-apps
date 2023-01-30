@@ -97,7 +97,7 @@ $(SYMTABSRC): $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all)
 	$(Q) $(call TESTANDREPLACEFILE, $@.tmp, $@)
 
 $(SYMTABOBJ): %$(OBJEXT): %.c
-	$(call COMPILE, -fno-lto -fno-builtin $<, $@)
+	$(call COMPILE, $<, $@, -fno-lto -fno-builtin)
 
 $(BIN): $(SYMTABOBJ)
 	$(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^)
