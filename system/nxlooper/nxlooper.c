@@ -24,6 +24,7 @@
 
 #include <nuttx/config.h>
 
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 
@@ -55,10 +56,6 @@
 
 #define AUDIO_APB_RECORD         (1 << 4)
 #define AUDIO_APB_PLAY           (1 << 5)
-
-#ifndef MIN
-#  define MIN(a, b)              (((a) < (b)) ? (a) : (b))
-#endif
 
 /****************************************************************************
  * Private Functions

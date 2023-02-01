@@ -42,6 +42,7 @@
 #include <nuttx/video/fb.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/param.h>
 #include <sys/types.h>
 
 #include <system/nxcamera.h>
@@ -58,10 +59,6 @@
 #define NXCAMERA_STATE_STREAMING 1
 #define NXCAMERA_STATE_LOOPING   2
 #define NXCAMERA_STATE_PAUSED    3
-
-#ifndef MIN
-#  define MIN(a, b)              (((a) < (b)) ? (a) : (b))
-#endif
 
 #define convert_frame            ConvertToARGB
 
