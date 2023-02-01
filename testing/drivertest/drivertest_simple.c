@@ -1,9 +1,5 @@
 /****************************************************************************
-<<<<<<<< HEAD:testing/drivertest/drivertest_simple.c
  * apps/testing/drivertest/drivertest_simple.c
-========
- * apps/graphics/lvgl/port/lv_port_syslog.c
->>>>>>>> 4ed5bec472adfc3b196ccbeb343f5f991cdf39b5:graphics/lvgl/port/lv_port_syslog.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -25,24 +21,17 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
-<<<<<<<< HEAD:testing/drivertest/drivertest_simple.c
+
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include <stdint.h>
 #include <cmocka.h>
-========
-
-#include <lvgl/lvgl.h>
-#include <syslog.h>
-#include "lv_port_syslog.h"
->>>>>>>> 4ed5bec472adfc3b196ccbeb343f5f991cdf39b5:graphics/lvgl/port/lv_port_syslog.c
 
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
 
-<<<<<<<< HEAD:testing/drivertest/drivertest_simple.c
 static void test_case_01(void **state)
 {
   (void) state;
@@ -72,30 +61,4 @@ int main(int argc, FAR char *argv[])
   };
 
   return cmocka_run_group_tests(tests, NULL, NULL);
-========
-/****************************************************************************
- * Name: syslog_print_cb
- ****************************************************************************/
-
-static void syslog_print_cb(FAR const char *buf)
-{
-  syslog(LOG_INFO, "[LVGL] %s", buf);
-}
-
-/****************************************************************************
- * Public Functions
- ****************************************************************************/
-
-/****************************************************************************
- * Name: lv_port_syslog_init
- *
- * Description:
- *   Syslog interface initialization.
- *
- ****************************************************************************/
-
-void lv_port_syslog_init(void)
-{
-  lv_log_register_print_cb(syslog_print_cb);
->>>>>>>> 4ed5bec472adfc3b196ccbeb343f5f991cdf39b5:graphics/lvgl/port/lv_port_syslog.c
 }
