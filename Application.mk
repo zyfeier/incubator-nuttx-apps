@@ -165,15 +165,25 @@ $(ZIGOBJS): %$(ZIGEXT)$(SUFFIX)$(OBJEXT): %$(ZIGEXT)
 	$(if $(and $(CONFIG_BUILD_LOADABLE), $(CELFFLAGS)), \
 		$(call ELFCOMPILEZIG, $<, $@), $(call COMPILEZIG, $<, $@))
 
+define TESTANDCOPYFILE
+	if [ -f $2 ]; then \
+		if ! cmp -s $1 $2; then \
+			cp $1 $2; \
+		fi \
+	elif [ -f $1 ]; then \
+		cp $1 $2; \
+	fi
+endef
+
 .built: $(OBJS)
 	$(if $(wildcard $<), \
 	  $(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^) \
 	  $(if $(ORIG_BIN), \
 	    $(shell mkdir -p $(dir $(ORIG_BIN))) \
-	    $(shell cp $(call CONVERT_PATH,$(BIN)) $(ORIG_BIN)) \
+	    $(shell $(call TESTANDCOPYFILE,$(call CONVERT_PATH,$(BIN)),$(ORIG_BIN))) \
 	   ), \
 	   $(if $(wildcard $(ORIG_BIN)), \
-	     $(shell cp $(ORIG_BIN) $(call CONVERT_PATH,$(BIN))), \
+	     $(shell $(call TESTANDCOPYFILE,$(ORIG_BIN),$(call CONVERT_PATH,$(BIN)))) \
 	    ) \
 	  )
 	$(Q) touch $@
