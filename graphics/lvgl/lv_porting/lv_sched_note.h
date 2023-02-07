@@ -36,8 +36,8 @@
 #define LV_NOTE_PRINTF(format, ...)  sched_note_printf(format, ##__VA_ARGS__)
 #define LV_NOTE_BEGIN()              SCHED_NOTE_BEGIN()
 #define LV_NOTE_END()                SCHED_NOTE_END()
-#define LV_NOTE_BEGIN_STR(str)       sched_note_begin(SCHED_NOTE_IP, str)
-#define LV_NOTE_END_STR(str)         sched_note_end(SCHED_NOTE_IP, str)
+#define LV_NOTE_BEGIN_STR(str)       SCHED_NOTE_BEGINEX(str)
+#define LV_NOTE_END_STR(str)         SCHED_NOTE_ENDEX(str)
 #define LV_NOTE_BEGIN_LOCAL(str)          \
     do {                                  \
         const char *note_temp_str = str;  \
