@@ -83,7 +83,7 @@ static void btsak_cmd_scanstart(FAR struct btsak_s *btsak, FAR char *cmd,
   int ret;
 
   memset(&btreq, 0, sizeof(struct btreq_s));
-  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
+  strlcpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
 
   /* Check if an option was provided */
 
@@ -140,7 +140,7 @@ static void btsak_cmd_scanget(FAR struct btsak_s *btsak, FAR char *cmd,
   /* Perform the IOCTL to get the scan results so far */
 
   memset(&btreq, 0, sizeof(struct btreq_s));
-  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
+  strlcpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
   btreq.btr_nrsp = 5;
   btreq.btr_rsp  = result;
 
@@ -218,7 +218,7 @@ static void btsak_cmd_scanstop(FAR struct btsak_s *btsak, FAR char *cmd,
   /* Perform the IOCTL to stop scanning and flush any buffered responses. */
 
   memset(&btreq, 0, sizeof(struct btreq_s));
-  strncpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
+  strlcpy(btreq.btr_name, btsak->ifname, IFNAMSIZ);
 
   sockfd = btsak_socket(btsak);
   if (sockfd >= 0)
