@@ -268,8 +268,10 @@ int main(int argc, FAR char *argv[])
 
   /* Use the ones configured on menuconfig */
 
-  strcpy(g_devtim, CONFIG_EXAMPLES_TIMER_GPIO_TIM_DEVNAME);
-  strcpy(g_devgpio, CONFIG_EXAMPLES_TIMER_GPIO_GPIO_DEVNAME);
+  strlcpy(g_devtim, CONFIG_EXAMPLES_TIMER_GPIO_TIM_DEVNAME,
+          sizeof(g_devtim));
+  strlcpy(g_devgpio, CONFIG_EXAMPLES_TIMER_GPIO_GPIO_DEVNAME,
+          sizeof(g_devgpio));
 
   /* Or the ones passed as arguments */
 
@@ -278,10 +280,10 @@ int main(int argc, FAR char *argv[])
       switch (opt)
       {
         case 't':
-            strcpy(g_devtim, optarg);
+            strlcpy(g_devtim, optarg, sizeof(g_devtim));
             break;
         case 'g':
-            strcpy(g_devgpio, optarg);
+            strlcpy(g_devgpio, optarg, sizeof(g_devgpio));
             break;
         case ':':
             fprintf(stderr, "ERROR: Option needs a value\n");
