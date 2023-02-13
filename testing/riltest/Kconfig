@@ -1,0 +1,83 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config TESTING_RIL_TEST
+	tristate "RIL tesing tool kit"
+	default n
+	---help---
+		Enable ril tesing tool kit
+
+if TESTING_RIL_TEST
+
+config TESTING_RIL_TEST_PROGNAME
+	string "Program name"
+	default "ril_test_tool"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config TESTING_RIL_TEST_PRIORITY
+	int "ril_test_tool test task priority"
+	default 100
+
+config TESTING_RIL_TEST_STACKSIZE
+	int "ril_test_tool test stack size"
+	default  DEFAULT_TASK_STACKSIZE
+
+config RIL_TEST_CONFIGS_PATH
+	string "RIL test configuration directory"
+	default ""
+	---help---
+		This is the directory of the RIL test configuration JSON file
+		(aka ril_req.json). Note that the path should be the absolute path.
+
+config RIL_TESTCASES_OUT
+	string "RIL testcases output directory"
+	default ""
+	---help---
+		This is the directory where the ril testcases to be generated.
+		Note that the path should be the absolute path.
+
+config LIBRIL_HEADER_PATH
+	string "Location of the RILD headers"
+	default ""
+	---help---
+		This is the location of where the RIL headers we should use. Basically,
+		we just need ril.h for building the tool. Note that the path should be
+		a absolute path to the RIL headers.
+
+config RIL_DOMAIN_SOCKET_PATH
+	string "Location of the domain socket to connect to RIL"
+	default "./rild"
+	---help---
+		This is the filesystem path of the communication socket between RIL
+		and the testing tool
+
+endif
+
+config TESTING_RILD_STUB
+	tristate "RILD tesing stub"
+	default n
+	---help---
+		Enable ril tesing stub
+
+if TESTING_RILD_STUB
+
+config TESTING_RILD_PROGNAME
+	string "Program name"
+	default "rild_stub"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config TESTING_RILD_PRIORITY
+	int "rild_stub test task priority"
+	default 100
+
+config TESTING_RILD_STACKSIZE
+	int "rild_stub test stack size"
+	default  DEFAULT_TASK_STACKSIZE
+
+endif
