@@ -251,10 +251,6 @@ install::
 endif # BUILD_MODULE
 
 context::
-ifneq ($(ORIG_BIN),)
-	$(Q) mkdir -p $(dir $(BIN))
-	$(Q) mkdir -p $(dir $(ORIG_BIN))
-endif
 
 ifneq ($(PROGNAME),)
 
@@ -279,6 +275,10 @@ endif
 	$(Q) touch $@
 
 depend:: .depend
+ifneq ($(ORIG_BIN),)
+	$(Q) mkdir -p $(dir $(BIN))
+	$(Q) mkdir -p $(dir $(ORIG_BIN))
+endif
 
 clean::
 	$(call DELFILE, .built)
