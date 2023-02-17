@@ -86,4 +86,9 @@ MAINSRC  += drivertest_audio.c
 PROGNAME += cmocka_driver_audio
 endif
 
+ifneq ($(CONFIG_RELAY),)
+MAINSRC  += drivertest_relay.c
+PROGNAME += cmocka_driver_relay
+endif
+
 include $(APPDIR)/Application.mk
