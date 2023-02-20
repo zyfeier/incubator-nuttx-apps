@@ -29,6 +29,8 @@
 #include <sys/time.h>
 
 #include <stdarg.h>
+#include <stddef.h>
+#include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
