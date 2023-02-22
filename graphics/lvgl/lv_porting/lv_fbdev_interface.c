@@ -225,6 +225,16 @@ static bool fbdev_check_inv_area_covered(FAR lv_disp_t *disp_refr,
 }
 
 /****************************************************************************
+ * Name: fbdev_refr_start
+ ****************************************************************************/
+
+static void fbdev_refr_start(FAR lv_disp_drv_t *disp_drv)
+{
+  FAR struct fbdev_obj_s *fbdev_obj = disp_drv->user_data;
+  ioctl(fbdev_obj->fd, FBIO_CLEARNOTIFY, NULL);
+}
+
+/****************************************************************************
  * Name: fbdev_render_start
  ****************************************************************************/
 
@@ -579,6 +589,7 @@ static FAR lv_disp_t *fbdev_init(FAR struct fbdev_obj_s *state)
   disp_drv->user_data = fbdev_obj;
   disp_drv->hor_res = fb_xres;
   disp_drv->ver_res = fb_yres;
+  disp_drv->refr_start_cb = fbdev_refr_start;
 
 #if defined(CONFIG_LV_USE_GPU_INTERFACE)
   disp_drv->draw_ctx_init = lv_gpu_draw_ctx_init;
