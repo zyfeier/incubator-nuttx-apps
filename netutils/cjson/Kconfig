@@ -36,7 +36,7 @@ config CJSON_TEST_PRIORITY
 
 config CJSON_TEST_STACKSIZE
         int "stack size"
-        default 4096
+        default 102400
 
 endif
 
