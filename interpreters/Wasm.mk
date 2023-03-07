@@ -25,6 +25,10 @@ WASM_INITIAL_MEMORY ?= 65536
 STACKSIZE           ?= $(CONFIG_DEFAULT_TASK_STACKSIZE)
 PRIORITY            ?= SCHED_PRIORITY_DEFAULT
 
+ifeq ($(shell test $(WASM_INITIAL_MEMORY) -lt $(CONFIG_DEFAULT_TASK_STACKSIZE); echo $$?),0)
+  WASM_INITIAL_MEMORY := $(shell expr $(CONFIG_DEFAULT_TASK_STACKSIZE) + $(WASM_INITIAL_MEMORY))
+endif
+
 # Wamr mode:
 # INT: Interpreter (Default)
 # AOT: Ahead-of-Time
