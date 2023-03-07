@@ -140,7 +140,7 @@ gen_test_cases: $(RIL_TEST_CONFIGS_PATH)/.ril_resp
 	$(RIL_TEST_TOOLS)/gen_ril_testcases.py $(RIL_TEST_CONFIG_JSON) $(RIL_TEST_RESP_JSON_OUT) $(RIL_TESTCASES_OUT)/
 
 $(RIL_TEST_TOOLS)/ril_resp_rawdata: $(RIL_TEST_TOOLS)/ril_resp_rawdata.c $(RIL_TEST_TOOLS)/ril_resp_rawdata_main.c
-	$(CC) -I $(LIBRIL_HEADERS) -o $@ $^
+	$(CC) -m32 -I $(LIBRIL_HEADERS) -o $@ $^
 
 .PHONY: gen_test_cases
 
