@@ -333,10 +333,10 @@ LV_ATTRIBUTE_FAST_MEM static lv_res_t decode_indexed(lv_img_decoder_t* decoder,
       px_map = fs_buf;
     }
     uint8_t zero_id = 0;
-    while (zero_id < palette_size && palette[zero_id]) {
+    while (zero_id < palette_size && palette[zero_id] && zero_id < 0xFF) {
       zero_id++;
     }
-    if (zero_id == palette_size) {
+    if (zero_id == (palette_size - 1)) {
       zero_id = 0;
       if (map_stride < vgbuf_stride) {
         LV_LOG_ERROR("no transparent found in palette but padding required!");
