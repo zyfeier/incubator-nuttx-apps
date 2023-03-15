@@ -66,7 +66,7 @@ PROGNAME += cmocka_driver_gpio
 MAINSRC  += drivertest_gpio.c
 endif
 
-ifneq ($(CONFIG_LCD_FRAMEBUFFER)$(CONFIG_SIM_FRAMEBUFFER),)
+ifneq ($(CONFIG_VIDEO_FB),)
 MAINSRC  += drivertest_framebuffer.c
 PROGNAME += cmocka_driver_framebuffer
 endif
